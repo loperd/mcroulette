@@ -1,10 +1,14 @@
 import PhysicalScene from "../module/scene/PhysicalScene"
 import Physijs from "physijs-webpack"
+import Helper from "../helper"
 import {
     BoxGeometry,
     Camera,
-    DirectionalLight, Geometry, Material,
+    DirectionalLight,
+    Geometry,
+    Mesh,
     MeshLambertMaterial,
+    MeshStandardMaterial,
     Vector3
 } from "three"
 
@@ -13,6 +17,7 @@ class ChestPhysicalScene implements PhysicalScene
     private scene: Physijs.Scene
     private camera: Camera
     private ground: Physijs.BoxMesh
+    private chest: Physijs.ConvexMesh
 
     constructor(camera: Camera)
     {
@@ -58,6 +63,36 @@ class ChestPhysicalScene implements PhysicalScene
         return this
     }
 
+    private setupChestRoof(chestRoof: Mesh)
+    {
+        const roof = this.convertToPhysicalMesh(chestRoof)
+
+        roof.position.set(-119.91560363769531, 0.000023036218408378772, -159.01849365234375)
+        roof.rotation.set(0, 0, 0)
+        roof.parent = this.chest
+
+        this.chest.add(roof)
+    }
+
+    public setupModel(model: Mesh): this
+    {
+        this.chest = this.convertToPhysicalMesh(model, 1, .2)
+
+        this.setupChestRoof(this.chest.children[0])
+
+        this.chest.position.set(0, 400, 0)
+        this.chest.rotation.set(Helper.d(90), Helper.d(0), Helper.d(0))
+
+        this.chest.rotation.x += Helper.d(5)
+        this.chest.rotation.y += Helper.d(0)
+        this.chest.rotation.z += Helper.d(0)
+
+        this.chest.scale.set(.4, .4, .4)
+        this.scene.add(this.chest)
+
+        return this
+    }
+
     public setupCamera(camera: Camera): this
     {
         camera.position.set(600, 150, -250)
@@ -78,11 +113,11 @@ class ChestPhysicalScene implements PhysicalScene
         return this
     }
 
-    private createPhysicalMesh(obj, friction: number = 0, restitution: number = 0, mass: number = undefined): Physijs.ConvexMesh
+    private convertToPhysicalMesh(obj, friction: number = 0, restitution: number = 0, mass: number = undefined): Physijs.ConvexMesh
     {
         let
             geometry: Geometry = new Geometry().fromBufferGeometry(obj.geometry),
-            material: Material = Physijs.createMaterial(obj.material, friction, restitution)
+            material: MeshStandardMaterial = Physijs.createMaterial(obj.material, friction, restitution)
 
         return new Physijs.ConvexMesh(geometry, material, mass)
     }

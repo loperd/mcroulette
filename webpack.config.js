@@ -76,7 +76,7 @@ module.exports = {
     },
 
     devServer: {
-        host: "192.168.1.224",
+        host: "0.0.0.0" ,
         watchContentBase: true,
         // writeToDisk: true,
         publicPath: "/",
