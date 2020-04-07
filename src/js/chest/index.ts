@@ -1,5 +1,5 @@
+import { Camera, Mesh, Object3D, Vector3, WebGLRenderer } from "three"
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader"
-import { Camera, Group, Mesh, Object3D, Vector3 } from "three"
 import PhysicalScene from "../module/scene/PhysicalScene"
 import DefaultScene from "../module/scene/DefaultScene"
 import ChestPhysicalScene from "./ChestPhysicalScene"
@@ -17,29 +17,30 @@ class Chest implements Module
 
     private animations: Array<Object3D>
 
+    private requestAnimationId: number
+    private readonly camera: Camera
+    private renderer: WebGLRenderer
     private loader: GLTFLoader
     private activeScene: Scene
-    private ground: Object3D
-    private camera: Camera
     private scene: Scene
     private gltf: object // object of the loaded model
     private eventBus: any // Add eventBus
 
-    constructor(camera: Camera, gltfLoader: GLTFLoader)
+    constructor(renderer: WebGLRenderer, camera: Camera, gltfLoader: GLTFLoader)
     {
         this.nonPhysicalScene = new ChestDefaultScene(camera)
         this.physicalScene = new ChestPhysicalScene(camera)
 
-        this.activeScene = this.physicalScene
-
         this.camera = camera
         this.loader = gltfLoader
+        this.renderer = renderer
+
+        this.swapActiveScene()
     }
 
     public loadModel(): this
     {
-        this.loader.load(this.MODEL_FILENAME,
-            gltf => this.load,
+        this.loader.load(this.MODEL_FILENAME, this.load,
             xhr => console.log((xhr.loaded / xhr.total * 100) + "% loaded"),
             error => console.log(error),
         )
@@ -49,6 +50,8 @@ class Chest implements Module
 
     public load(gltf): void
     {
+        this.gltf = gltf
+
         let result: Array<Mesh> = __.filter(gltf.scene.children, child =>
         {
             switch (child.name.toLowerCase()) {
@@ -78,21 +81,21 @@ class Chest implements Module
 
     public swapActiveScene(): this
     {
-        const activeScene: Scene = this.getActiveScene()
+        const activeScene: Scene|null = this.getActiveScene()
 
         switch (true) {
             case activeScene instanceof ChestPhysicalScene:
                 this.activeScene = this.getDefaultScene()
                 break
             case activeScene instanceof ChestDefaultScene:
+            default:
                 this.activeScene = this.getPhysicalScene()
-                break
         }
 
         return this
     }
 
-    public getActiveScene(): Scene
+    public getActiveScene(): Scene|null
     {
         return this.activeScene
     }
@@ -105,6 +108,31 @@ class Chest implements Module
     public getDefaultScene(): DefaultScene
     {
         return this.nonPhysicalScene
+    }
+
+    private getCamera(): Camera
+    {
+        return this.camera
+    }
+
+    public reRender(): this
+    {
+        cancelAnimationFrame(this.requestAnimationId)
+
+        this.render()
+
+        return this
+    }
+
+    public render(): this
+    {
+        this.requestAnimationId = requestAnimationFrame(this.render);
+        this.renderer.render(
+            this.getActiveScene(),
+            this.getCamera()
+        )
+
+        return this
     }
 }
 
