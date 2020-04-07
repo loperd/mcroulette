@@ -1,5 +1,6 @@
 import { AnimationClip, AnimationMixer, Camera, Clock, DirectionalLight, LoopOnce, Mesh, Object3D, Scene, } from "three"
 import DefaultScene from "../../model/Scene/DefaultScene"
+import { EventBus } from "ts-bus"
 
 class ChestDefaultScene implements DefaultScene
 {
@@ -7,9 +8,9 @@ class ChestDefaultScene implements DefaultScene
     private chestRoof: Mesh
     private chestKey: Mesh
     private chest?: Mesh
-    private animations: Array<Mesh>
+    private animations: Array<Mesh> = new Array<Mesh>()
 
-    constructor(private camera: Camera)
+    constructor(private camera: Camera, private bus: EventBus)
     {
         this.setupScene(camera)
         this.setupCamera(camera)
@@ -20,7 +21,8 @@ class ChestDefaultScene implements DefaultScene
 
     public play(): this
     {
-        this.animations.forEach(obj => {
+        this.animations.forEach(obj =>
+        {
             const animation = obj.userData.mixer
                 .clipAction(obj.userData.animation)
 
@@ -32,7 +34,7 @@ class ChestDefaultScene implements DefaultScene
         return this
     }
 
-    public setupModel({ model, animations }: { model: Mesh, animations: Array<AnimationClip> }): this
+    public setupModel({ model, animations }: { model: Mesh, animations: AnimationClip[] }): this
     {
         this.chest = model
 
@@ -73,17 +75,21 @@ class ChestDefaultScene implements DefaultScene
         return this
     }
 
-    loadModel(loadedObjects: Array<Object3D>): this
+    public loadModel({ models, animations }: { models: Object3D[] | Mesh[], animations: AnimationClip[] }): void
     {
-        loadedObjects.forEach(obj => {
-            if ('chest_bottom' !== obj.name.toLowerCase()) {
+        models.forEach(obj =>
+        {
+            if ("chest_bottom" !== obj.name.toLowerCase()) {
                 return this.scene.add(obj)
             }
 
-            this.setupModel({ model: <Mesh>obj, animations: undefined})
+            this.setupModel({ model: <Mesh>obj, animations: animations })
         })
+    }
 
-        return this;
+    public getScene(): Scene
+    {
+        return this.scene;
     }
 }
 

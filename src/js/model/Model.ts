@@ -5,7 +5,7 @@ interface Model
 {
     getActiveScene(): Scene
     reRender(): this
-    render(): this
+    render(): void
 }
 
 export default Model
