@@ -1,7 +1,8 @@
-import PhysicalScene from "../module/scene/PhysicalScene"
-import Physijs from "physijs-webpack"
-import Helper from "../helper"
+import PhysicalScene from "../../model/Scene/PhysicalScene"
+import { Scene, createMaterial, BoxMesh, ConvexMesh } from "physijs-webpack"
+import Helper from "../../model/helper"
 import {
+    AnimationClip,
     BoxGeometry,
     Camera,
     DirectionalLight,
@@ -9,21 +10,17 @@ import {
     Mesh,
     MeshLambertMaterial,
     MeshStandardMaterial,
-    Vector3
+    Object3D,
+    Vector3,
 } from "three"
 
 class ChestPhysicalScene implements PhysicalScene
 {
-    private scene: Physijs.Scene
-    private camera: Camera
-    private ground: Physijs.BoxMesh
-    private chest: Physijs.ConvexMesh
+    private ground: BoxMesh
+    private chest: ConvexMesh
+    private scene: Scene = new Scene()
 
-    constructor(camera: Camera)
-    {
-        this.scene = new Physijs.Scene()
-        this.camera = camera
-
+    constructor(private camera: Camera) {
         this.setupGround()
         this.setupScene(camera)
         this.setupCamera(camera)
@@ -41,10 +38,10 @@ class ChestPhysicalScene implements PhysicalScene
         })
 
         const
-            material = Physijs.createMaterial(threeMaterial, 1, 1),
+            material = createMaterial(threeMaterial, 1, 1),
             geometry = new BoxGeometry(500, 1, 500)
 
-        this.ground = new Physijs.BoxMesh(geometry, material, 0)
+        this.ground = new BoxMesh(geometry, material, 0)
         this.ground.position.y += 50
 
         this.scene.add(this.ground)
@@ -74,8 +71,7 @@ class ChestPhysicalScene implements PhysicalScene
         this.chest.add(roof)
     }
 
-    public setupModel(model: Mesh): this
-    {
+    public setupModel({ model, animations }: { animations: Array<AnimationClip>, model: Mesh }): this {
         this.chest = this.convertToPhysicalMesh(model, 1, .2)
 
         this.setupChestRoof(this.chest.children[0])
@@ -101,7 +97,7 @@ class ChestPhysicalScene implements PhysicalScene
         return this
     }
 
-    private setupLight(camera: Camera): this
+    public setupLight(camera: Camera): this
     {
         const
             light = new DirectionalLight(0xffffff, 0.5)
@@ -113,13 +109,18 @@ class ChestPhysicalScene implements PhysicalScene
         return this
     }
 
-    private convertToPhysicalMesh(obj, friction: number = 0, restitution: number = 0, mass: number = undefined): Physijs.ConvexMesh
+    private convertToPhysicalMesh(obj, friction: number = 0, restitution: number = 0, mass: number = undefined): ConvexMesh
     {
         let
             geometry: Geometry = new Geometry().fromBufferGeometry(obj.geometry),
-            material: MeshStandardMaterial = Physijs.createMaterial(obj.material, friction, restitution)
+            material: MeshStandardMaterial = createMaterial(obj.material, friction, restitution)
 
-        return new Physijs.ConvexMesh(geometry, material, mass)
+        return new ConvexMesh(geometry, material, mass)
+    }
+
+    loadModel(loadedObjects: Array<Object3D>): this
+    {
+        return this;
     }
 }
 

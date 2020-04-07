@@ -16,7 +16,7 @@ const PATHS = {
 
 module.exports = {
     mode: "development",
-    entry: { app: "./src/js/index.js" },
+    entry: { app: "./src/js/index.ts" },
     devtool: "inline-source-map",
     output: {
         filename: "[name].[hash].js",

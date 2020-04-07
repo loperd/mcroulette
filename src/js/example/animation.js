@@ -2,7 +2,7 @@ const animationsObjects = [];
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
 
-const container = document.getElementById('scene');
+const container = document.getElementById('Scene');
 const renderer = new THREE.WebGLRenderer({
     antialias: true
 });
