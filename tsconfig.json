@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
-    "lib": ["es5", "es2015", "dom", "scripthost"],
-    "target": "es5",
-    "sourceMap": true
+    "sourceMap": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
   },
   "exclude": [
     "node_modules"

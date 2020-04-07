@@ -1,7 +1,7 @@
 {
   "name": "roulette-minecraft",
   "version": "0.1.0",
-  "main": "src/js/index.js",
+  "main": "src/js/index.ts",
   "author": "Renay <re@loper.me>",
   "private": true,
   "license": "MIT",
@@ -42,9 +42,12 @@
     "lodash": "^4.17.15",
     "paper": "^0.12.4",
     "physijs-webpack": "^0.1.4",
+    "reflect-metadata": "^0.1.13",
     "three": "^0.115.0",
     "three-gltf-loader": "^1.111.0",
+    "ts-bus": "^2.3.1",
     "ts-node": "^8.8.2",
+    "tsyringe": "^4.1.0",
     "typescript": "^3.8.3"
   }
 }
