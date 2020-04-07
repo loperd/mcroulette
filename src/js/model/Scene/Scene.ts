@@ -1,4 +1,4 @@
-import { AnimationClip, Camera, Mesh, Object3D } from "three"
+import { AnimationClip, Camera, Mesh, Object3D, Scene as ThreeScene } from "three"
 
 interface Scene
 {
@@ -6,7 +6,8 @@ interface Scene
     setupCamera(camera: Camera): this
     setupScene(camera: Camera): this
     setupLight(camera: Camera): this
-    loadModel(loadedObjects: Array<Object3D>): this
+    loadModel({models, animations}: { models: Object3D[]|Mesh[], animations: AnimationClip[] }): void
+    getScene(): ThreeScene
 }
 
 export default Scene

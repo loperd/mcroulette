@@ -1,12 +1,14 @@
 import PhysicalScene from "../../model/Scene/PhysicalScene"
-import { Scene, createMaterial, BoxMesh, ConvexMesh } from "physijs-webpack"
+import Physijs, { createMaterial, BoxMesh, ConvexMesh } from "physijs-webpack"
+import { EventBus } from "ts-bus"
 import Helper from "../../model/helper"
 import {
     AnimationClip,
     BoxGeometry,
-    Camera,
+    BufferGeometry,
     DirectionalLight,
     Geometry,
+    Camera,
     Mesh,
     MeshLambertMaterial,
     MeshStandardMaterial,
@@ -16,24 +18,33 @@ import {
 
 class ChestPhysicalScene implements PhysicalScene
 {
+    private readonly scene
     private ground: BoxMesh
     private chest: ConvexMesh
-    private scene: Scene = new Scene()
 
-    constructor(private camera: Camera) {
-        this.setupGround()
+    constructor(private camera: Camera, private bus: EventBus)
+    {
+        this.scene = new Physijs.Scene()
+
         this.setupScene(camera)
+        this.setupGround()
         this.setupCamera(camera)
+
         this.setupLight(camera)
 
         this.scene.simulate()
+    }
+
+    public getScene(): Physijs.Scene
+    {
+        return this.scene
     }
 
     public setupGround(): this
     {
         let threeMaterial = new MeshLambertMaterial({
             color: 0xffffff,
-            opacity: 0,
+            opacity: 1,
             transparent: true,
         })
 
@@ -71,10 +82,11 @@ class ChestPhysicalScene implements PhysicalScene
         this.chest.add(roof)
     }
 
-    public setupModel({ model, animations }: { animations: Array<AnimationClip>, model: Mesh }): this {
+    public setupModel({ model, animations }: { animations: Array<AnimationClip>, model: Mesh }): this
+    {
         this.chest = this.convertToPhysicalMesh(model, 1, .2)
 
-        this.setupChestRoof(this.chest.children[0])
+        this.setupChestRoof(<Mesh>model.children[0])
 
         this.chest.position.set(0, 400, 0)
         this.chest.rotation.set(Helper.d(90), Helper.d(0), Helper.d(0))
@@ -109,18 +121,25 @@ class ChestPhysicalScene implements PhysicalScene
         return this
     }
 
-    private convertToPhysicalMesh(obj, friction: number = 0, restitution: number = 0, mass: number = undefined): ConvexMesh
+    private convertToPhysicalMesh(obj: Mesh, friction: number = 0, restitution: number = 0, mass: number = undefined): ConvexMesh
     {
         let
-            geometry: Geometry = new Geometry().fromBufferGeometry(obj.geometry),
+            geometry: Geometry = new Geometry().fromBufferGeometry(<BufferGeometry>obj.geometry),
             material: MeshStandardMaterial = createMaterial(obj.material, friction, restitution)
 
         return new ConvexMesh(geometry, material, mass)
     }
 
-    loadModel(loadedObjects: Array<Object3D>): this
+    public loadModel({ models, animations }: { models: Object3D[] | Mesh[], animations: AnimationClip[] }): void
     {
-        return this;
+        models.forEach(obj =>
+        {
+            if ("chest_bottom" !== obj.name.toLowerCase()) {
+                return this.scene.add(obj)
+            }
+
+            this.setupModel({ model: <Mesh>obj, animations: undefined })
+        })
     }
 }
 

@@ -1,12 +1,16 @@
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader"
-import { Camera, Mesh, Object3D, WebGLRenderer } from "three"
-import { ChestPhysicalScene, ChestDefaultScene} from "./Scene"
-import { DefaultScene, PhysicalScene } from "../model/Scene"
+import { AnimationClip, Camera, Group, Mesh, Object3D, WebGLRenderer } from "three"
+import { ChestDefaultScene, ChestPhysicalScene } from "./Scene"
+import { DefaultScene, PhysicalScene, Scene } from "../model/Scene"
 
-import { Scene } from "physijs-webpack"
+import { autoInjectable } from "tsyringe"
+import { EventName, modelLoaded } from "../event"
+import { EventBus } from "ts-bus"
+import { filter } from "lodash"
+
 import Model from "../model/Model"
-import { filter } from 'lodash';
 
+@autoInjectable()
 class Chest implements Model
 {
     public static DEFAULT_MODEL_FILENAME: string = "treasure-game-chest.glb"
@@ -16,34 +20,41 @@ class Chest implements Model
 
     private animations: Array<Object3D>
     private requestAnimationId: number
-    private activeScene: Scene
-    private scene: Scene
+    private activeScene: DefaultScene|PhysicalScene
 
     constructor(
         private readonly camera: Camera,
         private renderer: WebGLRenderer,
-        private loader: GLTFLoader
+        private loader: GLTFLoader,
+        private bus: EventBus
     ) {
-        this.nonPhysicalScene = new ChestDefaultScene(camera)
-        this.physicalScene = new ChestPhysicalScene(camera)
+        this.nonPhysicalScene = new ChestDefaultScene(camera, bus)
+        this.physicalScene = new ChestPhysicalScene(camera, bus)
 
         this.swapActiveScene()
+        this.subscribeScenes()
+    }
+
+    public subscribeScenes(): void
+    {
+        this.bus.subscribe(EventName.LOADED_MODEL, event => {
+            this.nonPhysicalScene.loadModel(event.payload)
+            this.physicalScene.loadModel(event.payload)
+        });
     }
 
     public loadModel(path: string): void
     {
-        this.loader.load(
-            path,
-            this.load,
+        this.loader.load(path,
+            gltf => this.load(gltf),
             undefined,
             error => console.log(error)
         )
     }
 
-    public load(gltf: object): void
+    public load({ animations, scene }: { animations: AnimationClip[], scene: Group }): void
     {
-        // @ts-ignore
-        let result: Array<Mesh> = filter(gltf.scene.children, child =>
+        let result: Mesh[] = filter(scene.children, child =>
         {
             switch (child.name.toLowerCase()) {
                 case "chest_bottom":
@@ -54,14 +65,12 @@ class Chest implements Model
             return false
         })
 
-        console.log(result)
-
-        // this._eventDispatcher.dispatch(result)
+        this.bus.publish(modelLoaded({ models: result, animations: animations }))
     }
 
-    public swapActiveScene(): this
+    public swapActiveScene(): void
     {
-        const activeScene: Scene|null = this.getActiveScene()
+        const activeScene: Scene = this.getActiveScene()
 
         switch (true) {
             case activeScene instanceof ChestPhysicalScene:
@@ -71,11 +80,9 @@ class Chest implements Model
             default:
                 this.activeScene = this.getPhysicalScene()
         }
-
-        return this
     }
 
-    public getActiveScene(): Scene|null
+    public getActiveScene(): Scene
     {
         return this.activeScene
     }
@@ -106,12 +113,9 @@ class Chest implements Model
 
     public render(): this
     {
-        this.requestAnimationId = requestAnimationFrame(this.render);
+        this.requestAnimationId = requestAnimationFrame(_ => this.render)
 
-        this.renderer.render(
-            this.getActiveScene(),
-            this.getCamera()
-        )
+        this.renderer.render(this.getActiveScene().getScene(), this.getCamera())
 
         return this
     }
