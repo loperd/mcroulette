@@ -1,26 +1,18 @@
-import {
-    AnimationClip,
-    AnimationMixer,
-    Camera,
-    Clock,
-    DirectionalLight,
-    LoopOnce,
-    Mesh,
-    Object3D,
-    Scene,
-    Vector3, VectorKeyframeTrack,
-} from "three"
-import DefaultScene from "../../model/Scene/DefaultScene"
-import * as THREE from "three"
+import { AnimationClip, AnimationMixer, Camera, Mesh, Object3D, Scene, } from "three"
 import AbstractScene from "./AbstractScene"
+import { ScaleMove } from "../Animation"
 
-class ChestDefaultScene extends AbstractScene implements DefaultScene
+class ChestDefaultScene extends AbstractScene
 {
-    private animations: Mesh[] = new Array<Mesh>()
-    private readonly scene: Scene = new Scene()
+    public animationObjects: Mesh[] = new Array<Mesh>()
+
+    private static OBJECT_NAME: string = "Chest_bottom"
+
+    private scene: Scene = new Scene()
     private chestRoof: Mesh
     private chestKey: Mesh
     private chest?: Mesh
+    private animations: AnimationClip[]
 
     constructor(private camera: Camera)
     {
@@ -28,6 +20,23 @@ class ChestDefaultScene extends AbstractScene implements DefaultScene
         this.setupScene(camera)
         this.setupCamera(camera)
         this.setupLight(camera)
+    }
+
+    public play(): void
+    {
+        throw new Error("Method not implemented.")
+    }
+
+    public reset(): void
+    {
+        this.animationObjects = new Array<Mesh>()
+        this.scene = new Scene()
+        this.constructor(this.camera)
+
+        const chest = this.chest.clone()
+
+        this.setupAnimations(chest)
+        this.setupModel(chest)
     }
 
     public setupScene(camera: Camera): this
@@ -41,81 +50,58 @@ class ChestDefaultScene extends AbstractScene implements DefaultScene
         return this.scene
     }
 
-    public get animationObjects(): Mesh[]
+    public moveAndScale(): ScaleMove
     {
-        return this.animations
+        const chest = this.scene.getObjectByName(ChestDefaultScene.OBJECT_NAME)
+
+        if (chest === undefined) {
+            throw Error("Cannot find object for animate it.")
+        }
+
+        const endPosition = chest.position.clone()
+
+        endPosition.y -= 130
+
+        return new ScaleMove(chest, endPosition)
     }
 
-    public addAnimation(animObject: Mesh): this
+    public setupModel(chest: Mesh): this
     {
-        this.animations.push(animObject)
+        chest.position.set(-3.80780029296875, 1.1276047229766846, -6.184289932250977)
+        chest.rotation.set(1.5708281206194878, -0.0000031430918714433056, -0.06824258068266337)
+        chest.scale.set(.4, .4, .4)
+
+        this.scene.add(chest)
         return this
     }
 
-    public setupModel(model: Mesh): this
+    private setupAnimations(chest: Mesh): void
     {
-        const [chestRoof, chestKey] = <Mesh[]>model.children
-
-        this.chestRoof = chestRoof
-        this.chestKey = chestKey
-        this.chest = model
-
-        this.chest.position.set(-3.80780029296875, 1.1276047229766846, -6.184289932250977)
-        this.chest.rotation.set(1.5708281206194878, -0.0000031430918714433056, -0.06824258068266337)
-        this.chest.scale.set(.4, .4, .4)
-
-        this.chestKey.visible = false
-
-        this.scene.add(this.chest)
-        return this
-    }
-
-    private setupAnimations(animations: AnimationClip[], model: Mesh): void
-    {
-        model = this.chest || model
-
-        const [chestRoof, chestKey] = <Mesh[]>model.children
-        const [chestRoofClip, chestKeyClip] = <AnimationClip[]>animations
+        const [chestRoofClip, chestKeyClip] = this.animations
+        const [chestRoof, chestKey] = <Mesh[]>chest.children
 
         chestRoof.userData.mixer = new AnimationMixer(chestRoof)
         chestKey.userData.mixer = new AnimationMixer(chestKey)
-        // model.userData.mixer = new AnimationMixer(model)
-
-        chestRoof.userData.animation = chestRoofClip
         chestKey.userData.animation = chestKeyClip
-        // model.userData.animation = chestClip
+        chestRoof.userData.animation = chestRoofClip
 
-        this.animations.push(chestRoof, chestKey)
-    }
-
-    public createMoveAnimation(mesh: Mesh, endPosition: Vector3): AnimationClip
-    {
-        mesh.userData.mixer = new AnimationMixer(mesh)
-        const { position: startPosition } = mesh
-
-        const tracks: Array<VectorKeyframeTrack> = new Array<VectorKeyframeTrack>();
-
-        tracks.push(new VectorKeyframeTrack(
-            ".position", [0, 1, 2],
-            [
-                startPosition.x,
-                startPosition.y,
-                startPosition.z,
-                endPosition.x,
-                endPosition.y,
-                endPosition.z,
-            ]
-        ))
-
-        return new AnimationClip('move', 10, tracks)
+        this.animationObjects.push(chestRoof, chestKey)
     }
 
     public loadModel({ models, animations }: { models: Object3D[] | Mesh[], animations: AnimationClip[] }): void
     {
+        const [chestRoofClip, chestKeyClip] = animations
         const [model] = <Mesh[]>models
 
-        this.setupModel(model)
-        this.setupAnimations(animations, model)
+        model.children[1].visible = false
+
+        this.chest = model
+        this.animations = animations
+
+        const chest = model.clone()
+
+        this.setupAnimations(chest)
+        this.setupModel(chest)
     }
 }
 

@@ -1,15 +1,16 @@
-import { AmbientLight, Camera, DirectionalLight, Mesh, Scene } from "three"
-import { Scene as ModelScene } from "../../model/Scene"
+import { AmbientLight, Camera, DirectionalLight, Scene } from "three"
 
-abstract class AbstractScene implements ModelScene
+abstract class AbstractScene
 {
-    setupModel(model: Mesh): this { throw new Error("Method not implemented.") }
+    abstract setupScene(camera: Camera): this
 
-    setupScene(camera: Camera): this { throw new Error("Method not implemented.") }
+    abstract loadModel({}): void
 
-    loadModel({}): void { throw new Error("Method not implemented.") }
+    abstract getScene(): Scene
 
-    getScene(): Scene { throw new Error("Method not implemented.") }
+    abstract reset(): void
+
+    abstract play(): void
 
     public setupCamera(camera: Camera): this
     {

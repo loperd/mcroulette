@@ -1,4 +1,9 @@
+import { CHEST_OPENED_EVENT, EventName, MODEL_LOADED_EVENT } from "../event"
+import { AnimationAction } from "three/src/animation/AnimationAction"
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader"
+import { ChestDefaultScene, ChestPhysicalScene } from "./Scene"
+import { EventBus } from "ts-bus"
+import { filter } from "lodash"
 import {
     AnimationClip,
     Camera,
@@ -7,21 +12,13 @@ import {
     LoopOnce,
     Mesh,
     Object3D,
-    WebGLRenderer,
-    Scene as ThreeScene
+    Scene as ThreeScene,
+    WebGLRenderer
 } from "three"
-import { ChestDefaultScene, ChestPhysicalScene } from "./Scene"
-import { DefaultScene, PhysicalScene, Scene } from "../model/Scene"
 
-import { CHEST_OPENED_EVENT, EventName, MODEL_LOADED_EVENT } from "../event"
-import { EventBus } from "ts-bus"
-import { filter } from "lodash"
+import AbstractScene from "./Scene/AbstractScene"
 
-import Model from "../model/Model"
-import { AnimationAction } from "three/src/animation/AnimationAction"
-import { defer } from "../model/helper"
-
-class Chest implements Model
+class Chest
 {
     public static DEFAULT_MODEL_FILENAME: string = "treasure-game-chest.glb"
 
@@ -29,7 +26,7 @@ class Chest implements Model
     private readonly physicalScene: ChestPhysicalScene
 
     private animations: Array<Object3D>
-    private activeScene: DefaultScene | PhysicalScene
+    private activeScene: AbstractScene
 
     private requestAnimationId: number
 
@@ -38,15 +35,19 @@ class Chest implements Model
         private renderer: WebGLRenderer,
         private loader: GLTFLoader,
         private bus: EventBus
-    )
-    {
+    ) {
         this.nonPhysicalScene = new ChestDefaultScene(this.camera)
         this.physicalScene = new ChestPhysicalScene(this.camera)
 
-        this.subscribeScenes()
+        this.subscribeScenesOnLoadModel()
     }
 
-    public subscribeScenes(): void
+    private onChestOpened(): void
+    {
+        this.bus.publish(CHEST_OPENED_EVENT({ chest: this }))
+    }
+
+    public subscribeScenesOnLoadModel(): void
     {
         this.bus.subscribe(EventName.MODEL_LOADED, event =>
         {
@@ -84,31 +85,7 @@ class Chest implements Model
         return Promise.resolve()
     }
 
-    public swapActiveScene(): void
-    {
-        const activeScene: Scene = this.getActiveScene()
-
-        switch (true) {
-            case activeScene instanceof ChestPhysicalScene:
-                this.activeScene = this.getDefaultScene()
-                break
-            case activeScene instanceof ChestDefaultScene:
-            default:
-                this.activeScene = this.getPhysicalScene()
-        }
-    }
-
-    public async scaleAndMove(): Promise<void>
-    {
-        if (!(this.getActiveScene() instanceof ChestDefaultScene))
-            throw new Error("Can not open chest, scene is not available.")
-
-
-
-        await new Promise(resolve => resolve())
-    }
-
-    public async open(callback?: (_?) => void): Promise<void>
+    public open(): void
     {
         if (!(this.getActiveScene() instanceof ChestDefaultScene))
             throw new Error("Can not open chest, scene is not available.")
@@ -124,41 +101,37 @@ class Chest implements Model
                 .play()
         }
 
-        let durationTime = 0
+        let onComplete = async _ => {
+            let durationTime = 0
 
-        for (const mesh of animationObjects) {
-            const animation: AnimationAction = mesh.userData.mixer
-                .clipAction(mesh.userData.animation)
+            for (const mesh of animationObjects) {
+                const animation: AnimationAction = mesh.userData.mixer
+                    .clipAction(mesh.userData.animation)
 
-            mesh.userData.clock = new Clock()
+                mesh.userData.clock = new Clock()
 
-            play(animation)
+                play(animation)
 
-            durationTime += mesh.userData.animation.duration
+                durationTime += mesh.userData.animation.duration
+            }
+
+            setTimeout(_ => this.onChestOpened(), durationTime * 500)
         }
 
-        await defer(durationTime * 500, _ =>
-        {
-            callback(); this.sendChestOpenedEvent()
-        })
+        scene.moveAndScale().onComplete(onComplete).animate()
     }
 
-    public sendChestOpenedEvent(): void
-    {
-        this.bus.publish(CHEST_OPENED_EVENT({ chest: this }))
-    }
-
-    public getActiveScene(): Scene
+    public getActiveScene(): AbstractScene
     {
         return this.activeScene
     }
 
-    public getPhysicalScene(): PhysicalScene
+    public getPhysicalScene(): ChestPhysicalScene
     {
         return this.physicalScene
     }
 
-    public getDefaultScene(): DefaultScene
+    public getDefaultScene(): ChestDefaultScene
     {
         return this.nonPhysicalScene
     }
@@ -174,18 +147,36 @@ class Chest implements Model
 
         this.activeScene = undefined
 
+        this.getPhysicalScene().reset()
+        this.getDefaultScene().reset()
+
         this.renderer.render(new ThreeScene(), this.getCamera())
 
         return this
     }
 
-    public reRender(): this
+    public play(): void
+    {
+        this.activeScene.play()
+    }
+
+
+    public swapActiveScene(): void
     {
         cancelAnimationFrame(this.requestAnimationId)
 
-        this.render()
+        const activeScene: AbstractScene = this.getActiveScene()
 
-        return this
+        switch (true) {
+            case activeScene instanceof ChestPhysicalScene:
+                this.activeScene = this.getDefaultScene()
+                break
+            case activeScene instanceof ChestDefaultScene:
+            default:
+                this.activeScene = this.getPhysicalScene()
+        }
+
+        this.render()
     }
 
     public render(): void
