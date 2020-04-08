@@ -12,8 +12,9 @@ import {
 } from "three"
 import DefaultScene from "../../model/Scene/DefaultScene"
 import * as THREE from "three"
+import AbstractScene from "./AbstractScene"
 
-class ChestDefaultScene implements DefaultScene
+class ChestDefaultScene extends AbstractScene implements DefaultScene
 {
     private animations: Mesh[] = new Array<Mesh>()
     private readonly scene: Scene = new Scene()
@@ -23,6 +24,7 @@ class ChestDefaultScene implements DefaultScene
 
     constructor(private camera: Camera)
     {
+        super()
         this.setupScene(camera)
         this.setupCamera(camera)
         this.setupLight(camera)
@@ -47,7 +49,6 @@ class ChestDefaultScene implements DefaultScene
     public addAnimation(animObject: Mesh): this
     {
         this.animations.push(animObject)
-
         return this
     }
 
@@ -59,14 +60,13 @@ class ChestDefaultScene implements DefaultScene
         this.chestKey = chestKey
         this.chest = model
 
-        this.chest.position.set(-3.80780029296875, -3.1276047229766846, -6.184289932250977)
+        this.chest.position.set(-3.80780029296875, 1.1276047229766846, -6.184289932250977)
         this.chest.rotation.set(1.5708281206194878, -0.0000031430918714433056, -0.06824258068266337)
         this.chest.scale.set(.4, .4, .4)
 
         this.chestKey.visible = false
 
         this.scene.add(this.chest)
-
         return this
     }
 
@@ -88,22 +88,8 @@ class ChestDefaultScene implements DefaultScene
         this.animations.push(chestRoof, chestKey)
     }
 
-    public setupLight(camera: Camera): this
+    public createMoveAnimation(mesh: Mesh, endPosition: Vector3): AnimationClip
     {
-        const dirLight = new DirectionalLight(0xffffff, 1)
-        const ambientLight = new THREE.AmbientLight(0x404040) // soft white light
-
-        dirLight.position.set(20, 50, 0)
-
-        camera.add(dirLight)
-
-        this.scene.add(dirLight)
-        this.scene.add(ambientLight)
-
-        return this
-    }
-
-    public createMoveAnimation(mesh: Mesh, endPosition: Vector3) {
         mesh.userData.mixer = new AnimationMixer(mesh)
         const { position: startPosition } = mesh
 
@@ -121,17 +107,7 @@ class ChestDefaultScene implements DefaultScene
             ]
         ))
 
-        mesh.userData.animation = new AnimationClip('move', 10, tracks)
-
-        return mesh
-    }
-
-    public setupCamera(camera: Camera): this
-    {
-        camera.position.set(600, 150, -250)
-        camera.lookAt(this.scene.position)
-
-        return this
+        return new AnimationClip('move', 10, tracks)
     }
 
     public loadModel({ models, animations }: { models: Object3D[] | Mesh[], animations: AnimationClip[] }): void

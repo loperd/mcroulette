@@ -1,13 +1,19 @@
 import { createEventDefinition } from "ts-bus"
 import EventName from "./EventName"
 import { AnimationClip, Mesh, Object3D } from "three"
+import Chest from "../chest/Chest"
 
-const modelLoaded = createEventDefinition<{
+const MODEL_LOADED_EVENT = createEventDefinition<{
     models: Object3D[]|Mesh[];
     animations: AnimationClip[];
-}>()(EventName.LOADED_MODEL)
+}>()(EventName.MODEL_LOADED)
+
+const CHEST_OPENED_EVENT = createEventDefinition<{
+    chest: Chest;
+}>()(EventName.CHEST_OPENED)
 
 export {
     EventName,
-    modelLoaded
+    MODEL_LOADED_EVENT,
+    CHEST_OPENED_EVENT
 }
