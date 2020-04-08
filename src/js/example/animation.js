@@ -77,6 +77,8 @@ function createMoveAnimation({
     const animationClip = new THREE.AnimationClip(null, 5, [track]);
     const animationAction = mesh.userData.mixer.clipAction(animationClip);
     animationAction.setLoop(THREE.LoopOnce);
+    animationAction.clampWhenFinished = true
+    animationAction.enable = true
     animationAction.play();
     mesh.userData.clock = new THREE.Clock();
     animationsObjects.push(mesh);
