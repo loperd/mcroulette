@@ -1,6 +1,7 @@
 enum EventName
 {
-    LOADED_MODEL = "loaded_model",
+    MODEL_LOADED = "MODEL_LOADED",
+    CHEST_OPENED = "CHEST_OPENED",
 }
 
 export default EventName

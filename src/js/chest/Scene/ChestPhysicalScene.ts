@@ -1,13 +1,12 @@
-import PhysicalScene from "../../model/Scene/PhysicalScene"
 import { BoxMesh, ConvexMesh, createMaterial, Scene } from "physijs-webpack"
-import Helper from "../../model/helper"
+import PhysicalScene from "../../model/Scene/PhysicalScene"
+import AbstractScene from "./AbstractScene"
+import { d } from "../../model/helper"
 import * as THREE from "three"
 import {
-    AnimationClip,
     BoxGeometry,
     BufferGeometry,
     Camera,
-    DirectionalLight,
     Geometry,
     Mesh,
     MeshLambertMaterial,
@@ -15,7 +14,7 @@ import {
     Object3D
 } from "three"
 
-class ChestPhysicalScene implements PhysicalScene
+class ChestPhysicalScene extends AbstractScene implements PhysicalScene
 {
     private readonly scene: Scene = new Scene()
     private chest: ConvexMesh
@@ -23,6 +22,7 @@ class ChestPhysicalScene implements PhysicalScene
 
     constructor(private camera: Camera)
     {
+        super()
         this.setupScene(camera)
         this.setupCamera(camera)
         this.setupGround()
@@ -81,37 +81,14 @@ class ChestPhysicalScene implements PhysicalScene
         this.setupChestRoof(<Mesh>model.children[0])
 
         this.chest.position.set(0, 400, 0)
-        this.chest.rotation.set(Helper.d(90), Helper.d(0), Helper.d(0))
+        this.chest.rotation.set(d(90), d(0), d(0))
 
-        this.chest.rotation.x += Helper.d(5)
-        this.chest.rotation.y += Helper.d(0)
-        this.chest.rotation.z += Helper.d(0)
+        this.chest.rotation.x += d(5)
+        this.chest.rotation.y += d(0)
+        this.chest.rotation.z += d(0)
 
         this.chest.scale.set(.4, .4, .4)
         this.scene.add(this.chest)
-
-        return this
-    }
-
-    public setupCamera(camera: Camera): this
-    {
-        camera.position.set(600, 150, -250)
-        camera.lookAt(this.scene.position)
-
-        return this
-    }
-
-    public setupLight(camera: Camera): this
-    {
-        const dirLight = new DirectionalLight(0xffffff, 1)
-        const ambientLight = new THREE.AmbientLight( 0x404040 ); // soft white light
-
-        dirLight.position.set(20, 50, 0)
-
-        camera.add(dirLight)
-
-        this.scene.add(dirLight)
-        this.scene.add(ambientLight);
 
         return this
     }
