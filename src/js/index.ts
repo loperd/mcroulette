@@ -3,6 +3,7 @@ import { Circle } from "./assets"
 import { Chest } from "./chest"
 import "../styles/main.styl"
 import { defer, delay, wait } from "./model/helper"
+import { CHEST_OPENED_EVENT } from "./event"
 
 window.onload = async () =>
 {
@@ -12,14 +13,27 @@ window.onload = async () =>
     await chest.loadModel(Chest.DEFAULT_MODEL_FILENAME)
 
     chest.swapActiveScene()
-    await chest.render()
+    chest.play()
 
-    setTimeout(async _ => {
+
+    bus.subscribe(CHEST_OPENED_EVENT, _ => console.log('Chest opened'))
+
+    setTimeout(_ => {
         chest.swapActiveScene()
-        chest.reRender()
 
-        await chest.open(_ => console.log('Chest opened'))
+        chest.open()
     }, 5000)
+
+
+    setTimeout(_ => {
+        chest.reset().swapActiveScene()
+
+        setTimeout(_ => {
+            chest.swapActiveScene()
+
+            chest.open()
+        }, 5000)
+    }, 15000)
 
     // await delay(5000, _ => chest.reset())
 
