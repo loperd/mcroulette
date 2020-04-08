@@ -2,7 +2,7 @@ import { AnimationClip, Camera, Mesh, Object3D, Scene as ThreeScene } from "thre
 
 interface Scene
 {
-    setupModel({ model, animations }: { animations: Array<AnimationClip>, model: Mesh }): this
+    setupModel(model: Mesh): this
     setupCamera(camera: Camera): this
     setupScene(camera: Camera): this
     setupLight(camera: Camera): this

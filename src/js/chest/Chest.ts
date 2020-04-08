@@ -1,16 +1,15 @@
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader"
-import { AnimationClip, Camera, Group, Mesh, Object3D, WebGLRenderer } from "three"
+import { AnimationClip, Camera, Clock, Group, LoopOnce, Mesh, Object3D, WebGLRenderer } from "three"
 import { ChestDefaultScene, ChestPhysicalScene } from "./Scene"
 import { DefaultScene, PhysicalScene, Scene } from "../model/Scene"
 
-import { autoInjectable } from "tsyringe"
 import { EventName, modelLoaded } from "../event"
 import { EventBus } from "ts-bus"
 import { filter } from "lodash"
 
 import Model from "../model/Model"
+import { AnimationAction } from "three/src/animation/AnimationAction"
 
-@autoInjectable()
 class Chest implements Model
 {
     public static DEFAULT_MODEL_FILENAME: string = "treasure-game-chest.glb"
@@ -19,8 +18,9 @@ class Chest implements Model
     private readonly physicalScene: ChestPhysicalScene
 
     private animations: Array<Object3D>
+    private activeScene: DefaultScene | PhysicalScene
+
     private requestAnimationId: number
-    private activeScene: DefaultScene|PhysicalScene
 
     constructor(
         private readonly camera: Camera,
@@ -28,8 +28,8 @@ class Chest implements Model
         private loader: GLTFLoader,
         private bus: EventBus
     ) {
-        this.nonPhysicalScene = new ChestDefaultScene(camera, bus)
-        this.physicalScene = new ChestPhysicalScene(camera, bus)
+        this.nonPhysicalScene = new ChestDefaultScene(this.camera)
+        this.physicalScene = new ChestPhysicalScene(this.camera)
 
         this.swapActiveScene()
         this.subscribeScenes()
@@ -37,10 +37,11 @@ class Chest implements Model
 
     public subscribeScenes(): void
     {
-        this.bus.subscribe(EventName.LOADED_MODEL, event => {
+        this.bus.subscribe(EventName.LOADED_MODEL, event =>
+        {
             this.nonPhysicalScene.loadModel(event.payload)
             this.physicalScene.loadModel(event.payload)
-        });
+        })
     }
 
     public loadModel(path: string): void
@@ -54,11 +55,14 @@ class Chest implements Model
 
     public load({ animations, scene }: { animations: AnimationClip[], scene: Group }): void
     {
-        let result: Mesh[] = filter(scene.children, child =>
+        console.log(animations)
+        let result: Array<Mesh | Object3D> = filter(scene.children, child =>
         {
+            if (child === undefined)
+                return false
+
             switch (child.name.toLowerCase()) {
                 case "chest_bottom":
-                case "sun":
                     return true
             }
 
@@ -80,6 +84,27 @@ class Chest implements Model
             default:
                 this.activeScene = this.getPhysicalScene()
         }
+    }
+
+    public open(): void
+    {
+        if (!(this.getActiveScene() instanceof ChestDefaultScene))
+            throw new Error('Can not open chest, scene is not available.')
+
+        const scene: ChestDefaultScene = <ChestDefaultScene>this.getActiveScene();
+        const animationObjects: Mesh[] = scene.animationObjects
+
+        animationObjects.forEach(mesh => {
+            const animation: AnimationAction = mesh.userData.mixer
+                .clipAction(mesh.userData.animation)
+
+            mesh.userData.clock = new Clock()
+
+            animation.getRoot().visible = true
+            animation.clampWhenFinished = true
+            animation.setLoop(LoopOnce, undefined)
+                .play()
+        })
     }
 
     public getActiveScene(): Scene
@@ -111,13 +136,21 @@ class Chest implements Model
         return this
     }
 
-    public render(): this
+    public render(): void
     {
-        this.requestAnimationId = requestAnimationFrame(_ => this.render)
+        this.requestAnimationId = requestAnimationFrame(_ => this.render())
 
-        this.renderer.render(this.getActiveScene().getScene(), this.getCamera())
+        const scene = this.getActiveScene();
 
-        return this
+        if (scene instanceof ChestDefaultScene) {
+            scene.animationObjects.forEach(mesh => {
+                if (mesh.userData.clock && mesh.userData.mixer) {
+                    mesh.userData.mixer.update(mesh.userData.clock.getDelta());
+                }
+            })
+        }
+
+        this.renderer.render(scene.getScene(), this.getCamera())
     }
 }
 

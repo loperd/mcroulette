@@ -1,59 +1,52 @@
 import PhysicalScene from "../../model/Scene/PhysicalScene"
-import Physijs, { createMaterial, BoxMesh, ConvexMesh } from "physijs-webpack"
-import { EventBus } from "ts-bus"
+import { BoxMesh, ConvexMesh, createMaterial, Scene } from "physijs-webpack"
 import Helper from "../../model/helper"
+import * as THREE from "three"
 import {
     AnimationClip,
     BoxGeometry,
     BufferGeometry,
+    Camera,
     DirectionalLight,
     Geometry,
-    Camera,
     Mesh,
     MeshLambertMaterial,
     MeshStandardMaterial,
-    Object3D,
-    Vector3,
+    Object3D
 } from "three"
 
 class ChestPhysicalScene implements PhysicalScene
 {
-    private readonly scene
-    private ground: BoxMesh
+    private readonly scene: Scene = new Scene()
     private chest: ConvexMesh
+    private ground: BoxMesh
 
-    constructor(private camera: Camera, private bus: EventBus)
+    constructor(private camera: Camera)
     {
-        this.scene = new Physijs.Scene()
-
         this.setupScene(camera)
-        this.setupGround()
         this.setupCamera(camera)
+        this.setupGround()
 
         this.setupLight(camera)
-
-        this.scene.simulate()
     }
 
-    public getScene(): Physijs.Scene
+    public getScene(): Scene
     {
         return this.scene
     }
 
     public setupGround(): this
     {
-        let threeMaterial = new MeshLambertMaterial({
+        const baseMaterial = new MeshLambertMaterial({
             color: 0xffffff,
-            opacity: 1,
+            opacity: 0,
             transparent: true,
         })
 
-        const
-            material = createMaterial(threeMaterial, 1, 1),
-            geometry = new BoxGeometry(500, 1, 500)
+        const material = createMaterial(baseMaterial, 1, 1)
 
-        this.ground = new BoxMesh(geometry, material, 0)
-        this.ground.position.y += 50
+        this.ground = new BoxMesh(new BoxGeometry(500, 1, 500), material, 0)
+        this.ground.position.y += 0
 
         this.scene.add(this.ground)
 
@@ -62,11 +55,10 @@ class ChestPhysicalScene implements PhysicalScene
 
     public setupScene(camera: Camera): this
     {
-        this.scene.setGravity(new Vector3(10, -700, 10))
+        this.scene.simulate(undefined, 1)
+        this.scene.setGravity(new THREE.Vector3(10, -700, 10))
+        this.scene.addEventListener("update", _ => this.scene.simulate(undefined, 1))
         this.scene.add(camera)
-        this.scene.addEventListener(
-            "update", _ => this.scene.simulate(undefined, 1)
-        )
 
         return this
     }
@@ -82,7 +74,7 @@ class ChestPhysicalScene implements PhysicalScene
         this.chest.add(roof)
     }
 
-    public setupModel({ model, animations }: { animations: Array<AnimationClip>, model: Mesh }): this
+    public setupModel(model: Mesh): this
     {
         this.chest = this.convertToPhysicalMesh(model, 1, .2)
 
@@ -111,12 +103,15 @@ class ChestPhysicalScene implements PhysicalScene
 
     public setupLight(camera: Camera): this
     {
-        const
-            light = new DirectionalLight(0xffffff, 0.5)
+        const dirLight = new DirectionalLight(0xffffff, 1)
+        const ambientLight = new THREE.AmbientLight( 0x404040 ); // soft white light
 
-        light.position.set(50, 200, 0)
+        dirLight.position.set(20, 50, 0)
 
-        camera.add(light)
+        camera.add(dirLight)
+
+        this.scene.add(dirLight)
+        this.scene.add(ambientLight);
 
         return this
     }
@@ -130,16 +125,11 @@ class ChestPhysicalScene implements PhysicalScene
         return new ConvexMesh(geometry, material, mass)
     }
 
-    public loadModel({ models, animations }: { models: Object3D[] | Mesh[], animations: AnimationClip[] }): void
+    public loadModel({ models }: { models: Object3D[] | Mesh[] }): void
     {
-        models.forEach(obj =>
-        {
-            if ("chest_bottom" !== obj.name.toLowerCase()) {
-                return this.scene.add(obj)
-            }
+        const [model] = <Mesh[]>models
 
-            this.setupModel({ model: <Mesh>obj, animations: undefined })
-        })
+        this.setupModel(model)
     }
 }
 
