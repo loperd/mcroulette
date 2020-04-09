@@ -1,13 +1,14 @@
-import { AmbientLight, Camera, DirectionalLight, Scene } from "three"
+import { AmbientLight, AnimationClip, Camera, DirectionalLight, Mesh, Object3D, Scene } from "three"
 
 abstract class AbstractScene
 {
+    abstract loadModel({ models, animations }: {
+        models: Object3D[] | Mesh[],
+        animations: AnimationClip[]
+    }): void
+
     abstract setupScene(camera: Camera): this
-
-    abstract loadModel({}): void
-
     abstract getScene(): Scene
-
     abstract reset(): void
 
     public play(): void

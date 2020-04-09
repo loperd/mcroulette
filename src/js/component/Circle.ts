@@ -7,7 +7,7 @@ class Circle
 
     private insideArc: { radius: number } = { radius: 45 }
     private circle: paper.Path.Circle
-    private arc: paper.Path.Arc
+    private arc?: paper.Path.Arc
     private view: paper.View
     private circleOptions: {
         strokeWidth: number;
@@ -71,7 +71,7 @@ class Circle
 
     public drawCenterHalfFillCircle(): this
     {
-        if ("undefined" === typeof this.arc) {
+        if (undefined === this.arc) {
             this.arc = new paper.Path.Arc({
                 through: [0, this.insideArc.radius],
                 from: [-this.insideArc.radius, 0],

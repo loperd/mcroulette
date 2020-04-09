@@ -7,12 +7,10 @@ class ChestDefaultScene extends AbstractScene
     public animationObjects: Mesh[] = new Array<Mesh>()
 
     private static OBJECT_NAME: string = "Chest_bottom"
+    private _animations?: AnimationClip[]
 
     private scene: Scene = new Scene()
-    private chestRoof: Mesh
-    private chestKey: Mesh
-    private chest?: Mesh
-    private animations: AnimationClip[]
+    private _chest?: Mesh
 
     constructor(private camera: Camera)
     {
@@ -20,6 +18,24 @@ class ChestDefaultScene extends AbstractScene
         this.setupScene(camera)
         this.setupCamera(camera)
         this.setupLight(camera)
+    }
+
+    get animations(): AnimationClip[]
+    {
+        if (undefined === this._animations) {
+            throw new Error('Animations was not setup.')
+        }
+
+        return this._animations
+    }
+
+    get chest(): Mesh
+    {
+        if (undefined === this._chest) {
+            throw new Error('Chest was not defined.')
+        }
+
+        return this._chest
     }
 
     public reset(): void
@@ -69,8 +85,9 @@ class ChestDefaultScene extends AbstractScene
 
     private setupAnimations(chest: Mesh): void
     {
-        const [chestRoofClip, chestKeyClip] = this.animations
-        const [chestRoof, chestKey] = <Mesh[]>chest.children
+        const
+            [chestRoofClip, chestKeyClip] = this.animations,
+            [chestRoof, chestKey] = <Mesh[]>chest.children
 
         chestRoof.userData.mixer = new AnimationMixer(chestRoof)
         chestKey.userData.mixer = new AnimationMixer(chestKey)
@@ -82,13 +99,12 @@ class ChestDefaultScene extends AbstractScene
 
     public loadModel({ models, animations }: { models: Object3D[] | Mesh[], animations: AnimationClip[] }): void
     {
-        const [chestRoofClip, chestKeyClip] = animations
         const [model] = <Mesh[]>models
 
         model.children[1].visible = false
 
-        this.chest = model
-        this.animations = animations
+        this._chest = model
+        this._animations = animations
 
         const chest = model.clone()
 
