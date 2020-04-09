@@ -22,11 +22,6 @@ class ChestDefaultScene extends AbstractScene
         this.setupLight(camera)
     }
 
-    public play(): void
-    {
-        throw new Error("Method not implemented.")
-    }
-
     public reset(): void
     {
         this.animationObjects = new Array<Mesh>()
@@ -45,10 +40,7 @@ class ChestDefaultScene extends AbstractScene
         return this
     }
 
-    public getScene(): Scene
-    {
-        return this.scene
-    }
+    public getScene = (): Scene => this.scene
 
     public moveAndScale(): ScaleMove
     {

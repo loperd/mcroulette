@@ -1,6 +1,6 @@
 import AbstractScene from "./AbstractScene"
 import { d } from "../../model/helper"
-import Physijs from "physijs-webpack"
+import * as Physijs from "physijs-webpack"
 import * as THREE from "three"
 import {
     BoxGeometry,
@@ -30,10 +30,7 @@ class ChestPhysicalScene extends AbstractScene
         this.setupLight(camera)
     }
 
-    public play(): void
-    {
-        this.scene.simulate(undefined, 1)
-    }
+    public play = (): void => this.scene.simulate(undefined, 1)
 
     public getScene(): Physijs.Scene
     {
