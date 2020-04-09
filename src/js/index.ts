@@ -1,9 +1,8 @@
 import { bus, camera, loader, renderer } from "./bootstrap"
-import { Circle } from "./assets"
+import { CHEST_OPENED_EVENT } from "./event"
+import { Circle } from "./component"
 import { Chest } from "./chest"
 import "../styles/main.styl"
-import { defer, delay, wait } from "./model/helper"
-import { CHEST_OPENED_EVENT } from "./event"
 
 window.onload = async () =>
 {
