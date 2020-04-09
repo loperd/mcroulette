@@ -1,4 +1,4 @@
-import { CHEST_OPENED_EVENT, EventName, MODEL_LOADED_EVENT } from "../event"
+import { EventName, CHEST_OPENED_EVENT, CHEST_OPEN_EVENT, MODEL_LOADED_EVENT } from "../event"
 import { AnimationAction } from "three/src/animation/AnimationAction"
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader"
 import { ChestDefaultScene, ChestPhysicalScene } from "./Scene"
@@ -6,10 +6,10 @@ import { EventBus } from "ts-bus"
 import { filter } from "lodash"
 import {
     AnimationClip,
+    LoopOnce,
     Camera,
     Clock,
     Group,
-    LoopOnce,
     Mesh,
     Object3D,
     Scene,
@@ -45,6 +45,11 @@ class Chest
     private onChestOpened(): void
     {
         this.bus.publish(CHEST_OPENED_EVENT({ chest: this }))
+    }
+
+    private onChestOpen(): void
+    {
+        this.bus.publish(CHEST_OPEN_EVENT({ chest: this }))
     }
 
     public subscribeScenesOnLoadModel(): void

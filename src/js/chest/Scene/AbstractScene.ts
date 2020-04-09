@@ -10,7 +10,9 @@ abstract class AbstractScene
 
     abstract reset(): void
 
-    abstract play(): void
+    public play(): void
+    {
+    }
 
     public setupCamera(camera: Camera): this
     {

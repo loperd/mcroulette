@@ -12,8 +12,13 @@ const CHEST_OPENED_EVENT = createEventDefinition<{
     chest: Chest;
 }>()(EventName.CHEST_OPENED)
 
+const CHEST_OPEN_EVENT = createEventDefinition<{
+    chest: Chest;
+}>()(EventName.CHEST_OPEN)
+
 export {
     EventName,
     MODEL_LOADED_EVENT,
-    CHEST_OPENED_EVENT
+    CHEST_OPENED_EVENT,
+    CHEST_OPEN_EVENT
 }
