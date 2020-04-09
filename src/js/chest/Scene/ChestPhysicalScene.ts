@@ -1,6 +1,6 @@
-import { BoxMesh, ConvexMesh, createMaterial, Scene } from "physijs-webpack"
 import AbstractScene from "./AbstractScene"
 import { d } from "../../model/helper"
+import Physijs from "physijs-webpack"
 import * as THREE from "three"
 import {
     BoxGeometry,
@@ -15,15 +15,14 @@ import {
 
 class ChestPhysicalScene extends AbstractScene
 {
-    private scene: Scene = new Scene()
-    private originalChest: ConvexMesh
-    private chest: ConvexMesh
-    private roof: ConvexMesh
-    private ground: BoxMesh
+    private scene: Physijs.Scene
+    private chest: Physijs.ConvexMesh
+    private ground: Physijs.BoxMesh
 
     constructor(private camera: Camera)
     {
         super()
+        this.scene = new Physijs.Scene()
         this.setupScene(camera)
         this.setupCamera(camera)
         this.setupGround()
@@ -36,15 +35,13 @@ class ChestPhysicalScene extends AbstractScene
         this.scene.simulate(undefined, 1)
     }
 
-    public getScene(): Scene
+    public getScene(): Physijs.Scene
     {
         return this.scene
     }
 
     public reset(): void
     {
-        this.scene = new Scene()
-
         this.constructor(this.camera)
 
         this.setupModel(this.chest.clone())
@@ -62,9 +59,9 @@ class ChestPhysicalScene extends AbstractScene
             transparent: true,
         })
 
-        const material = createMaterial(baseMaterial, 1, 1)
+        const material = Physijs.createMaterial(baseMaterial, 1, 1)
 
-        this.ground = new BoxMesh(new BoxGeometry(500, 1, 500), material, 0)
+        this.ground = new Physijs.BoxMesh(new BoxGeometry(500, 1, 500), material, 0)
 
         this.scene.add(this.ground)
 
@@ -80,7 +77,7 @@ class ChestPhysicalScene extends AbstractScene
         return this
     }
 
-    public setupModel(chest: ConvexMesh): this
+    public setupModel(chest: Physijs.ConvexMesh): this
     {
         chest.position.set(0, 400, 0)
         chest.rotation.set(d(90), d(0), d(0))
@@ -102,13 +99,13 @@ class ChestPhysicalScene extends AbstractScene
         return this
     }
 
-    private convertToPhysicalMesh(obj: Mesh, friction: number = 0, restitution: number = 0, mass: number = undefined): ConvexMesh
+    private convertToPhysicalMesh(obj: Mesh, friction: number = 0, restitution: number = 0, mass: number = undefined): Physijs.ConvexMesh
     {
         let
             geometry: Geometry = new Geometry().fromBufferGeometry(<BufferGeometry>obj.geometry),
-            material: MeshStandardMaterial = createMaterial(obj.material, friction, restitution)
+            material: MeshStandardMaterial = Physijs.createMaterial(obj.material, friction, restitution)
 
-        const result = new ConvexMesh(geometry, material, mass)
+        const result = new Physijs.ConvexMesh(geometry, material, mass)
 
         result.name = obj.name
 
@@ -116,16 +113,15 @@ class ChestPhysicalScene extends AbstractScene
             return result
         }
 
-        ([...obj.children]).forEach((value: Object3D | Mesh): Object3D | ConvexMesh =>
+        ([...obj.children]).forEach((value: Object3D | Mesh): Object3D | Physijs.ConvexMesh =>
         {
             if (value === undefined)
                 return
 
-            if (!(<Mesh>value).isMesh && value instanceof Object3D) {
+            if (!(<Mesh>value).isMesh && value instanceof Object3D)
                 return value
-            }
 
-            result.add(this.convertToPhysicalMesh(<Mesh>value))
+            result.add(<Object3D>this.convertToPhysicalMesh(<Mesh>value))
         })
 
         return result
@@ -133,8 +129,7 @@ class ChestPhysicalScene extends AbstractScene
 
     public loadModel({ models }: { models: Object3D[] | Mesh[] }): void
     {
-        let
-            [model] = <Mesh[]>models
+        let [model] = <Mesh[]>models
 
         this.chest = this.convertToPhysicalMesh(model, 1, .2)
 

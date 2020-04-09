@@ -12,7 +12,7 @@ import {
     LoopOnce,
     Mesh,
     Object3D,
-    Scene as ThreeScene,
+    Scene,
     WebGLRenderer
 } from "three"
 
@@ -150,7 +150,7 @@ class Chest
         this.getPhysicalScene().reset()
         this.getDefaultScene().reset()
 
-        this.renderer.render(new ThreeScene(), this.getCamera())
+        this.renderer.render(new Scene(), this.getCamera())
 
         return this
     }

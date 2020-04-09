@@ -812,6 +812,13 @@
   resolved "https://registry.yarnpkg.com/@types/node/-/node-13.9.5.tgz#59738bf30b31aea1faa2df7f4a5f55613750cf00"
   integrity sha512-hkzMMD3xu6BrJpGVLeQ3htQQNAcOrJjX7WFmtK8zWQpz2UJf13LCFF2ALA7c9OVdvc2vQJeDdjfR35M0sBCxvw==
 
+"@types/physijs@0.0.30":
+  version "0.0.30"
+  resolved "https://registry.yarnpkg.com/@types/physijs/-/physijs-0.0.30.tgz#d9450265b8da3796955ba725c48dcbccdf695f19"
+  integrity sha512-gmk0Yrxx5r+/yzwe4iG+JkNUsWCasROO88Vxd8Oen4xryAbV9a4Gq+L3mEKQsJeQRgn7t66ntRPSAyY014nx0g==
+  dependencies:
+    "@types/three" "^0.93.31"
+
 "@types/source-list-map@*":
   version "0.1.2"
   resolved "https://registry.yarnpkg.com/@types/source-list-map/-/source-list-map-0.1.2.tgz#0078836063ffaf17412349bba364087e0ac02ec9"
@@ -821,6 +828,11 @@
   version "1.0.5"
   resolved "https://registry.yarnpkg.com/@types/tapable/-/tapable-1.0.5.tgz#9adbc12950582aa65ead76bffdf39fe0c27a3c02"
   integrity sha512-/gG2M/Imw7cQFp8PGvz/SwocNrmKFjFsm5Pb8HdbHkZ1K8pmuPzOX4VeVoiEecFCVf4CsN1r3/BRvx+6sNqwtQ==
+
+"@types/three@^0.93.31":
+  version "0.93.31"
+  resolved "https://registry.yarnpkg.com/@types/three/-/three-0.93.31.tgz#9698891a463b5c1ef0fc65f46114fe4f70f87ba2"
+  integrity sha512-lR9eLY3gnrUDAdW4ujITgVTPEv1Oy2yoL3LlfKAnjQuzyjGSR+PvQuXuWmaDCD1IyWhkqbnol1nJwaW0MGe35A==
 
 "@types/uglify-js@*":
   version "3.0.4"
