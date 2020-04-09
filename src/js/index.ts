@@ -15,26 +15,24 @@ window.onload = async () =>
     chest.play()
 
 
-    bus.subscribe(CHEST_OPENED_EVENT, _ => console.log('Chest opened'))
+    await bus.subscribe(CHEST_OPENED_EVENT, () => console.log('Chest opened'))
 
-    setTimeout(_ => {
+    setTimeout(() => {
         chest.swapActiveScene()
 
         chest.open()
     }, 5000)
 
 
-    setTimeout(_ => {
+    setTimeout(() => {
         chest.reset().swapActiveScene()
 
-        setTimeout(_ => {
+        setTimeout(() => {
             chest.swapActiveScene()
 
             chest.open()
         }, 5000)
     }, 15000)
-
-    // await delay(5000, _ => chest.reset())
 
     const rendererEl = renderer.domElement
     rendererEl.setAttribute("id", "case")

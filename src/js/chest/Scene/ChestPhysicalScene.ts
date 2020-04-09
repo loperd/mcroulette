@@ -1,13 +1,13 @@
 import AbstractScene from "./AbstractScene"
-import { d } from "../../model/helper"
-import * as Physijs from "physijs-webpack"
+import { d } from "@/js/model/helper"
+import * as Physijs from "physijs"
 import * as THREE from "three"
 
 class ChestPhysicalScene extends AbstractScene
 {
     private scene: Physijs.Scene
-    private chest: Physijs.ConvexMesh
-    private ground: Physijs.BoxMesh
+    private ground?: Physijs.BoxMesh
+    private _chest?: Physijs.ConvexMesh
 
     constructor(private camera: THREE.Camera)
     {
@@ -20,7 +20,19 @@ class ChestPhysicalScene extends AbstractScene
         this.setupLight(camera)
     }
 
-    public play = (): void => this.scene.simulate(undefined, 1)
+    public play(): void
+    {
+        this.scene.simulate(undefined, 1)
+    }
+
+    get chest(): Physijs.ConvexMesh
+    {
+        if (undefined === this._chest) {
+            throw new Error('Chest was not setup.')
+        }
+
+        return this._chest
+    }
 
     public getScene(): Physijs.Scene
     {
@@ -34,12 +46,8 @@ class ChestPhysicalScene extends AbstractScene
         this.setupModel(this.chest.clone())
     }
 
-    public setupGround(): this
+    public createGround(x: number, y: number, z: number): Physijs.BoxMesh
     {
-        if (this.ground !== undefined) {
-            this.scene.add(this.ground)
-        }
-
         const baseMaterial = new THREE.MeshLambertMaterial({
             color: 0xffffff,
             opacity: 0,
@@ -48,7 +56,14 @@ class ChestPhysicalScene extends AbstractScene
 
         const material = Physijs.createMaterial(baseMaterial, 1, 1)
 
-        this.ground = new Physijs.BoxMesh(new THREE.BoxGeometry(500, 1, 500), material, 0)
+        return new Physijs.BoxMesh(new THREE.BoxGeometry(x, y, z), material, 0)
+    }
+
+    public setupGround(): this
+    {
+        if (this.ground === undefined) {
+            this.ground = this.createGround(500, 1, 500)
+        }
 
         this.scene.add(this.ground)
 
@@ -58,7 +73,7 @@ class ChestPhysicalScene extends AbstractScene
     public setupScene(camera: THREE.Camera): this
     {
         this.scene.setGravity(new THREE.Vector3(10, -700, 10))
-        this.scene.addEventListener("update", _ => this.scene.simulate(undefined, 1))
+        this.scene.addEventListener("update", () => this.scene.simulate(undefined, 1))
         this.scene.add(camera)
 
         return this
@@ -87,15 +102,17 @@ class ChestPhysicalScene extends AbstractScene
     }
 
     private convertToPhysicalMesh(
-        obj: THREE.Mesh,
-        friction: number = 0,
-        restitution: number = 0,
-        mass: number = undefined
+        { obj, friction = 0, restitution = 0, mass = undefined }: {
+            obj: THREE.Mesh,
+            friction?: number,
+            restitution?: number,
+            mass?: number
+        }
     ): Physijs.ConvexMesh {
 
         let
             geometry: THREE.Geometry = new THREE.Geometry().fromBufferGeometry(<THREE.BufferGeometry>obj.geometry),
-            material: THREE.MeshStandardMaterial = Physijs.createMaterial(obj.material, friction, restitution)
+            material: Physijs.Material = Physijs.createMaterial(<THREE.Material>obj.material, friction, restitution)
 
         const result = new Physijs.ConvexMesh(geometry, material, mass)
 
@@ -105,15 +122,15 @@ class ChestPhysicalScene extends AbstractScene
             return result
         }
 
-        ([...obj.children]).forEach((value: THREE.Object3D | THREE.Mesh): THREE.Object3D | Physijs.ConvexMesh =>
+        ([...obj.children]).forEach((value: THREE.Object3D | THREE.Mesh): any =>
         {
             if (value === undefined)
-                return
-
-            if (!(<THREE.Mesh>value).isMesh && value instanceof THREE.Object3D)
                 return value
 
-            result.add(<THREE.Object3D>this.convertToPhysicalMesh(<THREE.Mesh>value))
+            if (!(<THREE.Mesh>value).isMesh)
+                return value
+
+            result.add(<THREE.Object3D>this.convertToPhysicalMesh({ obj: <THREE.Mesh>value }))
         })
 
         return result
@@ -123,7 +140,7 @@ class ChestPhysicalScene extends AbstractScene
     {
         let [model] = <THREE.Mesh[]>models
 
-        this.chest = this.convertToPhysicalMesh(model, 1, .2)
+        this._chest = this.convertToPhysicalMesh({ obj: model, friction: 1, restitution: .2 })
 
         this.chest.children.splice(1, 1)
 
