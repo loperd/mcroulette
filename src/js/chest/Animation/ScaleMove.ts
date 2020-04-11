@@ -1,12 +1,13 @@
-import { Clock, Object3D, Vector3 } from "three"
+import { Object3D, Vector3 } from "three"
 
 class ScaleMove
 {
-    private clock: Clock = new Clock()
-    private requestId: number
     private onCompleteCallback: (object: Object3D) => any
+    private requestId?: number
 
-    constructor(private object: Object3D, private endPosition: Vector3) {}
+    constructor(private object: Object3D, private endPosition: Vector3) {
+        this.onCompleteCallback = (object: Object3D) => object
+    }
 
     public onComplete(callback: (object?: Object3D) => any): this
     {
