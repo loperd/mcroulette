@@ -3,7 +3,7 @@ import * as paper from "paper"
 class Circle
 {
     private readonly colorFill: paper.Color
-    private readonly center: paper.Point
+    private center: paper.Point
 
     private insideArc: { radius: number } = { radius: 45 }
     private circle: paper.Path.Circle
@@ -33,8 +33,11 @@ class Circle
 
     public setup(): void
     {
-        this.view.onResize = _ =>
+        this.view.onResize = _ => {
+            this.view = paper.view
+            this.center = this.view.center
             this.calculate().draw()
+        }
     }
 
     public calculate()
@@ -42,9 +45,8 @@ class Circle
         let sumOfClient = Math.floor((this.view.element.clientWidth * this.view.element.clientHeight) / 10000)
         let radius = sumOfClient + sumOfClient / 100 * 20
 
-        if (radius > 200) {
+        if (radius > 200)
             radius /= 1.3
-        }
 
         this.insideArc.radius = radius / 2.3
         this.circleOptions.radius = radius

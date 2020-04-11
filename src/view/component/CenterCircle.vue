@@ -1,12 +1,12 @@
 <template>
     <div>
-        <canvas id="circle"/>
+        <canvas id="circle" resize/>
     </div>
 </template>
 
 <script lang="ts">
     import { Component, Vue } from "vue-property-decorator"
-    import { Circle  } from "@/js/component"
+    import { Circle } from "@/js/component"
 
     @Component
     export default class CenterCircle extends Vue
