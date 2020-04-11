@@ -1,12 +1,12 @@
-import { roulettePrizeClass } from "@/component/roulette/config"
+import { roulettePrizeClass } from "@/component/Roulette/config"
 
 class Prize
 {
     public wrapper: HTMLLIElement
-    public element: any
+    public element: HTMLElement
     public index: number
 
-    constructor(element: Element, index: number, spacing: number, width: number, height: number)
+    constructor(element: HTMLElement, index: number, spacing: number, width: number, height: number)
     {
         this.element = element
         this.index = index
