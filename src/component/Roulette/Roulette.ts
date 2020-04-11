@@ -75,7 +75,9 @@ class Roulette
         for (let prize of prizes)
             list.appendChild(prize.wrapper)
 
-        node.style.padding = `${spacing}px`
+
+        // TODO: разобраться с этой хернёй
+        // node.style.padding = `${spacing}px`
         injector?.appendChild(list)
 
         let player = new Audio(audio)

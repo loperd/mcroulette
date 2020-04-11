@@ -33,17 +33,40 @@
     }
 </script>
 
-<style lang="stylus" scoped>
+<style lang="stylus">
     .roulette-wrapper
-        position relative
-        height: 100%
-        left 0
-        top 0
-
-    .roulette
+        align-items center
+        display flex
         height 100%
 
+    .roulette
+        position absolute
+        display flex
+        height 200px
+        width 100%
+
+        &__list
+            position relative
+            list-style none
+            max-height 200px
+            display flex
+
+        &:before
+            display: block
+            position absolute
+            content ''
+            width 6px
+            height 100%
+            background #f8f409
+            left 50%
+            opacity 0.8
+            z-index 1
 
         .prize-item
-            background #fff
+            height 200px
+            width 200px
+            background #2dffd2
+            border-bottom 5px solid #8218e7
+            font-size 10em
+            color #fff
 </style>
