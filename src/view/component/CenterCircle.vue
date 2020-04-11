@@ -6,7 +6,7 @@
 
 <script lang="ts">
     import { Component, Vue } from "vue-property-decorator"
-    import { Circle } from "@/js/component"
+    import { Circle } from "@/component"
 
     @Component
     export default class CenterCircle extends Vue
