@@ -43,7 +43,7 @@
         color: #2c3e50;
 
     .background
-        background-color rgba(45,45,45,1)
+        background-color #1f2d3b
         background-position center
         background-repeat no-repeat
         background-size cover

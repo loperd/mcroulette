@@ -1,5 +1,5 @@
 import AbstractScene from "./AbstractScene"
-import { d } from "@/js/model/helper"
+import { d } from "@/helper"
 import * as Physijs from "physijs"
 import * as THREE from "three"
 
