@@ -1,10 +1,10 @@
 <template>
     <div id="app">
         <vue-headful title="Mc Roulette"/>
-        <div class="background">
-            <div class="overlay"/>
-        </div>
-        <center-circle/>
+<!--        <div class="background">-->
+<!--            <div class="overlay"/>-->
+<!--        </div>-->
+<!--        <center-circle/>-->
         <roulette/>
     </div>
 </template>
