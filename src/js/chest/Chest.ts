@@ -25,10 +25,8 @@ class Chest
     private readonly nonPhysicalScene: ChestDefaultScene
     private readonly physicalScene: ChestPhysicalScene
 
-    private animations: Array<Object3D>
-    private activeScene: AbstractScene
-
-    private requestAnimationId: number
+    private requestAnimationId?: number
+    private activeScene?: AbstractScene
 
     constructor(
         private readonly camera: Camera,
@@ -102,7 +100,7 @@ class Chest
         {
             animation.getRoot().visible = true
             animation.clampWhenFinished = true
-            animation.setLoop(LoopOnce, undefined)
+            animation.setLoop(LoopOnce, 0)
                 .play()
         }
 
@@ -128,6 +126,10 @@ class Chest
 
     public getActiveScene(): AbstractScene
     {
+        if (undefined === this.activeScene) {
+            throw new Error('Chest.activeScene was not defined.')
+        }
+
         return this.activeScene
     }
 
@@ -148,7 +150,9 @@ class Chest
 
     public reset(): this
     {
-        cancelAnimationFrame(this.requestAnimationId)
+        if (undefined !== this.requestAnimationId) {
+            cancelAnimationFrame(this.requestAnimationId)
+        }
 
         this.activeScene = undefined
 
@@ -162,13 +166,15 @@ class Chest
 
     public play(): void
     {
-        this.activeScene.play()
+        this.activeScene?.play()
     }
 
 
     public swapActiveScene(): void
     {
-        cancelAnimationFrame(this.requestAnimationId)
+        if (undefined !== this.requestAnimationId) {
+            cancelAnimationFrame(this.requestAnimationId)
+        }
 
         const activeScene: AbstractScene = this.getActiveScene()
 
