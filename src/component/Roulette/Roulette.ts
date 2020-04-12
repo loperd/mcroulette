@@ -34,7 +34,7 @@ class Roulette
         acceleration = 350,
         fps = 40,
         audio = null,
-        selector = ":scope > *",
+        selector = ":scope > .prize-item",
         stopCallback = null,
         startCallback = null
     }: {
@@ -47,7 +47,7 @@ class Roulette
         selector?: string
     })
     {
-        audio = audio || "@/assets/audio/click.wav"
+        audio = audio || "/audio/click.wav"
 
         let node: null | HTMLElement = document.querySelector<HTMLElement>(container)
 
@@ -65,8 +65,8 @@ class Roulette
             throw new ItemsNotFoundException
 
         let injector = childNodes[0].parentElement
-        let maxWidth = Math.max(...childNodes.map(x => x.clientWidth))
-        let maxHeight = Math.max(...childNodes.map(x => x.clientHeight))
+        let maxWidth = Math.max(...childNodes.map(x => x.offsetWidth))
+        let maxHeight = Math.max(...childNodes.map(x => x.offsetHeight))
         let prizes = childNodes.map(
             (el: HTMLElement, i: number) =>
                 new Prize(el, i, spacing, maxWidth, maxHeight)
@@ -115,7 +115,7 @@ class Roulette
         this.rotateForward(pixels)
     }
 
-    public rotateTo(block: Element | number, { tracks = 0, time = 0, random = true }: {
+    public rotateTo(block: HTMLElement | number, { tracks = 0, time = 0, random = true }: {
         tracks?: number
         time?: number
         random?: boolean
@@ -126,7 +126,7 @@ class Roulette
 
         let numBlock = Number(block)
         let prize = Number.isNaN(numBlock)
-            ? this.findPrize({ element: <Element>block })
+            ? this.findPrize({ element: <HTMLElement>block })
             : this.findPrize({ index: numBlock })
 
         if (this.selectedPrize.index === prize.index && !time && !tracks)
@@ -150,7 +150,7 @@ class Roulette
     }
 
     public findPrize({ element, index = NaN }: {
-        element?: Element
+        element?: HTMLElement
         index?: number
     }): Prize {
         if (Number.isNaN(index) && undefined === element)
@@ -193,13 +193,13 @@ class Roulette
 
     get firstBlock(): Prize
     {
-        return this.findPrize({ element: this.list.querySelector(`:scope > .${roulettePrizeClass} > *`) || undefined })
+        return this.findPrize({ element: this.list.querySelector<HTMLElement>(`:scope > .${roulettePrizeClass} > *`) || undefined })
     }
 
     get lastBlock(): Prize
     {
         let nodes = this.list.querySelectorAll(`:scope > .${roulettePrizeClass} > *`)
-        return this.findPrize({ element: nodes[nodes.length - 1] })
+        return this.findPrize({ element: <HTMLElement>nodes[nodes.length - 1] })
     }
 
     get rotates(): boolean
@@ -220,6 +220,9 @@ class Roulette
     rotateForward(pixels: number): void
     {
         this.container.dispatchEvent(new CustomEvent(rotationStartEventName, { detail: { prize: this.selectedPrize } }))
+
+        console.log('Selected Prize:')
+        console.log(this.selectedPrize)
 
         pixels = Math.abs(pixels)
 

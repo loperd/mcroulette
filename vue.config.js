@@ -5,6 +5,7 @@ module.exports = {
 
     devServer: {
         host: "0.0.0.0",
+        writeToDisk: true,
         watchContentBase: true,
     },
 
@@ -12,6 +13,17 @@ module.exports = {
         const types = ["vue-modules", "vue", "normal-modules", "normal"]
 
         types.forEach(type => addStyleResource(config.module.rule("stylus").oneOf(type)))
+
+
+        config.module
+            .rule('vue')
+            .use('vue-loader')
+            .tap(options => {
+                options.transformAssetUrls = {
+                    audio: 'src/assets/audio'
+                }
+                return options
+            })
 
         config.module
             .rule("images")
@@ -23,7 +35,7 @@ module.exports = {
     pluginOptions: {
       'style-resources-loader': {
         preProcessor: 'stylus',
-        patterns: []
+        patterns: [],
       }
     }
 }
