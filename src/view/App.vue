@@ -4,7 +4,7 @@
         <div class="background">
             <div class="overlay"/>
         </div>
-        <center-circle/>
+<!--        <center-circle/>-->
         <roulette/>
     </div>
 </template>

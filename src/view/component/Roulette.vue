@@ -1,7 +1,6 @@
 <template>
     <div class="roulette-wrapper">
-        <div class="cursor" style="display: none"></div>
-        <canvas id="zoomloup" resize></canvas>
+        <div class="cursor"></div>
         <div class="roulette">
             <div v-for="item in items()" :key="item" class="prize-item">
                 <div class="prize-item__overlay"></div>
@@ -14,7 +13,6 @@
 <script lang="ts">
     import { Component, Vue } from "vue-property-decorator"
     import Roulette from "@/component/Roulette/Roulette"
-    import * as paper from "paper"
 
     @Component
     export default class CenterCircle extends Vue
@@ -30,35 +28,20 @@
 
         mounted(): void
         {
-            paper.setup('zoomloup')
-
             this.roulette = new Roulette(".roulette", {
-                acceleration: 400,
+                acceleration: 600,
                 spacing: 10,
                 fps: 60,
             })
 
-            const colorfill = new paper.Color(0, 0, 0, .5)
-
-            const circle = new paper.Path.Circle(paper.view.center, 200)
-
-            circle.style = new paper.Style({
-                strokeColor: colorfill,
-                strokeWidth: 1.5,
-                // fillColor: colorfill,
-                radius: 100
-            })
-
-            circle.scale(1.4, paper.view.center)
-
-            // this.roulette.rotateTo(5, { time: 1, random: true });
+            this.roulette.rotateTo(1, { time: 3, random: true });
         }
     }
 </script>
 
 <style lang="stylus">
-    $rouletteHeight = 170px
-    $itemWidth = 200px
+    $rouletteHeight = 100px
+    $itemWidth = 150px
 
     .roulette-wrapper
         position absolute
@@ -102,12 +85,12 @@
 
         .prize-item
             width $itemWidth
-            height 170px
+            height $rouletteHeight
             position relative
             background-color rgba(0,0,0,.1)
             border 1px solid rgba(0,0,0,.1)
             border-bottom 5px solid #8218e7
-            font-size 8.5em
+            font-size 5em
             color #ffffff
 
             span
