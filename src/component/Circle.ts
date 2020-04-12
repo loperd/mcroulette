@@ -10,7 +10,7 @@ class Circle
     private arc?: paper.Path.Arc
     private view: paper.View
     private circleOptions: {
-        strokeWidth: number;
+        strokeWidth: number
         radius: number
     } = {
         strokeWidth: 0,
@@ -42,13 +42,10 @@ class Circle
 
     public calculate()
     {
-        let sumOfClient = Math.floor((this.view.element.clientWidth * this.view.element.clientHeight) / 10000)
-        let radius = sumOfClient + sumOfClient / 100 * 20
+        let sumOfClient = Math.floor(this.view.element.offsetWidth + this.view.element.offsetHeight) / 10
+        let radius = (sumOfClient / 100) * 60
 
-        if (radius > 200)
-            radius /= 1.3
-
-        this.insideArc.radius = radius / 2.3
+        this.insideArc.radius = radius * .43
         this.circleOptions.radius = radius
         this.circleOptions.strokeWidth = radius
 
