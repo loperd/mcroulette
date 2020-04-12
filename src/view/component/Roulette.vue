@@ -30,11 +30,11 @@
         {
             this.roulette = new Roulette(".roulette", {
                 acceleration: 600,
-                spacing: 10,
+                spacing: 1,
                 fps: 60,
             })
 
-            this.roulette.rotateTo(1, { time: 3, random: true });
+            this.roulette.rotateTo(1, { tracks: 2, random: true });
         }
     }
 </script>

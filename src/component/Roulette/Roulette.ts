@@ -173,8 +173,8 @@ class Roulette
         if (!this.rotates) {
             return
         }
-
-        clearInterval(this.rotationTokens.get(this))
+        console.log('stop')
+        cancelAnimationFrame(<number>this.rotationTokens.get(this))
         this.rotationTokens.set(this, -1)
         this.container.dispatchEvent(new CustomEvent(rotationStopEventName, { detail: { prize: this.selectedPrize } }))
     }
@@ -221,9 +221,6 @@ class Roulette
     {
         this.container.dispatchEvent(new CustomEvent(rotationStartEventName, { detail: { prize: this.selectedPrize } }))
 
-        console.log('Selected Prize:')
-        console.log(this.selectedPrize)
-
         pixels = Math.abs(pixels)
 
         let starter = Math.abs(Number(this.firstBlock.wrapper.style.marginLeft.replace("px", "")))
@@ -244,7 +241,7 @@ class Roulette
             played = false,
             t = 0
 
-        let token = setInterval(() =>
+        let rotate = () =>
         {
             if (t > totalTime) {
                 this.stop()
@@ -257,7 +254,7 @@ class Roulette
             if (Math.floor(currentPos / blockWidth) !== currentBlock) {
                 let block = this.firstBlock
                 this.list.appendChild(block.wrapper)
-                block.wrapper.style.marginLeft = "0px"
+                block.wrapper.style.marginLeft = "0"
                 currentBlock = (currentBlock + 1) % this.prizes.length
                 played = false
             }
@@ -270,8 +267,11 @@ class Roulette
             }
 
             t += intervalS
+            token = requestAnimationFrame(rotate)
+        }
 
-        }, intervalMS)
+        let token = requestAnimationFrame(rotate)
+        // let token = setInterval(rotate, intervalS)
 
         this.rotationTokens.set(this, token)
     }
