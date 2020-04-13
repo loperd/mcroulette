@@ -75,9 +75,6 @@ class Roulette
         for (let prize of prizes)
             list.appendChild(prize.wrapper)
 
-
-        // TODO: разобраться с этой хернёй
-        // node.style.padding = `${spacing}px`
         injector?.appendChild(list)
 
         let player = new Audio(audio)
@@ -142,22 +139,25 @@ class Roulette
 
     playClick(): void
     {
-        if (this.audio) {
-            let promise = this.audio["clone"]().play()
-            if (promise && promise.catch)
-                promise.catch(() => {})
-        }
+        if (!(this.audio instanceof HTMLAudioElement))
+            return
+
+        let promise = this.audio["clone"]().play()
+
+        if (promise && promise.catch)
+            promise.catch(() => {})
     }
 
     public findPrize({ element, index = NaN }: {
         element?: HTMLElement
         index?: number
-    }): Prize {
+    }): Prize
+    {
         if (Number.isNaN(index) && undefined === element)
             throw new NotEnoughArgumentsException()
 
         if (index > 0) {
-            return this.prizes[index]
+            return this.prizes[index - 1]
         }
 
         const result = this.prizes.find(x => x.element === element)
@@ -173,22 +173,23 @@ class Roulette
         if (!this.rotates) {
             return
         }
-        console.log('stop')
+        console.log("stop")
         cancelAnimationFrame(<number>this.rotationTokens.get(this))
         this.rotationTokens.set(this, -1)
         this.container.dispatchEvent(new CustomEvent(rotationStopEventName, { detail: { prize: this.selectedPrize } }))
     }
 
-    get selectedPrize(): Prize
+    get selectedPrize()
     {
-        let afterCenter = this.prizes.concat()
-            .sort((a: Prize, b: Prize) => a.wrapper.offsetLeft - b.wrapper.offsetLeft)
-            .find(prize => prize.wrapper.offsetLeft > this.center)
+        let concat = this.prizes.concat()
+            .sort((a, b) => a.wrapper.offsetLeft - b.wrapper.offsetLeft)
 
-        if (undefined === afterCenter)
-            throw new Error("afterCenter is undefined")
+        let afterCenterIndex = concat.find(prize => prize.wrapper.offsetLeft > this.center)?.index
 
-        return this.prizes[(this.prizes.length + afterCenter.index - 1) % this.prizes.length]
+        if (afterCenterIndex === undefined)
+            throw new Error("Can not find afterCenterIndex")
+
+        return this.prizes[(this.prizes.length + afterCenterIndex - 1) % this.prizes.length]
     }
 
     get firstBlock(): Prize
@@ -209,7 +210,7 @@ class Roulette
 
     get center(): number
     {
-        return this.list.offsetLeft + this.list.clientWidth / 2
+        return this.list.offsetLeft + window.innerWidth / 2
     }
 
     static get version(): string
@@ -241,23 +242,30 @@ class Roulette
             played = false,
             t = 0
 
-        let rotate = () =>
+        let start = performance.now()
+
+        const rotate = (time) =>
         {
+            this.rotationTokens.set(this, requestAnimationFrame(rotate))
+
             if (t > totalTime) {
                 this.stop()
                 return
             }
 
-            let currentPos = (starter + (v0 * t - k * t * t / 2)) % this.width
-            let margin = currentPos % blockWidth
+            console.log(t, (start - time) / 1000)
 
-            if (Math.floor(currentPos / blockWidth) !== currentBlock) {
+            let currentPos = (starter + (v0 * t - k * t * t / 2)) % this.width
+
+            if (Math.floor(currentPos / blockWidth) != currentBlock) {
                 let block = this.firstBlock
                 this.list.appendChild(block.wrapper)
-                block.wrapper.style.marginLeft = "0"
+                block.wrapper.style.marginLeft = "0px"
                 currentBlock = (currentBlock + 1) % this.prizes.length
                 played = false
             }
+
+            let margin = currentPos % blockWidth
 
             this.firstBlock.wrapper.style.marginLeft = `-${margin}px`
 
@@ -267,13 +275,49 @@ class Roulette
             }
 
             t += intervalS
-            token = requestAnimationFrame(rotate)
         }
 
-        let token = requestAnimationFrame(rotate)
-        // let token = setInterval(rotate, intervalS)
+        requestAnimationFrame(rotate)
 
-        this.rotationTokens.set(this, token)
+        // this.animateRotate({ totalTime, starter, v0, t, k, blockWidth, currentBlock, played, halfBlock })
+    }
+
+    animateRotate({ totalTime, starter, v0, t, k, blockWidth, currentBlock, played, halfBlock }: {
+        totalTime: number,
+        starter: number,
+        v0: number,
+        t: number,
+        k: number,
+        blockWidth: number,
+        currentBlock: number,
+        played: boolean,
+        halfBlock: number
+    }): void
+    {
+        this.rotationTokens.set(this, requestAnimationFrame(() => this.animateRotate(arguments[0])))
+
+        if (t > totalTime) {
+            this.stop()
+            return
+        }
+
+        let currentPos = (starter + (v0 * t - k * t * t / 2)) % this.width
+
+        if (Math.floor(currentPos / blockWidth) != currentBlock) {
+            let block = this.firstBlock
+            this.list.appendChild(block.wrapper)
+            block.wrapper.style.marginLeft = "0px"
+            currentBlock = (currentBlock + 1) % this.prizes.length
+            played = false
+        }
+
+        let margin = currentPos % blockWidth
+        this.firstBlock.wrapper.style.marginLeft = `-${margin}px`
+
+        if (margin > halfBlock && !played) {
+            played = true
+            this.playClick()
+        }
     }
 
     rotateByTracks(prize: Prize, tracks: number, random: boolean): void
@@ -281,6 +325,7 @@ class Roulette
         const
             blockWidth = this.prizeWidth + this.spacing,
             currentBlock = this.selectedPrize
+
         let
             currentPosition = currentBlock.index * blockWidth + (this.center - currentBlock.wrapper.offsetLeft),
             destination = prize.index * blockWidth + this.spacing + this.prizeWidth / 2,
