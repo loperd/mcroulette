@@ -43,7 +43,7 @@
         color: #2c3e50;
 
     .background
-        background-color #1f2d3b
+        background-image url($backgroundImage)
         background-position center
         background-repeat no-repeat
         background-size cover

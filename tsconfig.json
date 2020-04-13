@@ -22,7 +22,9 @@
       "esnext",
       "dom",
       "dom.iterable",
-      "scripthost"
+      "scripthost",
+      "es6",
+      "dom"
     ]
   },
   "include": [
@@ -30,7 +32,9 @@
     "src/**/*.js",
     "src/**/*.vue",
     "tests/**/*.ts",
-    "tests/**/*.js"
+    "tests/**/*.js",
+    "node_modules/konva/types/Core.d.ts",
+    "node_modules/konva/types/Core.d.ts"
   ],
   "exclude": [
     "node_modules"
