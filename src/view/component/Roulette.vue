@@ -12,29 +12,62 @@
 
 <script lang="ts">
     import { Component, Vue } from "vue-property-decorator"
-    import Roulett from '@/component/Roulette/Roulette'
+    import Roulette from "@/component/Roulette/Roulette"
+    import axios from "axios"
 
     @Component
-    export default class Roulette extends Vue
+    export default class extends Vue
     {
-        private roulette?: Roulett
+        private _roulette?: Roulette
 
-        mounted(): void
+        public async mounted(): Promise<void>
         {
-            this.roulette = new Roulett(".roulette", {
-                acceleration: 500,
+            const audio: HTMLAudioElement = await this.loadAudio("/audio/click.wav")
+
+            this._roulette = new Roulette(".roulette", {
+                acceleration: 300,
                 spacing: 0,
-                fps: 30,
+                duration: 1350,
+                audio: audio
             })
 
-            this.roulette.rotateTo(1, { time: 2, random: true });
+            setTimeout(this.play, 1000)
         }
 
-        public * items(count: number = 10): Generator<number>
+        public get roulette(): Roulette
+        {
+            if (undefined === this._roulette) {
+                throw "Roulette was not initialized"
+            }
+
+            return this._roulette
+        }
+
+        public play(): void
+        {
+            this.roulette.rotateTo(1, { time: 1, random: true })
+        }
+
+        public* items(count: number = 10): Generator<number>
         {
             for (let i = 1; i <= count; i++) {
                 yield i
             }
+        }
+
+        private async loadAudio(path): Promise<HTMLAudioElement>
+        {
+            return new Promise(resolve => {
+                axios({
+                    url: path,
+                    method: "GET",
+                    responseType: "blob",
+                }).then(
+                    resp => resolve(new Audio(URL.createObjectURL(
+                        new Blob([resp.data])
+                    )))
+                )
+            })
         }
     }
 </script>
@@ -46,8 +79,8 @@
     .roulette-wrapper
         position absolute
         align-items center
-        clip-path circle(15% at 50% 50%)
-        background rgba(255,255,255, .1)
+        clip-path circle(20% at 50% 50%)
+        background rgba(255, 255, 255, .1)
         display flex
         height 100%
         width 100%

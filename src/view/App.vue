@@ -12,12 +12,12 @@
 <script lang="ts">
     import { Component, Vue } from "vue-property-decorator"
     import CenterCircle from "./component/CenterCircle.vue"
-    import Roulette from './component/Roulette.vue'
+    import RouletteView from './component/Roulette.vue'
 
     @Component({
         components: {
             CenterCircle,
-            Roulette,
+            Roulette: RouletteView,
         },
     })
 
