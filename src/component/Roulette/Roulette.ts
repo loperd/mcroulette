@@ -13,27 +13,27 @@ import {
     PrizeNotFoundException,
     RotationIsAlreadyActiveException,
 } from "./Exception"
+import UnexpectedErrorException from "@/component/Roulette/Exception/UnexpectedErrorException"
 
 class Roulette
 {
-    private readonly audio: null | HTMLAudioElement
-    private readonly prizes: Prize[]
-
+    private readonly _audio: HTMLAudioElement | undefined
     private readonly acceleration: number
     private readonly prizeWidth: number
+    private readonly duration: number
     private readonly spacing: number
     private readonly width: number
-    private readonly fps: number
-    private container: HTMLElement
+    private readonly prizes: Prize[]
 
+    private container: HTMLElement
     private list: HTMLUListElement
     private rotationTokens: WeakMap<this, number> = new WeakMap<this, number>()
 
     constructor(container: string, {
         spacing = 10,
         acceleration = 350,
-        fps = 40,
-        audio = null,
+        audio,
+        duration = 1000,
         selector = ":scope > .prize-item",
         stopCallback = null,
         startCallback = null
@@ -42,17 +42,18 @@ class Roulette
         stopCallback?: null | (() => any)
         acceleration?: number
         spacing?: number
-        fps?: number
-        audio?: string | null
+        duration?: number
+        audio?: HTMLAudioElement
         selector?: string
     })
     {
-        audio = audio || "/audio/click.wav"
-
         let node: null | HTMLElement = document.querySelector<HTMLElement>(container)
 
         if (!(node instanceof HTMLElement))
             throw new ContainerUndefinedException()
+
+        if (duration < 1000)
+            throw new UnexpectedErrorException("Error cannot less then 1000")
 
         node.classList.add(rouletteClass)
 
@@ -62,43 +63,57 @@ class Roulette
         let childNodes = [...node.querySelectorAll<HTMLElement>(selector)]
 
         if (!childNodes.length)
-            throw new ItemsNotFoundException
+            throw new ItemsNotFoundException()
 
         let injector = childNodes[0].parentElement
         let maxWidth = Math.max(...childNodes.map(x => x.offsetWidth))
         let maxHeight = Math.max(...childNodes.map(x => x.offsetHeight))
-        let prizes = childNodes.map(
-            (el: HTMLElement, i: number) =>
-                new Prize(el, i, spacing, maxWidth, maxHeight)
-        )
+        let prizes = childNodes.map((el: HTMLElement, i: number) =>
+            new Prize(el, i, spacing, maxWidth, maxHeight))
 
         for (let prize of prizes)
             list.appendChild(prize.wrapper)
 
         injector?.appendChild(list)
 
-        let player = new Audio(audio)
-
-        // @ts-ignore
-        if (player && !player.clone)
-            // @ts-ignore
-            player.clone = player.cloneNode ? player.cloneNode : () => player
+        if (audio && !audio["clone"]) {
+            audio["clone"] = audio.cloneNode ? audio.cloneNode : () => audio
+        }
 
         this.list = list
+        this._audio = audio
+        this.spacing = spacing
         this.prizes = prizes
         this.container = node
-        this.spacing = spacing
+        this.duration = duration
         this.acceleration = acceleration
         this.width = (spacing + maxWidth) * prizes.length
         this.prizeWidth = maxWidth
-        this.audio = player
-        this.fps = fps
         this.rotationTokens.set(this, -1)
 
         if (startCallback)
             this.container.addEventListener(rotationStartEventName, startCallback)
         if (stopCallback)
             this.container.addEventListener(rotationStopEventName, stopCallback)
+    }
+
+
+    public get audio(): HTMLAudioElement
+    {
+        if (undefined === this._audio)
+            throw new UnexpectedErrorException('Audio was not initialised')
+
+        return this._audio
+    }
+
+    public isAudioPlaying(): boolean
+    {
+        try {
+            return this.audio.duration > 0 && !this.audio.paused
+        } catch (e) {
+            console.log(e)
+            return true
+        }
     }
 
     rotate(pixels: number = 0): void
@@ -139,13 +154,14 @@ class Roulette
 
     playClick(): void
     {
-        if (!(this.audio instanceof HTMLAudioElement))
-            return
+        try {
+            let promise = this.audio["clone"]().play()
 
-        let promise = this.audio["clone"]().play()
-
-        if (promise && promise.catch)
-            promise.catch(() => {})
+            if (promise && promise.catch)
+                promise.catch(e => e)
+        } catch (e) {
+            console.log(e)
+        }
     }
 
     public findPrize({ element, index = NaN }: {
@@ -173,21 +189,21 @@ class Roulette
         if (!this.rotates) {
             return
         }
-        console.log("stop")
+
         cancelAnimationFrame(<number>this.rotationTokens.get(this))
+
         this.rotationTokens.set(this, -1)
         this.container.dispatchEvent(new CustomEvent(rotationStopEventName, { detail: { prize: this.selectedPrize } }))
     }
 
     get selectedPrize()
     {
-        let concat = this.prizes.concat()
+        let afterCenterIndex = this.prizes.concat()
             .sort((a, b) => a.wrapper.offsetLeft - b.wrapper.offsetLeft)
-
-        let afterCenterIndex = concat.find(prize => prize.wrapper.offsetLeft > this.center)?.index
+            .find(prize => prize.wrapper.offsetLeft > this.center)?.index
 
         if (afterCenterIndex === undefined)
-            throw new Error("Can not find afterCenterIndex")
+            throw new UnexpectedErrorException("Can not find afterCenterIndex")
 
         return this.prizes[(this.prizes.length + afterCenterIndex - 1) % this.prizes.length]
     }
@@ -195,12 +211,6 @@ class Roulette
     get firstBlock(): Prize
     {
         return this.findPrize({ element: this.list.querySelector<HTMLElement>(`:scope > .${roulettePrizeClass} > *`) || undefined })
-    }
-
-    get lastBlock(): Prize
-    {
-        let nodes = this.list.querySelectorAll(`:scope > .${roulettePrizeClass} > *`)
-        return this.findPrize({ element: <HTMLElement>nodes[nodes.length - 1] })
     }
 
     get rotates(): boolean
@@ -211,11 +221,6 @@ class Roulette
     get center(): number
     {
         return this.list.offsetLeft + window.innerWidth / 2
-    }
-
-    static get version(): string
-    {
-        return "1.1.0"
     }
 
     rotateForward(pixels: number): void
@@ -232,92 +237,40 @@ class Roulette
             totalTime = v0 / k
 
         let
-            intervalMS = 1000 / this.fps,
-            intervalS = intervalMS / 1000
-
-        let
             halfBlock = this.spacing + this.prizeWidth / 2,
             blockWidth = this.prizeWidth + this.spacing,
-            currentBlock = 0,
-            played = false,
-            t = 0
+            start = performance.now(),
+            currentBlock = 0
 
-        let start = performance.now()
-
-        const rotate = (time) =>
-        {
+        const rotate = time => {
             this.rotationTokens.set(this, requestAnimationFrame(rotate))
+
+            let t = (time - start) / this.duration
 
             if (t > totalTime) {
                 this.stop()
                 return
             }
 
-            console.log(t, (start - time) / 1000)
-
             let currentPos = (starter + (v0 * t - k * t * t / 2)) % this.width
 
-            if (Math.floor(currentPos / blockWidth) != currentBlock) {
+            if (Math.floor(currentPos / blockWidth) !== currentBlock) {
                 let block = this.firstBlock
                 this.list.appendChild(block.wrapper)
                 block.wrapper.style.marginLeft = "0px"
                 currentBlock = (currentBlock + 1) % this.prizes.length
-                played = false
             }
 
             let margin = currentPos % blockWidth
 
             this.firstBlock.wrapper.style.marginLeft = `-${margin}px`
 
-            if (margin > halfBlock && !played) {
-                played = true
+            if (margin > halfBlock && !this.isAudioPlaying) {
                 this.playClick()
             }
-
-            t += intervalS
         }
 
         requestAnimationFrame(rotate)
-
-        // this.animateRotate({ totalTime, starter, v0, t, k, blockWidth, currentBlock, played, halfBlock })
-    }
-
-    animateRotate({ totalTime, starter, v0, t, k, blockWidth, currentBlock, played, halfBlock }: {
-        totalTime: number,
-        starter: number,
-        v0: number,
-        t: number,
-        k: number,
-        blockWidth: number,
-        currentBlock: number,
-        played: boolean,
-        halfBlock: number
-    }): void
-    {
-        this.rotationTokens.set(this, requestAnimationFrame(() => this.animateRotate(arguments[0])))
-
-        if (t > totalTime) {
-            this.stop()
-            return
-        }
-
-        let currentPos = (starter + (v0 * t - k * t * t / 2)) % this.width
-
-        if (Math.floor(currentPos / blockWidth) != currentBlock) {
-            let block = this.firstBlock
-            this.list.appendChild(block.wrapper)
-            block.wrapper.style.marginLeft = "0px"
-            currentBlock = (currentBlock + 1) % this.prizes.length
-            played = false
-        }
-
-        let margin = currentPos % blockWidth
-        this.firstBlock.wrapper.style.marginLeft = `-${margin}px`
-
-        if (margin > halfBlock && !played) {
-            played = true
-            this.playClick()
-        }
     }
 
     rotateByTracks(prize: Prize, tracks: number, random: boolean): void

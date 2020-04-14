@@ -8,6 +8,7 @@
     "lint": "vue-cli-service lint"
   },
   "dependencies": {
+    "axios": "^0.19.2",
     "core-js": "^3.6.4",
     "konva": "^4.2.2",
     "lodash": "^4.17.15",
@@ -62,7 +63,9 @@
       "parser": "@typescript-eslint/parser"
     },
     "rules": {
-      "no-unused-vars": [1]
+      "no-unused-vars": [
+        1
+      ]
     }
   },
   "browserslist": [
