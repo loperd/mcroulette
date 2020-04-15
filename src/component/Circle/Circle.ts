@@ -2,6 +2,7 @@ import * as paper from "paper"
 
 class Circle
 {
+    private readonly opacity: number = .5
     private readonly colorFill: paper.Color
     private center: paper.Point
 
@@ -17,10 +18,12 @@ class Circle
         radius: 0
     }
 
-    constructor(elementId, private readonly opacity: number = .5)
+    constructor(elementId: string, opacity?: number)
     {
         paper.setup(elementId)
         this.view = paper.view
+
+        this.opacity = opacity || this.opacity
 
         this.center = this.view.center
 
@@ -33,7 +36,7 @@ class Circle
 
     public setup(): void
     {
-        this.view.onResize = _ => {
+        this.view.onResize = () => {
             this.view = paper.view
             this.center = this.view.center
             this.calculate().draw()

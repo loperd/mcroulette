@@ -1,26 +1,17 @@
+/* eslint-disable */
 import { EventName, CHEST_OPENED_EVENT, CHEST_OPEN_EVENT, MODEL_LOADED_EVENT } from "@/event"
 import { AnimationAction } from "three/src/animation/AnimationAction"
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader"
 import { ChestDefaultScene, ChestPhysicalScene } from "./Scene"
 import { EventBus } from "ts-bus"
 import { filter } from "lodash"
-import {
-    AnimationClip,
-    LoopOnce,
-    Camera,
-    Clock,
-    Group,
-    Mesh,
-    Object3D,
-    Scene,
-    WebGLRenderer
-} from "three"
+import * as THREE from "three"
 
 import AbstractScene from "./Scene/AbstractScene"
 
 class Chest
 {
-    public static DEFAULT_MODEL_FILENAME: string = "treasure-game-chest.glb"
+    public static DEFAULT_MODEL_FILENAME: string = "treasure-game-chest.gltf"
 
     private readonly nonPhysicalScene: ChestDefaultScene
     private readonly physicalScene: ChestPhysicalScene
@@ -29,8 +20,8 @@ class Chest
     private activeScene?: AbstractScene
 
     constructor(
-        private readonly camera: Camera,
-        private renderer: WebGLRenderer,
+        private readonly camera: THREE.Camera,
+        private renderer: THREE.WebGLRenderer,
         private loader: GLTFLoader,
         private bus: EventBus
     ) {
@@ -45,7 +36,7 @@ class Chest
         this.bus.publish(CHEST_OPENED_EVENT({ chest: this }))
     }
 
-    private onChestOpen(): void
+    private onChestStartOpen(): void
     {
         this.bus.publish(CHEST_OPEN_EVENT({ chest: this }))
     }
@@ -68,9 +59,9 @@ class Chest
         )
     }
 
-    public async load({ animations, scene }: { animations: AnimationClip[], scene: Group }): Promise<void>
+    public async load({ animations, scene }: { animations: THREE.AnimationClip[], scene: THREE.Group }): Promise<void>
     {
-        let result: Array<Mesh | Object3D> = filter(scene.children, child =>
+        let result: Array<THREE.Mesh | THREE.Object3D> = filter(scene.children, child =>
         {
             if (child === undefined)
                 return false
@@ -93,25 +84,27 @@ class Chest
         if (!(this.getActiveScene() instanceof ChestDefaultScene))
             throw new Error("Can not open chest, scene is not available.")
 
+        this.onChestStartOpen()
+
         const scene: ChestDefaultScene = <ChestDefaultScene>this.getActiveScene()
-        const animationObjects: Mesh[] = scene.animationObjects
+        const animationObjects: THREE.Mesh[] = scene.animationObjects
 
         const play: (animation: AnimationAction) => void = animation =>
         {
             animation.getRoot().visible = true
             animation.clampWhenFinished = true
-            animation.setLoop(LoopOnce, 0)
+            animation.setLoop(THREE.LoopOnce, 0)
                 .play()
         }
 
-        let onComplete = async _ => {
+        let onComplete = async () => {
             let durationTime = 0
 
             for (const mesh of animationObjects) {
                 const animation: AnimationAction = mesh.userData.mixer
                     .clipAction(mesh.userData.animation)
 
-                mesh.userData.clock = new Clock()
+                mesh.userData.clock = new THREE.Clock()
 
                 play(animation)
 
@@ -143,7 +136,7 @@ class Chest
         return this.nonPhysicalScene
     }
 
-    private getCamera(): Camera
+    private getCamera(): THREE.Camera
     {
         return this.camera
     }
@@ -159,7 +152,7 @@ class Chest
         this.getPhysicalScene().reset()
         this.getDefaultScene().reset()
 
-        this.renderer.render(new Scene(), this.getCamera())
+        this.renderer.render(new THREE.Scene(), this.getCamera())
 
         return this
     }
@@ -209,4 +202,5 @@ class Chest
     }
 }
 
+export { Chest }
 export default Chest

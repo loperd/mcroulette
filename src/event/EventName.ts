@@ -1,3 +1,4 @@
+/* eslint-disable */
 enum EventName
 {
     MODEL_LOADED = "MODEL_LOADED",

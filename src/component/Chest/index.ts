@@ -1,3 +1,2 @@
-import Chest from "./Chest"
-
-export { Chest }
+export * from './Chest'
+export * from './bootstrap'

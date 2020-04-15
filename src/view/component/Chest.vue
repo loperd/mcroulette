@@ -3,28 +3,34 @@
 </template>
 
 <script lang="ts">
-    import { bus, camera, loader, renderer } from "@/bootstrap"
+    import { bus, camera, loader, renderer } from "@/component/Chest"
     import { Component, Vue } from "vue-property-decorator"
-    import { Chest } from '@/component'
+    import { Chest } from "@/component"
 
     @Component
     export default class extends Vue
     {
-        private chest?: Chest
-        private id: string = 'chest'
+        private chest: Chest
+        private id: string = "chest"
+
+        constructor()
+        {
+            super(); this.chest = new Chest(camera, renderer, loader, bus)
+        }
 
         public async mounted(): Promise<void>
         {
-
-            this.chest = new Chest(camera, renderer, loader, bus)
-
             await this.chest.loadModel(Chest.DEFAULT_MODEL_FILENAME)
+            this.chest.swapActiveScene()
+            this.renderCanvas()
+            this.chest.play()
+        }
 
+        public open()
+        {
             this.chest.swapActiveScene()
 
-            this.renderCanvas()
-
-            this.chest.play()
+            this.chest.open()
         }
 
         public renderCanvas(): void

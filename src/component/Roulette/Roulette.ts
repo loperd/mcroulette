@@ -1,3 +1,4 @@
+/* eslint-disable */
 import Prize from "@/component/Roulette/Prize"
 import { roulettePrizeClass } from "@/component/Roulette/config"
 import {

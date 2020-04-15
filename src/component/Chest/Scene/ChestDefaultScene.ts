@@ -1,18 +1,18 @@
-import { AnimationClip, AnimationMixer, Camera, Mesh, Object3D, Scene, } from "three"
 import AbstractScene from "./AbstractScene"
 import { ScaleMove } from "../Animation"
+import * as THREE from "three"
 
 class ChestDefaultScene extends AbstractScene
 {
-    public animationObjects: Mesh[] = new Array<Mesh>()
+    public animationObjects: THREE.Mesh[] = new Array<THREE.Mesh>()
 
     private static OBJECT_NAME: string = "Chest_bottom"
-    private _animations?: AnimationClip[]
+    private _animations?: THREE.AnimationClip[]
 
-    private scene: Scene = new Scene()
-    private _chest?: Mesh
+    private scene: THREE.Scene = new THREE.Scene()
+    private _chest?: THREE.Mesh
 
-    constructor(private camera: Camera)
+    constructor(private camera: THREE.Camera)
     {
         super()
         this.setupScene(camera)
@@ -20,7 +20,7 @@ class ChestDefaultScene extends AbstractScene
         this.setupLight(camera)
     }
 
-    get animations(): AnimationClip[]
+    get animations(): THREE.AnimationClip[]
     {
         if (undefined === this._animations) {
             throw new Error('Animations was not setup.')
@@ -29,7 +29,7 @@ class ChestDefaultScene extends AbstractScene
         return this._animations
     }
 
-    get chest(): Mesh
+    get chest(): THREE.Mesh
     {
         if (undefined === this._chest) {
             throw new Error('Chest was not defined.')
@@ -40,8 +40,8 @@ class ChestDefaultScene extends AbstractScene
 
     public reset(): void
     {
-        this.animationObjects = new Array<Mesh>()
-        this.scene = new Scene()
+        this.animationObjects = new Array<THREE.Mesh>()
+        this.scene = new THREE.Scene()
         this.constructor(this.camera)
 
         const chest = this.chest.clone()
@@ -50,13 +50,13 @@ class ChestDefaultScene extends AbstractScene
         this.setupModel(chest)
     }
 
-    public setupScene(camera: Camera): this
+    public setupScene(camera: THREE.Camera): this
     {
         this.scene.add(camera)
         return this
     }
 
-    public getScene = (): Scene => this.scene
+    public getScene = (): THREE.Scene => this.scene
 
     public moveAndScale(): ScaleMove
     {
@@ -73,7 +73,7 @@ class ChestDefaultScene extends AbstractScene
         return new ScaleMove(chest, endPosition)
     }
 
-    public setupModel(chest: Mesh): this
+    public setupModel(chest: THREE.Mesh): this
     {
         chest.position.set(-3.80780029296875, 1.1276047229766846, -6.184289932250977)
         chest.rotation.set(1.5708281206194878, -0.0000031430918714433056, -0.06824258068266337)
@@ -83,23 +83,23 @@ class ChestDefaultScene extends AbstractScene
         return this
     }
 
-    private setupAnimations(chest: Mesh): void
+    private setupAnimations(chest: THREE.Mesh): void
     {
         const
             [chestRoofClip, chestKeyClip] = this.animations,
-            [chestRoof, chestKey] = <Mesh[]>chest.children
+            [chestRoof, chestKey] = <THREE.Mesh[]>chest.children
 
-        chestRoof.userData.mixer = new AnimationMixer(chestRoof)
-        chestKey.userData.mixer = new AnimationMixer(chestKey)
+        chestRoof.userData.mixer = new THREE.AnimationMixer(chestRoof)
+        chestKey.userData.mixer = new THREE.AnimationMixer(chestKey)
         chestKey.userData.animation = chestKeyClip
         chestRoof.userData.animation = chestRoofClip
 
         this.animationObjects.push(chestRoof, chestKey)
     }
 
-    public loadModel({ models, animations }: { models: Object3D[] | Mesh[], animations: AnimationClip[] }): void
+    public loadModel({ models, animations }: { models: THREE.Object3D[] | THREE.Mesh[], animations: THREE.AnimationClip[] }): void
     {
-        const [model] = <Mesh[]>models
+        const [model] = <THREE.Mesh[]>models
 
         model.children[1].visible = false
 
