@@ -1,7 +1,7 @@
+import { AnimationClip, Mesh, Object3D } from "three"
 import { createEventDefinition } from "ts-bus"
 import EventName from "./EventName"
-import { AnimationClip, Mesh, Object3D } from "three"
-import Chest from "../chest/Chest"
+import { Chest } from "@/component"
 
 const MODEL_LOADED_EVENT = createEventDefinition<{
     models: Object3D[]|Mesh[];

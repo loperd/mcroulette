@@ -6,7 +6,7 @@ module.exports = {
     devServer: {
         host: "0.0.0.0",
         writeToDisk: true,
-        watchContentBase: true,
+        // watchContentBase: true,
     },
 
     chainWebpack: config => {
@@ -24,6 +24,11 @@ module.exports = {
                 }
                 return options
             })
+
+        config.module.rule('worker')
+            .test(/\.worker\.js$/i)
+            .use('worker-loader')
+            .loader('worker-loader');
 
         config.module
             .rule("images")

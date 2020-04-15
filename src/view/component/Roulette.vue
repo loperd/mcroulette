@@ -1,16 +1,35 @@
 <template>
-    <div class="roulette-wrapper">
-        <div class="cursor"></div>
-        <div class="roulette">
-            <div v-for="item in items(35)" :key="item" style="width: 150px" class="prize-item">
-                <div class="prize-item__overlay"></div>
-                <span>{{ item }}</span>
+    <div>
+        <div class="zoom-loupe roulette-wrapper">
+            <div class="cursor"></div>
+            <div class="roulette" id="zoom-loupe">
+                <ul class="roulette__list">
+                    <li class="roulette__prize" :data-key="item" v-for="item in items(35)" :key="item" >
+                        <div class="prize-item">
+                            <div class="prize-item__overlay"></div>
+                            <span>{{ item }}</span>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="bg-roulette roulette-wrapper">
+            <div class="roulette" id="bg-roulette">
+                <ul class="roulette__list">
+                    <li class="roulette__prize" :data-key="item" v-for="item in items(35)" :key="item" >
+                        <div class="prize-item">
+                            <div class="prize-item__overlay"></div>
+                            <span>{{ item }}</span>
+                        </div>
+                    </li>
+                </ul>
             </div>
         </div>
     </div>
 </template>
 
 <script lang="ts">
+    import ListManager from "@/component/Roulette/ListManager"
     import { Component, Vue } from "vue-property-decorator"
     import Roulette from "@/component/Roulette/Roulette"
     import axios from "axios"
@@ -24,10 +43,12 @@
         {
             const audio: HTMLAudioElement = await this.loadAudio("/audio/click.wav")
 
-            this._roulette = new Roulette(".roulette", {
+            const listManager = new ListManager('#zoom-loupe > ul', '#bg-roulette > ul')
+
+            this._roulette = new Roulette(listManager, {
                 acceleration: 300,
                 spacing: 0,
-                duration: 1350,
+                duration: 1500,
                 audio: audio
             })
 
@@ -72,54 +93,77 @@
     }
 </script>
 
-<style lang="stylus">
+<style lang="stylus" scoped>
     $rouletteHeight = 100px
     $itemWidth = 150px
 
     .roulette-wrapper
-        position absolute
         align-items center
-        clip-path circle(20% at 50% 50%)
-        background rgba(255, 255, 255, .1)
+        position absolute
         display flex
         height 100%
         width 100%
         top 0
         left 0
 
+    .zoom-loupe
+        clip-path circle(20% at 50% 50%)
+        background rgba(0,0,0,.1)
+        transform scale(1.2)
+        z-index: 1;
+        display flex
+        height 100%
+        width 100%
+        top 0
+        left 0
+
+    .bg-roulette
+        filter blur(5px)
+        &:before {
+            background-image url($backgroundImage)
+            clip-path circle(23.5% at 50% 50%)
+            background-repeat no-repeat
+            background-position center
+            background-size cover
+            position absolute
+            height 100%
+            width 100%
+            content ''
+            top 0
+            left 0
+        }
+
+        .roulette
+            z-index -1
+
+
     .cursor
         height $rouletteHeight
+        position absolute
         width 100%
         content ''
-        position absolute
-
         &:before {
             display: block
             position absolute
             content ''
-            width 6px
+            width 3px
             height 100%
-            background #f8f409
+            background #fffd73
             left 50%
             opacity 0.8
             z-index: 2;
         }
 
     .roulette
-        position relative
-        display flex
         height $rouletteHeight
         pointer-events none
-        z-index -1
+        position relative
+        display flex
 
         &__list
             position relative
             list-style none
             display flex
-
-        &__prize
-            height 100%
-            width $itemWidth
 
         .prize-item
             width $itemWidth
@@ -131,13 +175,8 @@
             font-size 5em
             color #ffffff
 
-            span
-                z-index -1
-
             &__overlay
-                z-index 1
-
-                &:before
+                &:before {
                     content: ""
                     bottom 0
                     left 0
@@ -147,8 +186,5 @@
                     height 100%
                     position absolute
                     background-image linear-gradient(to top, #8218e7, #51208000, #ffffff00, #ffffff00, #ffffff00)
-
-
-    #app
-        @extend .noselect
+                }
 </style>

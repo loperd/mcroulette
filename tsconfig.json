@@ -32,9 +32,7 @@
     "src/**/*.js",
     "src/**/*.vue",
     "tests/**/*.ts",
-    "tests/**/*.js",
-    "node_modules/konva/types/Core.d.ts",
-    "node_modules/konva/types/Core.d.ts"
+    "tests/**/*.js"
   ],
   "exclude": [
     "node_modules"
