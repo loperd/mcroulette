@@ -1,4 +1,4 @@
-import { EventName, CHEST_OPENED_EVENT, CHEST_OPEN_EVENT, MODEL_LOADED_EVENT } from "../event"
+import { EventName, CHEST_OPENED_EVENT, CHEST_OPEN_EVENT, MODEL_LOADED_EVENT } from "@/event"
 import { AnimationAction } from "three/src/animation/AnimationAction"
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader"
 import { ChestDefaultScene, ChestPhysicalScene } from "./Scene"
@@ -118,7 +118,7 @@ class Chest
                 durationTime += mesh.userData.animation.duration
             }
 
-            setTimeout(_ => this.onChestOpened(), durationTime * 500)
+            setTimeout(() => this.onChestOpened(), durationTime * 500)
         }
 
         scene.moveAndScale().onComplete(onComplete).animate()
@@ -176,7 +176,7 @@ class Chest
             cancelAnimationFrame(this.requestAnimationId)
         }
 
-        const activeScene: AbstractScene = this.getActiveScene()
+        const activeScene: AbstractScene|undefined = this.activeScene
 
         switch (true) {
             case activeScene instanceof ChestPhysicalScene:
@@ -192,7 +192,7 @@ class Chest
 
     public render(): void
     {
-        this.requestAnimationId = requestAnimationFrame(_ => this.render())
+        this.requestAnimationId = requestAnimationFrame(() => this.render())
 
         const scene = this.getActiveScene()
 

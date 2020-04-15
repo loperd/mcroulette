@@ -9,7 +9,7 @@
     import { Circle } from "@/component"
 
     @Component
-    export default class CenterCircle extends Vue
+    export default class extends Vue
     {
         mounted(): void
         {

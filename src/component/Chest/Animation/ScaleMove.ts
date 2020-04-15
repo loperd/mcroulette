@@ -18,7 +18,7 @@ class ScaleMove
 
     public animate(): void
     {
-        this.requestId = requestAnimationFrame(_ => this.animate())
+        this.requestId = requestAnimationFrame(() => this.animate())
 
         this.object.position.y -= 2
         this.object.position.z += .1
@@ -28,7 +28,7 @@ class ScaleMove
 
             this.object.position.y += 2
 
-            setTimeout(_ => this.onCompleteCallback(this.object), 0)
+            setTimeout(() => this.onCompleteCallback(this.object), 0)
 
             return
         }

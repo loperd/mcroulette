@@ -1,7 +1,7 @@
 import AbstractScene from "./AbstractScene"
-import { d } from "@/helper"
 import * as Physijs from "physijs"
 import * as THREE from "three"
+import { d } from "@/helper"
 
 class ChestPhysicalScene extends AbstractScene
 {
