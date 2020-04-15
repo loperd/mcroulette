@@ -1,10 +1,12 @@
-import vueHeadful from 'vue-headful';
-import App from './view/App.vue'
-import Vue from 'vue'
+import App from "./view/App.vue"
+import store from "./store"
+import Vue from "vue"
 
 Vue.config.productionTip = false
-Vue.component('vue-headful', vueHeadful);
+
+const render = h => h(App)
 
 new Vue({
-  render: h => h(App),
+    render,
+    store,
 }).$mount('#app')

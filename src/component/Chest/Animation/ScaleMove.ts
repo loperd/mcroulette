@@ -1,15 +1,16 @@
-import { Object3D, Vector3 } from "three"
+/* eslint-disable */
+import * as THREE from "three"
 
 class ScaleMove
 {
-    private onCompleteCallback: (object: Object3D) => any
+    private onCompleteCallback: (object: THREE.Object3D) => any
     private requestId?: number
 
-    constructor(private object: Object3D, private endPosition: Vector3) {
-        this.onCompleteCallback = (object: Object3D) => object
+    constructor(private object: THREE.Object3D, private endPosition: THREE.Vector3) {
+        this.onCompleteCallback = (object: THREE.Object3D) => object
     }
 
-    public onComplete(callback: (object?: Object3D) => any): this
+    public onComplete(callback: (object?: THREE.Object3D) => any): this
     {
         this.onCompleteCallback = callback
 

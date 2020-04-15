@@ -6,14 +6,13 @@ module.exports = {
     devServer: {
         host: "0.0.0.0",
         writeToDisk: true,
-        // watchContentBase: true,
+        watchContentBase: true,
     },
 
     chainWebpack: config => {
         const types = ["vue-modules", "vue", "normal-modules", "normal"]
 
         types.forEach(type => addStyleResource(config.module.rule("stylus").oneOf(type)))
-
 
         config.module
             .rule('vue')
@@ -23,6 +22,13 @@ module.exports = {
                     audio: 'src/assets/audio'
                 }
                 return options
+            })
+
+        config
+            .plugin('html')
+            .tap(args => {
+                args[0].title = 'Mc Roulette'
+                return args
             })
 
         config.module.rule('worker')

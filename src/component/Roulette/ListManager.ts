@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { ContainerUndefinedException } from "@/component/Roulette/Exception"
 import Prize from "./Prize"
 

@@ -1,18 +1,17 @@
 <template>
     <div id="app">
-        <vue-headful title="Mc Roulette"/>
         <div class="background">
             <div class="overlay"/>
         </div>
-<!--        <center-circle/>-->
+        <circle-center/>
         <chest/>
-<!--        <roulette/>-->
+        <!--        <roulette/>-->
     </div>
 </template>
 
 <script lang="ts">
     import { Component, Vue } from "vue-property-decorator"
-    import Roulette from './component/Roulette.vue'
+    import Roulette from "./component/Roulette.vue"
     import CircleCenter from "./component/Circle.vue"
     import Chest from "./component/Chest.vue"
 
@@ -28,7 +27,6 @@
     {
         mount(): void
         {
-
         }
     }
 </script>
