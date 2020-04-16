@@ -1,12 +1,12 @@
 <template>
-    <div class="chest-inside">
+    <div class="chest-inside animated fadeInUp delay-5s">
         <div class="chest-inside__more-text">Предметы, которые могут быть в этом сундуке:</div>
-        <div class="chest-inside__container">
+        <vue-custom-scrollbar class="chest-inside__container" :settings="settings">
             <div v-for="item in items" :key="item.id" class="chest-inside__item">
                 <div class="chest-inside__item-overlay"><div class="chest-inside__item-overlay_preview-image" :style="`background-image: url(${item.image})`"></div></div>
                 <p class="chest-inside__item-title">{{ item.title }}</p>
             </div>
-        </div>
+        </vue-custom-scrollbar>
         <div class="chest-inside__footer">
             <div class="chest-inside__buttons">
                 <button class="btn btn-green">Открыть Сундук</button>
@@ -17,13 +17,20 @@
 </template>
 
 <script lang="ts">
-
     import { Component, Vue } from "vue-property-decorator"
 
     @Component
     export default class extends Vue
     {
         private items: any | object
+        private settings?: any
+
+        data = (): any => ({
+            settings: {
+                minScrollbarLength: 60,
+                suppressScrollX: true,
+            }
+        })
 
         created(): void
         {
@@ -134,7 +141,7 @@
 
 <style lang="stylus" scoped>
     $moreTextFS = 18px
-    $linePositionY = $moreTextFS + $moreTextFS / 1.5px
+    $linePositionY = $moreTextFS + $moreTextFS
 
     chestInsideTextGradient()
         background linear-gradient(arguments)
@@ -143,63 +150,49 @@
 
     .chest-inside
         position: relative
-        height 50%
+        margin 0 auto
+        padding 0 20px
+        height 50vh
         top 50%
+        width 100%
         bottom 0
-        left 5%
-        right 5%
-
         &:before
-            width 100%
-            position absolute
             content ''
+            left 20px
+            right 20px
             height 2px
+            padding 0 20px
+            position absolute
             top $linePositionY
-            left 10px
             background-image radial-gradient(rgba(255, 255, 255, .1), rgba(255, 255, 255, .4), rgba(255, 255, 255, 1))
             box-shadow -20px 5px 11px 2px rgba(0, 0, 0, 0.5)
-
         &__more-text
             font-family 'M PLUS Rounded 1c', sans-serif
             text-align left
-            margin-left 10px
             font-weight: 600
             font-size $moreTextFS
             chestInsideTextGradient: 20deg, rgba(255, 255, 255, 1), rgba(255, 255, 255, .35), rgba(255, 255, 255, .05)
-
         &__footer
-            bottom 20px
+            display inline-block
             width 100%
-            left 0
-
         &__buttons
-            /*float right*/
-            .btn:first-child
-                margin-right 20px
-
+            float right
+            margin 20px 0
+            & > button:first-child
+                margin-right 15px
         &__container
-            overflow-y auto
             position relative
+            overflow hidden
             width auto
-            height 65%
+            height 60%
             margin-top 20px
-
-            &::-webkit-scrollbar
-                width .5em
-
-            &::-webkit-scrollbar-track
-                box-shadow none
-
-            &::-webkit-scrollbar-thumb
-                background-image linear-gradient(45deg, #ffffff25, #ffffff50)
-                border-radius 10px
-                outline 0
-
         &__item
             display inline-block
             position relative
-            margin 10px 12px
+            text-align center
+            padding: 15px 0
             float left
+            width 15%
 
             &-title
                 text-shadow 6px 7px 10px #000000
@@ -208,11 +201,13 @@
                 color rgba(255, 255, 255, .9)
 
             &-overlay
+                display inline-block
                 position relative
                 height 150px
-                width 200px
+                width 90%
                 &:before
                     background radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(210,210,210,1) 50%, rgba(87,87,87,1) 100%)
+                    border-radius 5px
                     position absolute
                     height 100%
                     width 100%
@@ -240,4 +235,75 @@
                     height 100%
                     width 100%
                     content ''
+
+    @media screen and (min-width: 140px) and (max-width: 639px)
+        .chest-inside
+            &__item
+                width 100%
+                &-overlay
+                    height 300px
+                    width 100%
+    @media screen and (max-width: 640px)
+        .chest-inside
+            &__buttons > *
+                width 100%
+                display block
+                height 60px
+                border-radius 0
+    @media screen and (min-width: 640px) and (max-width: 767px)
+        .chest-inside
+            &__item
+                width 50%
+                &-overlay
+                    height 250px
+    @media screen and (max-width: 768px)
+        .chest-inside
+            &__footer
+                justify-content center
+    @media screen and (min-width: 768px) and (max-width: 1023px)
+        .chest-inside
+            &__item
+                width 50%
+                &-overlay
+                    height 250px
+    @media screen and (min-width: 1024px) and (max-width: 1119px)
+        .chest-inside
+            &__item
+                width 24%
+                &-overlay
+                    height 200px
+    @media screen and (min-width: 1120px) and (max-width: 1151px)
+        .chest-inside
+            &__item
+                width 20%
+    @media screen and (min-width: 1152px) and (max-width: 1279px)
+        .chest-inside
+            &__item
+                width 20%
+    @media screen and (min-width: 1280px) and (max-width: 1365px)
+        .chest-inside
+            &__item
+                width 20%
+    @media screen and (min-width: 1366px) and (max-width: 1599px)
+        .chest-inside
+            &__item
+                width 14%
+    @media screen and (min-width: 1600px) and (max-width: 1919px)
+        .chest-inside
+            &__item
+                width 14%
+    @media screen and (min-width: 1920px) and (max-width: 2047px)
+        .chest-inside
+            &__item
+                width 10%
+            &__buttons
+                margin 50px 0
+    @media screen and (min-width: 2048px) and (max-width: 2559px)
+        .chest-inside
+            &__item
+                width 10%
+    @media screen and (min-width: 2560px) and (max-width: 3199px)
+        .chest-inside
+            &__item
+                width 7%
 </style>
