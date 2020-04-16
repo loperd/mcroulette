@@ -75,9 +75,9 @@ class ChestDefaultScene extends AbstractScene
 
     public setupModel(chest: THREE.Mesh): this
     {
-        chest.position.set(-3.80780029296875, 1.1276047229766846, -6.184289932250977)
-        chest.rotation.set(1.5708281206194878, -0.0000031430918714433056, -0.06824258068266337)
-        chest.scale.set(.4, .4, .4)
+        chest.position.set(-4.083059787750244, 63.12309646606445, -7.515912055969238)
+        chest.rotation.set(1.570796452990513, 0.00008229030048029614, -0.03369080828790532)
+        chest.scale.set(.5, .5, .5)
 
         this.scene.add(chest)
         return this
