@@ -63,6 +63,7 @@ class ChestPhysicalScene extends AbstractScene
     {
         if (this.ground === undefined) {
             this.ground = this.createGround(500, 1, 500)
+            this.ground.position.y += 62
         }
 
         this.scene.add(this.ground)
@@ -72,7 +73,7 @@ class ChestPhysicalScene extends AbstractScene
 
     public setupScene(camera: THREE.Camera): this
     {
-        this.scene.setGravity(new THREE.Vector3(10, -700, 10))
+        this.scene.setGravity(new THREE.Vector3(10, -800, 10))
         this.scene.addEventListener("update", () => this.scene.simulate(undefined, 1))
         this.scene.add(camera)
 
@@ -81,14 +82,14 @@ class ChestPhysicalScene extends AbstractScene
 
     public setupModel(chest: Physijs.ConvexMesh): this
     {
-        chest.position.set(0, 400, 0)
+        chest.position.set(0, 310, 0)
         chest.rotation.set(d(90), d(0), d(0))
 
         chest.rotation.x += d(5)
         chest.rotation.y += d(0)
         chest.rotation.z += d(0)
 
-        chest.scale.set(.4, .4, .4)
+        chest.scale.set(.5, .5, .5)
 
         const [roof] = chest.children
 
@@ -140,7 +141,7 @@ class ChestPhysicalScene extends AbstractScene
     {
         let [model] = <THREE.Mesh[]>models
 
-        this._chest = this.convertToPhysicalMesh({ obj: model, friction: 1, restitution: .2 })
+        this._chest = this.convertToPhysicalMesh({ obj: model, friction: 1, restitution: .3 })
 
         this.chest.children.splice(1, 1)
 
