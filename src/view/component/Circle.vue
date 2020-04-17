@@ -13,7 +13,7 @@
     {
         mounted(): void
         {
-            new Circle("circle", .15).draw()
+            // new Circle("circle", .15).draw()
         }
     }
 </script>
