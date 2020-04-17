@@ -1,6 +1,6 @@
 <template>
     <div id="app">
-<!--        <circle-center/>-->
+        <circle-center/>
         <chest/>
         <chest-insides/>
         <roulette/>

@@ -1,8 +1,8 @@
 import VueCustomScrollbar from "vue-custom-scrollbar"
 import { VueDiContainer } from "vue-di-container"
+import store from './store'
 import { EventBus } from "ts-bus"
 import App from "./view/App.vue"
-import store from "./store"
 import Vue from "vue"
 
 Vue.config.productionTip = false

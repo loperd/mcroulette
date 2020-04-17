@@ -6,10 +6,12 @@
             <div class="cursor"></div>
             <div class="roulette" id="zoom-loupe">
                 <ul class="roulette__list">
-                    <li class="roulette__prize" :data-key="item" v-for="item in items(35)" :key="item" >
-                        <div class="prize-item">
-                            <div class="prize-item__overlay"></div>
-                            <span>{{ item }}</span>
+                    <li class="roulette__prize" :data-key="item.id" v-for="item in items" :key="item.id">
+                        <div class="prize-item" :class="item.type">
+                            <div class="prize-item__overlay"
+                                 :style="`background-image: url(${item.image})`"
+                                 :class="item.type"
+                            ></div>
                         </div>
                     </li>
                 </ul>
@@ -18,10 +20,12 @@
         <div class="bg-roulette roulette-wrapper">
             <div class="roulette" id="bg-roulette">
                 <ul class="roulette__list">
-                    <li class="roulette__prize" :data-key="item" v-for="item in items(35)" :key="item" >
-                        <div class="prize-item">
-                            <div class="prize-item__overlay"></div>
-                            <span>{{ item }}</span>
+                    <li class="roulette__prize" :data-key="item.id" v-for="item in $store.getters.items" :key="item.id">
+                        <div class="prize-item" :class="item.type">
+                            <div class="prize-item__overlay"
+                                 :style="`background-image: url(${item.image})`"
+                                 :class="item.type"
+                            ></div>
                         </div>
                     </li>
                 </ul>
@@ -39,31 +43,32 @@
     import { EventName } from "@/event"
     import { BusEvent } from "ts-bus/types"
     import { Inject } from "vue-di-container"
+    import _ from "lodash"
 
     @Component
     export default class extends Vue
     {
-        private showRoulette!: boolean
+        private showRoulette: boolean = false
         private _roulette?: Roulette
 
         @Inject(EventBus) private bus!: EventBus
 
-        data(): object {
-            return {
-                showRoulette: false,
-            }
+
+        get items(): object
+        {
+            return this.$store.getters.items
         }
 
         public async mounted(): Promise<void>
         {
             const audio: HTMLAudioElement = await this.loadAudio("/audio/click.wav")
 
-            const listManager = new ListManager('#zoom-loupe > ul', '#bg-roulette > ul')
+            const listManager = new ListManager("#zoom-loupe > ul", "#bg-roulette > ul")
 
             this._roulette = new Roulette(listManager, {
-                acceleration: 400,
+                acceleration: 450,
                 spacing: 5,
-                duration: 1400,
+                duration: 1300,
                 audio: audio,
                 bus: this.bus,
             })
@@ -84,7 +89,8 @@
         public play(): void
         {
             this.showRoulette = true
-            this.roulette.rotateTo(1, { time: 1, random: true })
+
+            setTimeout(() => this.roulette.rotateTo(1, { time: 5, random: true }), 100)
         }
 
         public stop(): void
@@ -92,16 +98,10 @@
             this.showRoulette = false
         }
 
-        public* items(count: number = 10): Generator<number>
-        {
-            for (let i = 1; i <= count; i++) {
-                yield i
-            }
-        }
-
         private async loadAudio(path): Promise<HTMLAudioElement>
         {
-            return new Promise(resolve => {
+            return new Promise(resolve =>
+            {
                 axios({
                     url: path,
                     method: "GET",
@@ -131,8 +131,9 @@
         opacity 0
         left 0
         top 0
+
         &:after
-            background-image radial-gradient(circle at 50%, transparent 15%, rgba(0,0,0,.2), rgba(0,0,0,.7))
+            background-image radial-gradient(circle at 50%, transparent 15%, rgba(0, 0, 0, .2), rgba(0, 0, 0, .7))
             position absolute
             height 100%
             width 100%
@@ -151,7 +152,7 @@
 
     .zoom-loupe
         clip-path circle(15% at 50% 50%)
-        background rgba(0,0,0,.1)
+        background rgba(0, 0, 0, .1)
         transform scale(1.2)
         z-index: 1
         display flex
@@ -175,6 +176,7 @@
             content ''
             top 0
             left 0
+
         &:after
             background-image url($chestImage)
             clip-path circle(25% at 50% 50%)
@@ -189,6 +191,7 @@
             content ''
             top 50%
             left 0
+
         .roulette
             z-index -1
             opacity .6
@@ -199,6 +202,7 @@
         position absolute
         width 100%
         content ''
+
         &:before {
             display: block
             position absolute
@@ -226,22 +230,53 @@
             width $itemWidth
             height $rouletteHeight
             position relative
-            background-color rgba(0, 0, 0, .1)
-            border 1px solid rgba(0, 0, 0, .1)
-            border-bottom 5px solid #8218e7
+            background-color rgba(0, 0, 0, .07)
             font-size 5em
             color #ffffff
 
+            &:after
+                position: absolute
+                content ''
+                height 5px
+                z-index 1
+                width 100%
+                bottom 0
+                left 0
+
+            &.default:after
+                background-image linear-gradient(90deg, #005bff, #0c5399)
+
+            &.primary:after
+                background-image linear-gradient(90deg, #8846c7, #671ab4)
+
+            &.legendary:after
+                background-image linear-gradient(90deg, #da3217, #9a1616)
+
             &__overlay
-                &:before {
-                    content: ""
+                background-repeat no-repeat
+                background-position center
+                background-size contain
+                position relative
+                padding 0 10px
+                height 100%
+                width 100%
+                content ''
+
+                &:after
+                    position absolute
+                    content ''
                     bottom 0
                     left 0
-                    opacity 1
                     z-index 1
                     width 100%
                     height 100%
-                    position absolute
-                    background-image linear-gradient(to top, #8218e7, #51208000, #ffffff00, #ffffff00, #ffffff00)
-                }
+
+                &.default:after
+                    background-image linear-gradient(to top, rgba(0, 91, 255, .5), rgba(5, 49, 95, .5), transparent 40%)
+
+                &.primary:after
+                    background-image linear-gradient(to top, rgba(136, 70, 199, .5), rgba(42, 0, 82, .5), transparent 40%)
+
+                &.legendary:after
+                    background-image linear-gradient(to top, rgba(218, 50, 23, .5), rgba(125, 5, 5, .5), transparent 40%)
 </style>

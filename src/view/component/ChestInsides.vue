@@ -5,8 +5,10 @@
                 minScrollbarLength: 60,
                 suppressScrollX: true,
             }">
-            <div v-for="item in items" :key="item.id" class="chest-inside__item">
-                <div class="chest-inside__item-overlay"><div class="chest-inside__item-overlay_preview-image" :style="`background-image: url(${item.image})`"></div></div>
+            <div v-for="item in $store.getters.items" :key="item.id" class="chest-inside__item">
+                <div class="chest-inside__item-overlay" :class="item.type">
+                    <div class="chest-inside__item-overlay_preview-image" :style="`background-image: url(${item.image})`"></div>
+                </div>
                 <p class="chest-inside__item-title">{{ item.title }}</p>
             </div>
         </vue-custom-scrollbar>
@@ -34,10 +36,10 @@
     {
         @Inject(EventBus) private bus!: EventBus
 
-        private isOpen!: boolean
+        private isOpen: boolean = false
         private items!: object
-        private show!: boolean
-        private hideInsides!: boolean
+        private show: boolean = false
+        private hideInsides: boolean = false
 
         @Watch('isOpen')
         onChildChanged(value: boolean): void
@@ -46,111 +48,6 @@
                 return
 
             setTimeout(() => this.show = false, 1000)
-        }
-
-        data(): any {
-            return {
-                isOpen: false,
-                hideInsides: false,
-                show: false,
-                hide: false,
-            }
-        }
-
-        created(): void
-        {
-            this.items = [
-                {
-                    id: 1,
-                    title: "Vip",
-                    image: this._img("7de3bb62825c11f969be67b4720a6fb5eaba9d69.png"),
-                },
-                {
-                    id: 2,
-                    title: "Premium",
-                    image: this._img("33ae616445a689c5fd84b057e8f4441950d37362.png"),
-                },
-                {
-                    id: 3,
-                    title: "Creative",
-                    image: this._img("bf5d1e948aa947b5f3a4580c6a94a06480e35b2a.png"),
-                },
-                {
-                    id: 4,
-                    title: "Admin",
-                    image: this._img("5c0a4fc7c32f26dec6ff80e80471b4a93152d252.png"),
-                },
-                {
-                    id: 5,
-                    title: "Lord",
-                    image: this._img("591694466c988d2530ca324a7590df69f20402bd.png"),
-                },
-                {
-                    id: 6,
-                    title: "Enigma",
-                    image: this._img("d35a130b49a6bb29248ee21144ce68779bcd91f4.png"),
-                },
-                {
-                    id: 7,
-                    title: "Deluxe",
-                    image: this._img("7505d64a54e061b7acd54ccd58b49dc43500b635.png"),
-                },
-                {
-                    id: 8,
-                    title: "Caesar",
-                    image: this._img("7de3bb62825c11f969be67b4720a6fb5eaba9d69.png"),
-                },
-                {
-                    id: 9,
-                    title: "Baron",
-                    image: "",
-                },
-                {
-                    id: 10,
-                    title: "Hero",
-                    image: "",
-                },
-                {
-                    id: 11,
-                    title: "Sentinel",
-                    image: "",
-                },
-                {
-                    id: 12,
-                    title: "Knight",
-                    image: this._img("d35a130b49a6bb29248ee21144ce68779bcd91f4.png"),
-                },
-                {
-                    id: 13,
-                    title: "Emperor",
-                    image: "",
-                },
-                {
-                    id: 14,
-                    title: "Czar",
-                    image: "",
-                },
-                {
-                    id: 15,
-                    title: "King",
-                    image: this._img("23f58b59e0d2291da1bf4a9ddea3255e3c643924.png"),
-                },
-                {
-                    id: 16,
-                    title: "Ruler",
-                    image: "",
-                },
-                {
-                    id: 17,
-                    title: "Vice President",
-                    image: "",
-                },
-                {
-                    id: 18,
-                    title: "President",
-                    image: "",
-                },
-            ]
         }
 
         public mounted(): void
@@ -175,17 +72,11 @@
             this.hideInsides = true
             this.isOpen = true
         }
-
-        private _img(s: string): string
-        {
-            return "/static/icon/" + s
-        }
     }
 </script>
 
 <style lang="stylus" scoped>
-    $moreTextFS = 18px
-    $linePositionY = $moreTextFS + $moreTextFS
+    $moreTextFS = 18px; $linePositionY = $moreTextFS + $moreTextFS
 
     chestInsideTextGradient()
         background linear-gradient(arguments)
@@ -259,16 +150,19 @@
                     left 0
                     top 0
                 &:after
+                    border-radius 7px 0 0 5px;
                     position absolute
                     height 100%
                     content ''
-                    width 5px
+                    width 6px
                     left 0
                     top 0
                 &.default:after
-                    background-image linear-gradient(60deg, #6f0505, #ff1717)
+                    background-image linear-gradient(to bottom, #005bff, #05315f)
                 &.primary:after
-                    background-image linear-gradient(to top, #8218e7, #512080)
+                    background-image linear-gradient(to bottom, #8846c7, #2a0052)
+                &.legendary:after
+                    background-image linear-gradient(to bottom, #da3217, #4c0b0b)
                 &_preview-image
                     background-repeat no-repeat
                     background-position center
