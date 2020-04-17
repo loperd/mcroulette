@@ -9,6 +9,8 @@ import {
 } from "./Exception"
 import UnexpectedErrorException from "@/component/Roulette/Exception/UnexpectedErrorException"
 import ListManager from "@/component/Roulette/ListManager"
+import { EventBus } from "ts-bus"
+import { ROULETTE_START_EVENT, ROULETTE_STOPPED_EVENT } from "@/event"
 
 class Roulette
 {
@@ -20,6 +22,7 @@ class Roulette
     private readonly spacing: number
     private readonly width: number
 
+    private bus: EventBus
     private list: ListManager
     private rotationTokens: WeakMap<this, number> = new WeakMap<this, number>()
 
@@ -28,8 +31,10 @@ class Roulette
         acceleration = 350,
         audio,
         duration = 1000,
-        selector = ":scope > *"
+        selector = ":scope > *",
+        bus
     }: {
+        bus: EventBus
         acceleration?: number
         spacing?: number
         duration?: number
@@ -46,6 +51,8 @@ class Roulette
             throw new UnexpectedErrorException("ul not initialized")
 
         const childNodes = [...list.querySelectorAll<HTMLLIElement>(selector)]
+
+        this.bus = bus
 
         if (!childNodes.length)
             throw new ItemsNotFoundException()
@@ -175,7 +182,8 @@ class Roulette
         cancelAnimationFrame(<number>this.rotationTokens.get(this))
 
         this.rotationTokens.set(this, -1)
-        // this.container.dispatchEvent(new CustomEvent(rotationStopEventName, { detail: { prize: this.selectedPrize } }))
+
+        setTimeout(() => this.bus.publish(ROULETTE_STOPPED_EVENT({ prize: this.selectedPrize })), 1200)
     }
 
     get selectedPrize()
@@ -183,12 +191,6 @@ class Roulette
         let afterCenterIndex = this.prizes.concat()
             .sort((a, b) => a.defaultElement.offsetLeft - b.defaultElement.offsetLeft)
             .find(prize => prize.defaultElement.offsetLeft > this.center)?.index
-
-        console.log(this.prizes.concat()
-            .sort((a, b) => a.defaultElement.offsetLeft - b.defaultElement.offsetLeft)
-            .find(prize => console.log(prize.defaultElement.offsetLeft))
-        )
-        console.log(this.center)
 
         if (afterCenterIndex === undefined)
             throw new UnexpectedErrorException("Can not find afterCenterIndex")
@@ -213,7 +215,7 @@ class Roulette
 
     rotateForward(pixels: number): void
     {
-        // this.container.dispatchEvent(new CustomEvent(rotationStartEventName, { detail: { prize: this.selectedPrize } }))
+        this.bus.publish(ROULETTE_START_EVENT({ prize: this.selectedPrize }))
 
         pixels = Math.abs(pixels)
 

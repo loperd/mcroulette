@@ -12,7 +12,7 @@
         </vue-custom-scrollbar>
         <div class="chest-inside__footer">
             <div class="chest-inside__buttons">
-                <button class="btn btn-green" @click="open">Открыть Сундук</button>
+                <button class="btn btn-green" @click.prevent="open">Открыть Сундук</button>
                 <button class="btn btn-transparent">Закрыть</button>
             </div>
         </div>
@@ -23,11 +23,11 @@
     /* eslint-disable */
     import { ChestPhysicalScene } from "@/component/Chest/Scene"
     import { Component, Vue, Watch } from "vue-property-decorator"
-    import { CHEST_OPEN_EVENT, CHEST_OPENED_EVENT, SCENE_LOADED_EVENT } from "@/event"
+    import { CHEST_OPEN_EVENT } from "@/event"
+    import EventName from "@/event/EventName"
     import { Inject } from "vue-di-container"
     import { BusEvent } from "ts-bus/types"
     import { EventBus } from "ts-bus"
-    import EventName from "@/event/EventName"
 
     @Component
     export default class extends Vue
@@ -162,6 +162,8 @@
 
                 this.show = true
             })
+
+            this.bus.subscribe(EventName.ROULETTE_STOPPED, () => this.isOpen = false)
         }
 
         private open(): void

@@ -7,7 +7,6 @@
     import { camera, loader, renderer } from "@/component/Chest"
     import { ChestPhysicalScene } from "@/component/Chest/Scene"
     import { Component, Vue } from "vue-property-decorator"
-    import { CHEST_OPEN_EVENT, SCENE_LOADED_EVENT } from "@/event"
     import { Inject } from "vue-di-container"
     import { BusEvent } from "ts-bus/types"
     import { Chest } from "@/component"
@@ -39,9 +38,11 @@
                 }
             })
             this.bus.subscribe(EventName.CHEST_OPEN, (e: BusEvent): void => {
+                console.log('open')
                 this.open()
             })
             this.bus.subscribe(EventName.CHEST_OPENED, (e: BusEvent): void => {
+                console.log('opened')
                 setTimeout(() => this.chest.reset(), 700)
             })
         }

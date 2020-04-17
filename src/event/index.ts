@@ -1,9 +1,10 @@
 /* eslint-disable */
+import AbstractScene from "@/component/Chest/Scene/AbstractScene"
 import { createEventDefinition } from "ts-bus"
+import Prize from "@/component/Roulette/Prize"
 import EventName from "./EventName"
 import { Chest } from "@/component"
 import * as THREE from "three"
-import AbstractScene from "@/component/Chest/Scene/AbstractScene"
 
 export const MODEL_LOADED_EVENT = createEventDefinition<{
     models: THREE.Object3D[]|THREE.Mesh[];
@@ -17,6 +18,14 @@ export const SCENE_LOADED_EVENT = createEventDefinition<{
 export const CHEST_OPENED_EVENT = createEventDefinition<{
     chest: Chest;
 }>()(EventName.CHEST_OPENED)
+
+export const ROULETTE_START_EVENT = createEventDefinition<{
+    prize: Prize;
+}>()(EventName.ROULETTE_START)
+
+export const ROULETTE_STOPPED_EVENT = createEventDefinition<{
+    prize: Prize;
+}>()(EventName.ROULETTE_STOPPED)
 
 export const CHEST_OPEN_EVENT = createEventDefinition()(EventName.CHEST_OPEN)
 
