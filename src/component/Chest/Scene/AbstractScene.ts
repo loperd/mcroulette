@@ -1,4 +1,6 @@
 import * as THREE from "three"
+import { EventBus } from "ts-bus"
+import { SCENE_LOADED_EVENT } from "@/event"
 
 abstract class AbstractScene
 {
@@ -37,6 +39,11 @@ abstract class AbstractScene
         this.getScene().add(ambientLight)
 
         return this
+    }
+
+    protected sendLoadedSceneEvent(bus: EventBus): void
+    {
+        setTimeout(() => bus.publish(SCENE_LOADED_EVENT({ scene: this })), 500)
     }
 }
 

@@ -78,11 +78,6 @@ class Roulette
         this.width = (spacing + maxWidth) * prizes.length
         this.prizeWidth = maxWidth
         this.rotationTokens.set(this, -1)
-
-        // if (startCallback)
-        //     this.container.addEventListener(rotationStartEventName, startCallback)
-        // if (stopCallback)
-        //     this.container.addEventListener(rotationStopEventName, stopCallback)
     }
 
 
@@ -188,6 +183,12 @@ class Roulette
         let afterCenterIndex = this.prizes.concat()
             .sort((a, b) => a.defaultElement.offsetLeft - b.defaultElement.offsetLeft)
             .find(prize => prize.defaultElement.offsetLeft > this.center)?.index
+
+        console.log(this.prizes.concat()
+            .sort((a, b) => a.defaultElement.offsetLeft - b.defaultElement.offsetLeft)
+            .find(prize => console.log(prize.defaultElement.offsetLeft))
+        )
+        console.log(this.center)
 
         if (afterCenterIndex === undefined)
             throw new UnexpectedErrorException("Can not find afterCenterIndex")

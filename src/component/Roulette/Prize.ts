@@ -15,6 +15,8 @@ class Prize
         element.style.minHeight = `${height}px`
         element.style.minWidth = `${width}px`
 
+        console.log(element.offsetLeft)
+
         this.element = element
     }
 

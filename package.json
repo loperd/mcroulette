@@ -26,6 +26,7 @@
     "vue": "^2.6.11",
     "vue-class-component": "^7.2.3",
     "vue-custom-scrollbar": "^1.1.0",
+    "vue-di-container": "^0.1.0",
     "vue-headful": "^2.1.0",
     "vue-property-decorator": "^8.4.1",
     "vuex": "^3.1.3"

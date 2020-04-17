@@ -1,5 +1,6 @@
 import AbstractScene from "./AbstractScene"
 import * as Physijs from "physijs"
+import { EventBus } from "ts-bus"
 import * as THREE from "three"
 import { d } from "@/helper"
 
@@ -9,7 +10,7 @@ class ChestPhysicalScene extends AbstractScene
     private ground?: Physijs.BoxMesh
     private _chest?: Physijs.ConvexMesh
 
-    constructor(private camera: THREE.Camera)
+    constructor(private camera: THREE.Camera, private bus: EventBus)
     {
         super()
         this.scene = new Physijs.Scene()
@@ -39,11 +40,11 @@ class ChestPhysicalScene extends AbstractScene
         return this.scene
     }
 
-    public reset(): void
+    public async reset(): Promise<void>
     {
         this.constructor(this.camera)
 
-        this.setupModel(this.chest.clone())
+        await this.setupModel(this.chest.clone())
     }
 
     public createGround(x: number, y: number, z: number): Physijs.BoxMesh
@@ -80,9 +81,9 @@ class ChestPhysicalScene extends AbstractScene
         return this
     }
 
-    public setupModel(chest: Physijs.ConvexMesh): this
+    public async setupModel(chest: Physijs.ConvexMesh): Promise<this>
     {
-        chest.position.set(0, 310, 0)
+        chest.position.set(0, 312, 0)
         chest.rotation.set(d(90), d(0), d(0))
 
         chest.rotation.x += d(5)
@@ -137,7 +138,7 @@ class ChestPhysicalScene extends AbstractScene
         return result
     }
 
-    public loadModel({ models }: { models: THREE.Object3D[] | THREE.Mesh[] }): void
+    public async loadModel({ models }: { models: THREE.Object3D[] | THREE.Mesh[] }): Promise<void>
     {
         let [model] = <THREE.Mesh[]>models
 
@@ -145,7 +146,9 @@ class ChestPhysicalScene extends AbstractScene
 
         this.chest.children.splice(1, 1)
 
-        this.setupModel(this.chest.clone())
+        await this.setupModel(this.chest.clone())
+
+        super.sendLoadedSceneEvent(this.bus)
     }
 }
 

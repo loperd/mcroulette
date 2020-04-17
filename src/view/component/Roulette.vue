@@ -1,5 +1,7 @@
 <template>
-    <div>
+    <div class="container animated" :class="{ fadeIn: showRoulette }" :style="
+        showRoulette ? 'z-index: 1;' : 'z-index: -1;'
+    ">
         <div class="zoom-loupe roulette-wrapper">
             <div class="cursor"></div>
             <div class="roulette" id="zoom-loupe">
@@ -33,11 +35,24 @@
     import { Component, Vue } from "vue-property-decorator"
     import Roulette from "@/component/Roulette/Roulette"
     import axios from "axios"
+    import { EventBus } from "ts-bus"
+    import { EventName } from "@/event"
+    import { BusEvent } from "ts-bus/types"
+    import { Inject } from "vue-di-container"
 
     @Component
     export default class extends Vue
     {
+        private showRoulette!: boolean
         private _roulette?: Roulette
+
+        @Inject(EventBus) private bus!: EventBus
+
+        data(): object {
+            return {
+                showRoulette: false,
+            }
+        }
 
         public async mounted(): Promise<void>
         {
@@ -52,7 +67,7 @@
                 audio: audio
             })
 
-            setTimeout(this.play, 1000)
+            this.bus.subscribe(EventName.CHEST_OPENED, (e: BusEvent) => this.play())
         }
 
         public get roulette(): Roulette
@@ -66,6 +81,7 @@
 
         public play(): void
         {
+            this.showRoulette = true
             this.roulette.rotateTo(1, { time: 1, random: true })
         }
 
@@ -97,6 +113,15 @@
     $rouletteHeight = 100px
     $itemWidth = 150px
 
+    .container
+        background-image url($backgroundImage)
+        position absolute
+        height 100%
+        width 100%
+        opacity 0
+        left 0
+        top 0
+
     .roulette-wrapper
         align-items center
         position absolute
@@ -119,7 +144,7 @@
 
     .bg-roulette
         filter blur(5px)
-        &:before {
+        &:before
             background-image url($backgroundImage)
             clip-path circle(23.5% at 50% 50%)
             background-repeat no-repeat
@@ -131,8 +156,20 @@
             content ''
             top 0
             left 0
-        }
-
+        &:after
+            background-image url($chestImage)
+            clip-path circle(25% at 50% 50%)
+            transform translate(0, -50%)
+            filter blur(8px)
+            background-repeat no-repeat
+            background-position center
+            background-size contain
+            position absolute
+            height 60vh
+            width 100%
+            content ''
+            top 50%
+            left 0
         .roulette
             z-index -1
 

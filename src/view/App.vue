@@ -1,9 +1,9 @@
 <template>
     <div id="app">
-        <circle-center/>
+<!--        <circle-center/>-->
         <chest/>
         <chest-insides/>
-        <!--        <roulette/>-->
+        <roulette/>
     </div>
 </template>
 
@@ -14,6 +14,7 @@
     import Roulette from "./component/Roulette.vue"
     import Chest from "./component/Chest.vue"
 
+
     @Component({
         components: {
             Chest,
@@ -23,12 +24,7 @@
         },
     })
 
-    export default class App extends Vue
-    {
-        mount(): void
-        {
-        }
-    }
+    export default class App extends Vue {}
 </script>
 
 <style lang="stylus">

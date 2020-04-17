@@ -3,33 +3,52 @@
 </template>
 
 <script lang="ts">
-    import { bus, camera, loader, renderer } from "@/component/Chest"
+    /* eslint-disable */
+    import { camera, loader, renderer } from "@/component/Chest"
+    import { ChestPhysicalScene } from "@/component/Chest/Scene"
     import { Component, Vue } from "vue-property-decorator"
+    import { CHEST_OPEN_EVENT, SCENE_LOADED_EVENT } from "@/event"
+    import { Inject } from "vue-di-container"
+    import { BusEvent } from "ts-bus/types"
     import { Chest } from "@/component"
+    import { EventBus } from "ts-bus"
+    import EventName from "@/event/EventName"
 
     @Component
     export default class extends Vue
     {
-        private chest: Chest
+        private chest!: Chest
         private id: string = "chest"
 
-        constructor()
+        @Inject(EventBus) private bus!: EventBus
+
+        public created(): void
         {
-            super(); this.chest = new Chest(camera, renderer, loader, bus)
+            this.chest = new Chest(camera, renderer, loader, this.bus)
+            this.chest.loadModel(Chest.DEFAULT_MODEL_FILENAME)
         }
 
         public async mounted(): Promise<void>
         {
-            await this.chest.loadModel(Chest.DEFAULT_MODEL_FILENAME)
             this.chest.swapActiveScene()
             this.renderCanvas()
-            this.chest.play()
+
+            this.bus.subscribe(EventName.SCENE_LOADED, (e: BusEvent): void => {
+                if (e.payload.scene instanceof ChestPhysicalScene) {
+                    e.payload.scene.play() // turn physic to enable
+                }
+            })
+            this.bus.subscribe(EventName.CHEST_OPEN, (e: BusEvent): void => {
+                this.open()
+            })
+            this.bus.subscribe(EventName.CHEST_OPENED, (e: BusEvent): void => {
+                setTimeout(() => this.chest.reset(), 700)
+            })
         }
 
         public open()
         {
             this.chest.swapActiveScene()
-
             this.chest.open()
         }
 
