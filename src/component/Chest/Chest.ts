@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { EventName, CHEST_OPENED_EVENT, CHEST_OPEN_EVENT, MODEL_LOADED_EVENT } from "@/event"
+import { CHEST_OPENED_EVENT, EventName, MODEL_LOADED_EVENT } from "@/event"
 import { AnimationAction } from "three/src/animation/AnimationAction"
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader"
 import { ChestDefaultScene, ChestPhysicalScene } from "./Scene"
@@ -25,8 +25,8 @@ class Chest
         private loader: GLTFLoader,
         private bus: EventBus
     ) {
-        this.nonPhysicalScene = new ChestDefaultScene(this.camera)
-        this.physicalScene = new ChestPhysicalScene(this.camera)
+        this.nonPhysicalScene = new ChestDefaultScene(camera, bus)
+        this.physicalScene = new ChestPhysicalScene(camera, bus)
 
         this.subscribeScenesOnLoadModel()
     }
@@ -34,11 +34,6 @@ class Chest
     private onChestOpened(): void
     {
         this.bus.publish(CHEST_OPENED_EVENT({ chest: this }))
-    }
-
-    private onChestStartOpen(): void
-    {
-        this.bus.publish(CHEST_OPEN_EVENT({ chest: this }))
     }
 
     public subscribeScenesOnLoadModel(): void
@@ -50,16 +45,16 @@ class Chest
         })
     }
 
-    public async loadModel(path: string)
+    public loadModel(path: string): void
     {
         this.loader.load(path,
-            async gltf => await this.load(gltf),
+            gltf => this.load(gltf),
             undefined,
             error => console.log(error)
         )
     }
 
-    public async load({ animations, scene }: { animations: THREE.AnimationClip[], scene: THREE.Group }): Promise<void>
+    public load({ animations, scene }: { animations: THREE.AnimationClip[], scene: THREE.Group }): void
     {
         let result: Array<THREE.Mesh | THREE.Object3D> = filter(scene.children, child =>
         {
@@ -75,16 +70,12 @@ class Chest
         })
 
         this.bus.publish(MODEL_LOADED_EVENT({ models: result, animations: animations }))
-
-        return Promise.resolve()
     }
 
     public open(): void
     {
         if (!(this.getActiveScene() instanceof ChestDefaultScene))
             throw new Error("Can not open chest, scene is not available.")
-
-        this.onChestStartOpen()
 
         const scene: ChestDefaultScene = <ChestDefaultScene>this.getActiveScene()
         const animationObjects: THREE.Mesh[] = scene.animationObjects
@@ -156,12 +147,6 @@ class Chest
 
         return this
     }
-
-    public play(): void
-    {
-        this.activeScene?.play()
-    }
-
 
     public swapActiveScene(): void
     {

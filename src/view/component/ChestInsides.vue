@@ -1,7 +1,10 @@
 <template>
-    <div class="chest-inside animated fadeInUp delay-5s">
+    <div v-if="show" class="chest-inside animated fadeInUp" :class="{ fadeOutDown: hideInsides }">
         <div class="chest-inside__more-text">Предметы, которые могут быть в этом сундуке:</div>
-        <vue-custom-scrollbar class="chest-inside__container" :settings="settings">
+        <vue-custom-scrollbar class="chest-inside__container" :settings="{
+                minScrollbarLength: 60,
+                suppressScrollX: true,
+            }">
             <div v-for="item in items" :key="item.id" class="chest-inside__item">
                 <div class="chest-inside__item-overlay"><div class="chest-inside__item-overlay_preview-image" :style="`background-image: url(${item.image})`"></div></div>
                 <p class="chest-inside__item-title">{{ item.title }}</p>
@@ -9,7 +12,7 @@
         </vue-custom-scrollbar>
         <div class="chest-inside__footer">
             <div class="chest-inside__buttons">
-                <button class="btn btn-green">Открыть Сундук</button>
+                <button class="btn btn-green" @click="open">Открыть Сундук</button>
                 <button class="btn btn-transparent">Закрыть</button>
             </div>
         </div>
@@ -17,20 +20,42 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from "vue-property-decorator"
+    /* eslint-disable */
+    import { ChestPhysicalScene } from "@/component/Chest/Scene"
+    import { Component, Vue, Watch } from "vue-property-decorator"
+    import { CHEST_OPEN_EVENT, CHEST_OPENED_EVENT, SCENE_LOADED_EVENT } from "@/event"
+    import { Inject } from "vue-di-container"
+    import { BusEvent } from "ts-bus/types"
+    import { EventBus } from "ts-bus"
+    import EventName from "@/event/EventName"
 
     @Component
     export default class extends Vue
     {
-        private items: any | object
-        private settings?: any
+        @Inject(EventBus) private bus!: EventBus
 
-        data = (): any => ({
-            settings: {
-                minScrollbarLength: 60,
-                suppressScrollX: true,
+        private isOpen!: boolean
+        private items!: object
+        private show!: boolean
+        private hideInsides!: boolean
+
+        @Watch('isOpen')
+        onChildChanged(value: boolean): void
+        {
+            if (!value)
+                return
+
+            setTimeout(() => this.show = false, 1000)
+        }
+
+        data(): any {
+            return {
+                isOpen: false,
+                hideInsides: false,
+                show: false,
+                hide: false,
             }
-        })
+        }
 
         created(): void
         {
@@ -128,8 +153,25 @@
             ]
         }
 
-        mounted(): void
+        public mounted(): void
         {
+            this.bus.subscribe(EventName.SCENE_LOADED, (e: BusEvent): void => {
+                if (!(e.payload.scene instanceof ChestPhysicalScene)) {
+                    return
+                }
+
+                this.show = true
+            })
+        }
+
+        private open(): void
+        {
+            if (this.isOpen)
+                return
+
+            this.bus.publish(CHEST_OPEN_EVENT())
+            this.hideInsides = true
+            this.isOpen = true
         }
 
         private _img(s: string): string

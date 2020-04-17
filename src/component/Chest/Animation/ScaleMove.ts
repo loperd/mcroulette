@@ -21,13 +21,13 @@ class ScaleMove
     {
         this.requestId = requestAnimationFrame(() => this.animate())
 
-        this.object.position.y -= 2
+        this.object.position.y -= 3
         this.object.position.z += .1
 
         if (this.object.position.distanceTo(this.endPosition) <= 10) {
             cancelAnimationFrame(this.requestId)
 
-            this.object.position.y += 2
+            this.object.position.y += 3
 
             setTimeout(() => this.onCompleteCallback(this.object), 0)
 
