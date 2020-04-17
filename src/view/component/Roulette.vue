@@ -61,13 +61,15 @@
             const listManager = new ListManager('#zoom-loupe > ul', '#bg-roulette > ul')
 
             this._roulette = new Roulette(listManager, {
-                acceleration: 300,
-                spacing: 0,
-                duration: 1500,
-                audio: audio
+                acceleration: 400,
+                spacing: 5,
+                duration: 1400,
+                audio: audio,
+                bus: this.bus,
             })
 
             this.bus.subscribe(EventName.CHEST_OPENED, (e: BusEvent) => this.play())
+            this.bus.subscribe(EventName.ROULETTE_STOPPED, (e: BusEvent) => this.stop())
         }
 
         public get roulette(): Roulette
@@ -83,6 +85,11 @@
         {
             this.showRoulette = true
             this.roulette.rotateTo(1, { time: 1, random: true })
+        }
+
+        public stop(): void
+        {
+            this.showRoulette = false
         }
 
         public* items(count: number = 10): Generator<number>
@@ -115,12 +122,23 @@
 
     .container
         background-image url($backgroundImage)
+        background-position center
+        background-repeat no-repeat
+        background-size cover
         position absolute
         height 100%
         width 100%
         opacity 0
         left 0
         top 0
+        &:after
+            background-image radial-gradient(circle at 50%, transparent 15%, rgba(0,0,0,.2), rgba(0,0,0,.7))
+            position absolute
+            height 100%
+            width 100%
+            content ''
+            top 0
+            left 0
 
     .roulette-wrapper
         align-items center
@@ -132,10 +150,10 @@
         left 0
 
     .zoom-loupe
-        clip-path circle(20% at 50% 50%)
+        clip-path circle(15% at 50% 50%)
         background rgba(0,0,0,.1)
         transform scale(1.2)
-        z-index: 1;
+        z-index: 1
         display flex
         height 100%
         width 100%
@@ -144,9 +162,10 @@
 
     .bg-roulette
         filter blur(5px)
+
         &:before
             background-image url($backgroundImage)
-            clip-path circle(23.5% at 50% 50%)
+            clip-path circle(18% at 50% 50%)
             background-repeat no-repeat
             background-position center
             background-size cover
@@ -172,6 +191,7 @@
             left 0
         .roulette
             z-index -1
+            opacity .6
 
 
     .cursor
