@@ -27,6 +27,8 @@ export const ROULETTE_STOPPED_EVENT = createEventDefinition<{
     prize: Prize;
 }>()(EventName.ROULETTE_STOPPED)
 
+export const CLOSE_WIN_SCREEN_EVENT = createEventDefinition()(EventName.CLOSE_WIN_SCREEN)
+
 export const CHEST_OPEN_EVENT = createEventDefinition()(EventName.CHEST_OPEN)
 
 export { EventName }

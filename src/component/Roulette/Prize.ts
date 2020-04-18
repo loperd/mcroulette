@@ -1,46 +1,35 @@
 import { roulettePrizeClass } from "@/component/Roulette/config"
+import UnexpectedErrorException from "@/component/Roulette/Exception/UnexpectedErrorException"
 
 class Prize
 {
-    private _linkedElement?: HTMLLIElement
-    private element: HTMLLIElement
+    public readonly elements: HTMLLIElement[] = new Array<HTMLLIElement>()
+
+    public itemId: string
     public index: number
 
-    constructor(element: HTMLLIElement, index: number, spacing: number, width: number, height: number)
+    constructor(item: string, index: number)
     {
         this.index = index
-
-        element.classList.add(roulettePrizeClass)
-        element.style.marginRight = `${spacing}px`
-        element.style.minHeight = `${height}px`
-        element.style.minWidth = `${width}px`
-
-        this.element = element
+        this.itemId = item
     }
 
-    public linkTo(el: HTMLLIElement): void
+    public addEl(el: HTMLLIElement): void
     {
-        this._linkedElement = el
+        this.elements.push(el)
     }
 
     public get defaultElement(): HTMLLIElement
     {
-        return this.element
-    }
+        if (this.elements.length === 0)
+            throw new UnexpectedErrorException('Prize has no elements')
 
-    public get linkedElement(): HTMLLIElement | undefined
-    {
-        return this._linkedElement
+        return this.elements[0]
     }
 
     marginLeft(margin: number): void
     {
-        this.defaultElement.style.marginLeft = `${margin}px`
-
-        if (undefined === this.linkedElement)
-            return
-
-        this.linkedElement.style.marginLeft = `${margin}px`
+        this.elements.forEach(el => el.style.marginLeft = `${margin}px`)
     }
 }
 

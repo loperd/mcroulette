@@ -6,7 +6,7 @@
                     minScrollbarLength: 60,
                     suppressScrollX: true,
             }">
-                <div v-for="item in $store.getters.items" :key="item.id" class="chest-inside__item">
+                <div v-for="(item, i) in $store.getters.items" :key="`ci${item.id}-${i}`" class="chest-inside__item">
                     <div class="chest-inside__item-overlay" :class="item.type">
                         <div class="chest-inside__item-overlay_preview-image" :style="`background-image: url(${item.image})`"></div>
                     </div>
@@ -39,7 +39,6 @@
         @Inject(EventBus) private bus!: EventBus
 
         private isOpen: boolean = false
-        private items!: object
         private show: boolean = false
         private hideInsides: boolean = false
 
@@ -47,9 +46,10 @@
         onChildChanged(value: boolean): void
         {
             if (!value)
-                return
+                setTimeout(() => this.show = false, 1000)
+            else
+                setTimeout(() => this.show = true, 200)
 
-            setTimeout(() => this.show = false, 1000)
         }
 
         public mounted(): void
@@ -62,7 +62,9 @@
                 this.show = true
             })
 
-            this.bus.subscribe(EventName.ROULETTE_STOPPED, () => this.isOpen = false)
+            this.bus.subscribe(EventName.CLOSE_WIN_SCREEN, () => {
+                this.isOpen = false
+            })
         }
 
         private open(): void

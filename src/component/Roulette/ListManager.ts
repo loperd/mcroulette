@@ -1,22 +1,24 @@
 /* eslint-disable */
-import { ContainerUndefinedException } from "@/component/Roulette/Exception"
+import { rouletteListClass } from "@/component/Roulette/config"
 import Prize from "./Prize"
 
 export default class ListManager
 {
-    public backgroundList?: HTMLUListElement
-    private zoomList: HTMLUListElement
+    private lists: Array<HTMLUListElement> = new Array<HTMLUListElement>()
 
-    constructor(zoomListId: string, backgroundListId?: string)
+    constructor(selector: string)
     {
-        const zoomList = document.querySelector<HTMLUListElement>(zoomListId)
+        document.querySelectorAll<HTMLElement>(selector).forEach((el: HTMLElement) => {
+            let list = document.createElement("ul")
+            list.classList.add(rouletteListClass)
+            el.appendChild(list)
+            this.lists.push(list)
+        })
+    }
 
-        if (null === zoomList)
-            throw new ContainerUndefinedException()
-
-        this.zoomList = zoomList
-
-        this.setBackgroundList(backgroundListId)
+    public get defaultList(): HTMLUListElement
+    {
+        return this.lists[0]
     }
 
     public get offsetLeft(): number
@@ -24,24 +26,20 @@ export default class ListManager
         return this.defaultList.offsetLeft
     }
 
-    public get defaultList(): HTMLUListElement
+    public addChild(el: HTMLLIElement, prize: Prize): Prize
     {
-        return this.zoomList
+        this.lists.forEach(list => {
+            const element = el.cloneNode(true)
+            prize.addEl(<HTMLLIElement>element)
+            list.appendChild(element)
+        })
+
+        return prize
     }
 
-    public appendChild(el: Prize): void
+    public appendChild(prize: Prize): void
     {
-        this.defaultList.appendChild(el.defaultElement)
-
-        if (undefined !== this.backgroundList && undefined !== el.linkedElement)
-            this.backgroundList.appendChild(el.linkedElement)
-    }
-
-    private setBackgroundList(backgroundListId: string | undefined): void
-    {
-        if (undefined === backgroundListId)
-            return
-
-        this.backgroundList = document.querySelector<HTMLUListElement>(backgroundListId) || undefined
+        // List index equals prize element index
+        this.lists.forEach((list, index) => list.appendChild(prize.elements[index]))
     }
 }

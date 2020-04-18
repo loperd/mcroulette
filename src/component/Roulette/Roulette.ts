@@ -31,7 +31,7 @@ class Roulette
         acceleration = 350,
         audio,
         duration = 1000,
-        selector = ":scope > *",
+        selector = ":scope > div",
         bus
     }: {
         bus: EventBus
@@ -42,15 +42,15 @@ class Roulette
         selector?: string
     })
     {
+        this.list = listManager
+        this.spacing = spacing
+
         if (duration < 1000)
             throw new UnexpectedErrorException("Error cannot less then 1000")
 
-        const list = listManager.defaultList
+        const node: (Node & ParentNode) = <(Node & ParentNode)>listManager.defaultList.parentNode
 
-        if (!list || !list.classList.contains('roulette__list'))
-            throw new UnexpectedErrorException("ul not initialized")
-
-        const childNodes = [...list.querySelectorAll<HTMLLIElement>(selector)]
+        const childNodes = [...node.querySelectorAll<HTMLLIElement>(selector)]
 
         this.bus = bus
 
@@ -60,26 +60,14 @@ class Roulette
         let maxWidth: number = Math.max(...childNodes.map(x => x.offsetWidth))
         let maxHeight: number = Math.max(...childNodes.map(x => x.offsetHeight))
 
-        let prizes: Prize[] = childNodes.map((el: HTMLLIElement, i: number) => {
-            const prize: Prize = new Prize(el, i, spacing, maxWidth, maxHeight)
-            const key: string = prize.defaultElement.dataset.key || ''
-
-            const link = listManager.backgroundList?.querySelector(`[data-key='${key}']`)
-
-            if (link instanceof HTMLLIElement)
-                prize.linkTo(link)
-
-            return prize
-        })
+        let prizes: Prize[] = this.createPrizes(childNodes, maxWidth, maxHeight)
 
         if (audio && !audio["clone"]) {
             audio["clone"] = audio.cloneNode ? audio.cloneNode : () => audio
         }
 
         this._audio = audio
-        this.spacing = spacing
         this.prizes = prizes
-        this.list = listManager
         this.duration = duration
         this.acceleration = acceleration
         this.width = (spacing + maxWidth) * prizes.length
@@ -158,8 +146,10 @@ class Roulette
         index?: number
     }): Prize
     {
-        if (Number.isNaN(index) && undefined === element)
+        if (Number.isNaN(index) && undefined === element) {
+            console.log(arguments)
             throw new NotEnoughArgumentsException()
+        }
 
         if (index > 0) {
             return this.prizes[index - 1]
@@ -200,7 +190,11 @@ class Roulette
 
     get firstBlock(): Prize
     {
-        return this.findPrize({ element: this.list.defaultList.querySelector<HTMLLIElement>(`:scope > .${roulettePrizeClass}`) || undefined })
+        const element = this.list.defaultList.querySelector<HTMLLIElement>(`:scope > .${roulettePrizeClass}`)
+
+        // console.log(this.list.defaultList)
+
+        return this.findPrize({ element: element || undefined })
     }
 
     get rotates(): boolean
@@ -290,6 +284,29 @@ class Roulette
         let l = v0 * v0 / (2 * this.acceleration)
         let tracks = Math.ceil(l / this.width)
         this.rotateByTracks(prize, tracks, random)
+    }
+
+    private createPrizes(childNodes: HTMLLIElement[], width, height): Prize[]
+    {
+        return childNodes.map((el: HTMLLIElement, i: number) => {
+            const key: string = el.dataset.key || ''
+
+            if (key === '')
+                throw new UnexpectedErrorException(`Key was not set for item #${i}`)
+
+            let wrapper = document.createElement("li");
+            wrapper.classList.add(roulettePrizeClass)
+            wrapper.style.marginRight = `${this.spacing}px`
+            wrapper.style.minHeight = `${height}px`
+            wrapper.style.minWidth = `${width}px`
+            wrapper.appendChild(el)
+
+            const prize: Prize = new Prize(key, i)
+
+            this.list.addChild(wrapper, prize)
+
+            return prize
+        })
     }
 }
 

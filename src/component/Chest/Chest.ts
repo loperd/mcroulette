@@ -132,6 +132,11 @@ class Chest
         return this.camera
     }
 
+    public play(): void
+    {
+        this.getActiveScene().play()
+    }
+
     public reset(): this
     {
         if (undefined !== this.requestAnimationId) {
@@ -148,7 +153,7 @@ class Chest
         return this
     }
 
-    public swapActiveScene(): void
+    public swapActiveScene(): this
     {
         if (undefined !== this.requestAnimationId) {
             cancelAnimationFrame(this.requestAnimationId)
@@ -166,6 +171,7 @@ class Chest
         }
 
         this.render()
+        return this
     }
 
     public render(): void

@@ -1,35 +1,18 @@
 <template>
-    <div class="container animated" :class="{ fadeIn: showRoulette }" :style="
-        showRoulette ? 'z-index: 1;' : 'z-index: -1;'
-    ">
-        <div class="zoom-loupe roulette-wrapper">
-            <div class="cursor"></div>
-            <div class="roulette" id="zoom-loupe">
-                <ul class="roulette__list">
-                    <li class="roulette__prize" :data-key="item.id" v-for="item in items" :key="item.id">
-                        <div class="prize-item" :class="item.type">
-                            <div class="prize-item__overlay"
-                                 :style="`background-image: url(${item.image})`"
-                                 :class="item.type"
-                            ></div>
-                        </div>
-                    </li>
-                </ul>
+    <div class="roulette-view" :class="showRoulette ? 'blurIn' : 'blurOut'">
+        <div class="roulette-view__zoom-loupe roulette-view__roulette-wrapper">
+            <div class="roulette-view__cursor"></div>
+            <div class="roulette">
+                <div class="prize-item" :data-key="item.id" v-for="(item, i) in items" :key="item.id + 5 + i" :class="item.type">
+                    <div class="prize-item__overlay"
+                         :style="`background-image: url(${item.image})`"
+                         :class="item.type"
+                    ></div>
+                </div>
             </div>
         </div>
-        <div class="bg-roulette roulette-wrapper">
-            <div class="roulette" id="bg-roulette">
-                <ul class="roulette__list">
-                    <li class="roulette__prize" :data-key="item.id" v-for="item in $store.getters.items" :key="item.id">
-                        <div class="prize-item" :class="item.type">
-                            <div class="prize-item__overlay"
-                                 :style="`background-image: url(${item.image})`"
-                                 :class="item.type"
-                            ></div>
-                        </div>
-                    </li>
-                </ul>
-            </div>
+        <div class="roulette-view__bg-roulette roulette-view__roulette-wrapper">
+            <div class="roulette"></div>
         </div>
     </div>
 </template>
@@ -43,18 +26,18 @@
     import { EventName } from "@/event"
     import { BusEvent } from "ts-bus/types"
     import { Inject } from "vue-di-container"
-    import _ from "lodash"
 
     @Component
     export default class extends Vue
     {
+        public name: string = "Roulette"
         private showRoulette: boolean = false
         private _roulette?: Roulette
 
         @Inject(EventBus) private bus!: EventBus
 
 
-        get items(): object
+        get items(): Array<object>
         {
             return this.$store.getters.items
         }
@@ -63,7 +46,7 @@
         {
             const audio: HTMLAudioElement = await this.loadAudio("/audio/click.wav")
 
-            const listManager = new ListManager("#zoom-loupe > ul", "#bg-roulette > ul")
+            const listManager = new ListManager(".roulette")
 
             this._roulette = new Roulette(listManager, {
                 acceleration: 450,
@@ -117,10 +100,7 @@
 </script>
 
 <style lang="stylus" scoped>
-    $rouletteHeight = 100px
-    $itemWidth = 150px
-
-    .container
+    .roulette-view
         background-image url($backgroundImage)
         background-position center
         background-repeat no-repeat
@@ -128,10 +108,8 @@
         position absolute
         height 100%
         width 100%
-        opacity 0
         left 0
         top 0
-
         &:after
             background-image radial-gradient(circle at 50%, transparent 15%, rgba(0, 0, 0, .2), rgba(0, 0, 0, .7))
             position absolute
@@ -140,80 +118,72 @@
             content ''
             top 0
             left 0
-
-    .roulette-wrapper
-        align-items center
-        position absolute
-        display flex
-        height 100%
-        width 100%
-        top 0
-        left 0
-
-    .zoom-loupe
-        clip-path circle(15% at 50% 50%)
-        background rgba(0, 0, 0, .1)
-        transform scale(1.2)
-        z-index: 1
-        display flex
-        height 100%
-        width 100%
-        top 0
-        left 0
-
-    .bg-roulette
-        filter blur(5px)
-
-        &:before
-            background-image url($backgroundImage)
-            clip-path circle(18% at 50% 50%)
-            background-repeat no-repeat
-            background-position center
-            background-size cover
+        &__roulette-wrapper
+            align-items center
             position absolute
+            display flex
             height 100%
             width 100%
-            content ''
             top 0
             left 0
-
-        &:after
-            background-image url($chestImage)
-            transform translate(0, -50%)
-            filter blur(8px)
-            background-repeat no-repeat
-            background-position center
-            background-size contain
+        &__zoom-loupe
+            clip-path circle(15% at 50% 50%)
+            background rgba(0, 0, 0, .1)
+            transform scale(1.2)
+            z-index: 1
+            display flex
+            height 100%
+            width 100%
+            top 0
+            left 0
+        &__bg-roulette
+            filter blur(5px)
+            &:before
+                background-image url($backgroundImage)
+                clip-path circle(18% at 50% 50%)
+                background-repeat no-repeat
+                background-position center
+                background-size cover
+                position absolute
+                height 100%
+                width 100%
+                content ''
+                top 0
+                left 0
+            &:after
+                background-image url($chestImage)
+                transform translate(0, -50%)
+                filter blur(8px)
+                background-repeat no-repeat
+                background-position center
+                background-size contain
+                position absolute
+                height 75vh
+                width 100%
+                content ''
+                top 50%
+                left 0
+            .roulette
+                z-index -1
+                opacity .6
+        &__cursor
+            height $rouletteHeight
             position absolute
-            height 75vh
             width 100%
             content ''
-            top 50%
-            left 0
+            &:before
+                display: block
+                position absolute
+                content ''
+                width 3px
+                height 100%
+                background #fffd73
+                left 50%
+                opacity 0.8
+                z-index: 2;
+</style>
 
-        .roulette
-            z-index -1
-            opacity .6
-
-
-    .cursor
-        height $rouletteHeight
-        position absolute
-        width 100%
-        content ''
-
-        &:before {
-            display: block
-            position absolute
-            content ''
-            width 3px
-            height 100%
-            background #fffd73
-            left 50%
-            opacity 0.8
-            z-index: 2;
-        }
-
+<style lang="stylus">
     .roulette
         height $rouletteHeight
         pointer-events none
