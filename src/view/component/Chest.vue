@@ -4,7 +4,7 @@
 
 <script lang="ts">
     /* eslint-disable */
-    import { camera, loader, renderer } from "@/component/Chest"
+    import { loader, renderer } from "@/component/Chest"
     import { ChestPhysicalScene } from "@/component/Chest/Scene"
     import { Component, Vue } from "vue-property-decorator"
     import { Inject } from "vue-di-container"
@@ -24,7 +24,7 @@
 
         public created(): void
         {
-            this.chest = new Chest(camera, renderer, loader, this.bus)
+            this.chest = new Chest(renderer, loader, this.bus)
             this.chest.loadModel(Chest.DEFAULT_MODEL_FILENAME)
         }
 
@@ -39,17 +39,8 @@
                 }
             })
             this.bus.subscribe(EventName.CHEST_OPEN, () => this.open())
-            this.bus.subscribe(EventName.CHEST_OPENED, () => {
-                setTimeout(() => this.chest.reset(), 700)
-
-                setTimeout(() => console.log(this.chest.getPhysicalScene()), 1200)
-            })
             this.bus.subscribe(EventName.CLOSE_WIN_SCREEN, () => {
-                this.chest.swapActiveScene() // turn physic to enable
-
-                console.log(this.chest.getActiveScene())
-
-                this.chest.play()
+                setTimeout(() => this.chest.reset().swapActiveScene().play(), 500)
             })
         }
 

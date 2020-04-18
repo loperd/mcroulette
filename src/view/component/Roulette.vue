@@ -139,25 +139,28 @@
         &__bg-roulette
             filter blur(5px)
             &:before
-                background-image url($backgroundImage)
-                clip-path circle(18% at 50% 50%)
-                background-repeat no-repeat
-                background-position center
-                background-size cover
-                position absolute
-                height 100%
-                width 100%
-                content ''
-                top 0
-                left 0
-            &:after
                 background-image url($chestImage)
+                clip-path circle(18% at 50% 50%)
                 transform translate(0, -50%)
                 filter blur(8px)
                 background-repeat no-repeat
                 background-position center
                 background-size contain
                 position absolute
+                height 75vh
+                width 100%
+                content ''
+                top 50%
+                left 0
+            &:after
+                background-image url($chestImage)
+                background-repeat no-repeat
+                transform translate(0, -50%)
+                background-position center
+                background-size contain
+                position absolute
+                filter blur(8px)
+                z-index -5
                 height 75vh
                 width 100%
                 content ''

@@ -3,28 +3,29 @@ import * as Physijs from "physijs"
 import { EventBus } from "ts-bus"
 import * as THREE from "three"
 import { d } from "@/helper"
-import { SCENE_LOADED_EVENT } from "@/event"
 
 class ChestPhysicalScene extends AbstractScene
 {
-    private scene: Physijs.Scene
     private ground?: Physijs.BoxMesh
+    private scene: Physijs.Scene
+
     private _chest?: Physijs.ConvexMesh
 
-    constructor(private camera: THREE.Camera, private bus: EventBus)
+    constructor(private bus: EventBus)
     {
         super()
         this.scene = new Physijs.Scene()
-        this.setupScene(camera)
-        this.setupCamera(camera)
+        this.setupScene(this.getCamera())
+        this.setupCamera(this.getCamera())
         this.setupGround()
 
-        this.setupLight(camera)
+        this.setupLight(this.getCamera())
     }
 
     public play(): void
     {
         this.scene.simulate(undefined, 1)
+        this.scene.addEventListener("update", () => this.scene.simulate(undefined, 1))
     }
 
     get chest(): Physijs.ConvexMesh
@@ -41,10 +42,15 @@ class ChestPhysicalScene extends AbstractScene
         return this.scene
     }
 
-    public reset(): void
+    public async reset(): Promise<void>
     {
-        this.constructor(this.camera)
+        this.scene = new Physijs.Scene()
+        this.camera = this.createCamera()
 
+        this.setupScene(this.getCamera())
+        this.setupCamera(this.getCamera())
+        this.setupGround()
+        this.setupLight(this.getCamera())
         this.setupModel(this.chest.clone())
     }
 
@@ -76,7 +82,6 @@ class ChestPhysicalScene extends AbstractScene
     public setupScene(camera: THREE.Camera): this
     {
         this.scene.setGravity(new THREE.Vector3(10, -800, 10))
-        this.scene.addEventListener("update", () => this.scene.simulate(undefined, 1))
         this.scene.add(camera)
 
         return this
@@ -145,9 +150,9 @@ class ChestPhysicalScene extends AbstractScene
 
         this._chest = this.convertToPhysicalMesh({ obj: model, friction: 1, restitution: .3 })
 
-        this.chest.children.splice(1, 1)
+        this._chest.children.splice(1, 1)
 
-        await this.setupModel(this.chest.clone())
+        this.setupModel(this._chest.clone())
 
         super.sendLoadedSceneEvent(this.bus)
     }

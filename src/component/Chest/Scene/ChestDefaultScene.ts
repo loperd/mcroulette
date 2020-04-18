@@ -1,10 +1,8 @@
 import AbstractScene from "./AbstractScene"
 import { ScaleMove } from "../Animation"
 import * as THREE from "three"
-import { Service } from "vue-di-container"
 import { EventBus } from "ts-bus"
 
-@Service()
 class ChestDefaultScene extends AbstractScene
 {
     public animationObjects: THREE.Mesh[] = new Array<THREE.Mesh>()
@@ -15,12 +13,12 @@ class ChestDefaultScene extends AbstractScene
     private scene: THREE.Scene = new THREE.Scene()
     private _chest?: THREE.Mesh
 
-    constructor(private camera: THREE.Camera, private bus: EventBus)
+    constructor(private bus: EventBus)
     {
         super()
-        this.setupScene(camera)
-        this.setupCamera(camera)
-        this.setupLight(camera)
+        this.setupScene(this.camera)
+        this.setupCamera(this.camera)
+        this.setupLight(this.camera)
     }
 
     get animations(): THREE.AnimationClip[]
@@ -120,5 +118,7 @@ class ChestDefaultScene extends AbstractScene
         super.sendLoadedSceneEvent(this.bus)
     }
 }
+
+class ChestDefaultSceneImpl extends ChestDefaultScene {}
 
 export default ChestDefaultScene
