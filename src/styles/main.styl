@@ -57,6 +57,21 @@ body, html
     &:after
       opacity .5
 
+.ps .ps__rail-y:hover,
+.ps .ps__rail-y:focus
+  background-color transparent
+  outline 0 !important
+
+.ps .ps__rail-y.ps--clicking
+  background transparent
+
+.ps__rail-y.ps--clicking .ps__thumb-y
+  background rgba(255, 255, 255, .3)
+
+.ps__rail-y:hover > .ps__thumb-y
+  background-color rgba(255, 255, 255, .3)
+  outline 0 !important
+
 //.ps-container > .ps__rail-y > .ps__thumb-y {
 //  transition: .2s linear top;
 //  /* maybe other vendor-prefixed transitions */

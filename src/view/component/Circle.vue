@@ -1,28 +1,111 @@
 <template>
-    <div>
-        <canvas id="circle" resize/>
-    </div>
+    <div class="container"></div>
 </template>
 
 <script lang="ts">
     import { Component, Vue } from "vue-property-decorator"
-    import { Circle } from "@/component"
+    import Konva from 'konva'
 
     @Component
     export default class extends Vue
     {
+        public name: string = 'CircleCenter'
+
+        private fillColor: string = 'black'
+        private opacity: Number = .17
+
+        private circle!: Konva.Circle
+        private stage!: Konva.Stage
+        private layer!: Konva.Layer
+        private arc!: Konva.Arc
+
         mounted(): void
         {
-            // new Circle("circle", .15).draw()
+            this.layer = new Konva.Layer()
+            this.stage = new Konva.Stage({
+                container: ".container",
+                width: window.innerWidth,
+                height: window.innerHeight,
+            })
+
+            this.circle = new Konva.Circle({
+                y: this.stage.height() / 2,
+                x: this.stage.width() / 2,
+                stroke: this.fillColor,
+                opacity: this.opacity,
+                strokeWidth: 0,
+                radius: 0
+            })
+
+            this.arc = new Konva.Arc({
+                y: this.stage.height() / 2,
+                x: this.stage.width() / 2,
+                opacity: this.opacity,
+                fill: this.fillColor,
+                outerRadius: 0,
+                innerRadius: 0,
+                angle: 180,
+            });
+
+            this.drawCircle()
+            this.drawArc()
+
+            this.layer.add(this.arc)
+            this.layer.add(this.circle)
+            this.stage.add(this.layer)
+
+            window.addEventListener('resize', () => this.resize())
+        }
+
+        resize(): void
+        {
+            this.stage.width(window.innerWidth)
+            this.stage.height(window.innerHeight)
+
+            this.circle.x(this.stage.width() / 2)
+            this.circle.y(this.stage.height() / 2)
+
+            this.arc.x(this.stage.width() / 2)
+            this.arc.y(this.stage.height() / 2)
+
+            const today = new Date()
+            console.log(today.getHours() + ":" + today.getMinutes() + ":" + today.getSeconds())
+
+            this.drawArc()
+            this.drawCircle()
+        }
+
+        private radius(): number
+        {
+            const width: number = this.stage.width()
+
+            return (width / 1024) <= 1 ? width / 3 : width / 10
+        }
+
+        private drawCircle(): this
+        {
+            const radius = this.radius()
+            this.circle.strokeWidth(radius)
+            this.circle.radius(radius)
+
+            return this
+        }
+
+        private drawArc(): this
+        {
+            const radius = this.radius()
+            this.arc.outerRadius(radius / 2 - (radius / 100 * 5))
+
+            return this
         }
     }
 </script>
 
 <style lang="stylus" scoped>
-    #circle
+    .container
         position absolute
+        height 100%
+        width 100%
         top 0
         left 0
-        width 100%
-        height 100%
 </style>

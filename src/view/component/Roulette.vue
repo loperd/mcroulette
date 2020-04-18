@@ -90,7 +90,7 @@
         {
             this.showRoulette = true
 
-            setTimeout(() => this.roulette.rotateTo(1, { time: 5, random: true }), 100)
+            setTimeout(() => this.roulette.rotateTo(1, { time: 7, random: true }), 200)
         }
 
         public stop(): void
@@ -179,14 +179,13 @@
 
         &:after
             background-image url($chestImage)
-            clip-path circle(25% at 50% 50%)
             transform translate(0, -50%)
             filter blur(8px)
             background-repeat no-repeat
             background-position center
             background-size contain
             position absolute
-            height 60vh
+            height 75vh
             width 100%
             content ''
             top 50%
