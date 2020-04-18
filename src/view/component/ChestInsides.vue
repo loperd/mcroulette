@@ -1,17 +1,19 @@
 <template>
     <div v-if="show" class="chest-inside animated fadeInUp" :class="{ fadeOutDown: hideInsides }">
-        <div class="chest-inside__more-text">Предметы, которые могут быть в этом сундуке:</div>
-        <vue-custom-scrollbar class="chest-inside__container" :settings="{
-                minScrollbarLength: 60,
-                suppressScrollX: true,
+        <div class="chest-inside__container">
+            <div class="chest-inside__more-text">Предметы, которые могут быть в этом сундуке:</div>
+            <vue-custom-scrollbar class="chest-inside__container-items" :settings="{
+                    minScrollbarLength: 60,
+                    suppressScrollX: true,
             }">
-            <div v-for="item in $store.getters.items" :key="item.id" class="chest-inside__item">
-                <div class="chest-inside__item-overlay" :class="item.type">
-                    <div class="chest-inside__item-overlay_preview-image" :style="`background-image: url(${item.image})`"></div>
+                <div v-for="item in $store.getters.items" :key="item.id" class="chest-inside__item">
+                    <div class="chest-inside__item-overlay" :class="item.type">
+                        <div class="chest-inside__item-overlay_preview-image" :style="`background-image: url(${item.image})`"></div>
+                    </div>
+                    <p class="chest-inside__item-title">{{ item.title }}</p>
                 </div>
-                <p class="chest-inside__item-title">{{ item.title }}</p>
-            </div>
-        </vue-custom-scrollbar>
+            </vue-custom-scrollbar>
+        </div>
         <div class="chest-inside__footer">
             <div class="chest-inside__buttons">
                 <button class="btn btn-green" @click.prevent="open">Открыть Сундук</button>
@@ -86,49 +88,53 @@
     .chest-inside
         position: relative
         margin 0 auto
-        padding 0 20px
-        height 50vh
-        top 50%
+        height 100vh
         width 100%
         bottom 0
-        &:before
-            content ''
-            left 20px
-            right 20px
-            height 2px
-            padding 0 20px
-            position absolute
-            top $linePositionY
-            background-image radial-gradient(rgba(255, 255, 255, .1), rgba(255, 255, 255, .4), rgba(255, 255, 255, 1))
-            box-shadow -20px 5px 11px 2px rgba(0, 0, 0, 0.5)
+        &__container
+            position relative
+            padding 0 50px
+            width 100%
+            height 50%
+            top 50%
         &__more-text
             font-family 'M PLUS Rounded 1c', sans-serif
-            text-align left
+            position: relative
+            padding 0 0 10px 0
             font-weight: 600
+            text-align left
+            z-index 1
             font-size $moreTextFS
             chestInsideTextGradient: 20deg, rgba(255, 255, 255, 1), rgba(255, 255, 255, .35), rgba(255, 255, 255, .05)
+            &:after
+                content ''
+                left 0
+                right 0
+                bottom 1px
+                height 2px
+                position absolute
+                background-image radial-gradient(rgba(255, 255, 255, .1), rgba(255, 255, 255, .4), rgba(255, 255, 255, 1))
+                box-shadow -20px 5px 11px 2px rgba(0, 0, 0, 0.5)
         &__footer
-            display inline-block
+            position absolute
+            right 10 + 50px
+            bottom 10px
             width 100%
         &__buttons
             float right
-            margin 20px 0
             & > button:first-child
                 margin-right 15px
-        &__container
-            position relative
+        &__container-items
             overflow hidden
-            width auto
-            height 60%
-            margin-top 20px
+            padding 25px 0
+            height calc(100% - 115px)
+            width 100%
         &__item
             display inline-block
             position relative
-            text-align center
-            padding: 15px 0
             float left
             width 15%
-
+            margin-bottom 15px
             &-title
                 text-shadow 6px 7px 10px #000000
                 font-weight 700
@@ -169,10 +175,17 @@
                     background-size contain
                     border: 10px dashed transparent;
                     position relative
-                    padding 0 10px
                     height 100%
                     width 100%
                     content ''
+
+
+    @media screen and (max-width: 470px)
+        .chest-inside
+            &__container
+                &:before
+                    top $linePositionY + 26px
+                    left -10px
 
     @media screen and (min-width: 140px) and (max-width: 639px)
         .chest-inside
@@ -181,13 +194,6 @@
                 &-overlay
                     height 300px
                     width 100%
-    @media screen and (max-width: 640px)
-        .chest-inside
-            &__buttons > *
-                width 100%
-                display block
-                height 60px
-                border-radius 0
     @media screen and (min-width: 640px) and (max-width: 767px)
         .chest-inside
             &__item
@@ -197,7 +203,20 @@
     @media screen and (max-width: 768px)
         .chest-inside
             &__footer
-                justify-content center
+                bottom 10px
+                width 100%
+                right 0
+    @media screen and (max-width: 640px)
+        .chest-inside
+            &__footer
+                left 0
+            &__buttons
+                width: 100%
+                & > *
+                    width 100%
+                    display block
+                    height 60px
+                    border-radius 0
     @media screen and (min-width: 768px) and (max-width: 1023px)
         .chest-inside
             &__item
@@ -218,6 +237,14 @@
         .chest-inside
             &__item
                 width 20%
+
+    @media screen and (max-width: 1365px)
+        .chest-inside
+            &__container
+                padding 0 20px
+                &:before
+                    left 20px
+                    right 20 + 12px
     @media screen and (min-width: 1280px) and (max-width: 1365px)
         .chest-inside
             &__item

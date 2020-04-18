@@ -71,7 +71,7 @@ class ChestDefaultScene extends AbstractScene
 
         const endPosition = chest.position.clone()
 
-        endPosition.y -= 160
+        endPosition.y -= 260
 
         return new ScaleMove(chest, endPosition)
     }

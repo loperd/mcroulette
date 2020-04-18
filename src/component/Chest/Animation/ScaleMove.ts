@@ -21,22 +21,22 @@ class ScaleMove
     {
         this.requestId = requestAnimationFrame(() => this.animate())
 
-        this.object.position.y -= 3
+        this.object.position.y -= 10
         this.object.position.z += .1
 
         if (this.object.position.distanceTo(this.endPosition) <= 10) {
             cancelAnimationFrame(this.requestId)
 
-            this.object.position.y += 3
+            this.object.position.y += 10
 
             setTimeout(() => this.onCompleteCallback(this.object), 0)
 
             return
         }
 
-        this.object.scale.x += .0035
-        this.object.scale.y += .0035
-        this.object.scale.z += .0035
+        this.object.scale.x += .0205
+        this.object.scale.y += .0205
+        this.object.scale.z += .0205
     }
 }
 
