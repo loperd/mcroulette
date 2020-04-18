@@ -72,14 +72,20 @@ body, html
   background-color rgba(255, 255, 255, .3)
   outline 0 !important
 
-//.ps-container > .ps__rail-y > .ps__thumb-y {
-//  transition: .2s linear top;
-//  /* maybe other vendor-prefixed transitions */
-//}
+.blurOut {
+  -webkit-transition all 0.25s ease-out
+  -webkit-transform scale(.9, .9)
+  transition all 0.25s ease-out
+  -webkit-filter blur(8px)
+  visibility hidden
+  opacity 0.25
+}
 
-//#chest
-//  position absolute
-//  top 0
-//  left 0
-//  width 100%
-//  height 100%
+.blurIn {
+  -webkit-transition all 0.25s ease-in
+  visibility visible !important
+  transition all 0.25s ease-in
+  -webkit-transform scale(1, 1)
+  filter blur(0px) !important
+  -webkit-filter blur(0px)
+}

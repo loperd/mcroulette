@@ -3,6 +3,7 @@ import * as Physijs from "physijs"
 import { EventBus } from "ts-bus"
 import * as THREE from "three"
 import { d } from "@/helper"
+import { SCENE_LOADED_EVENT } from "@/event"
 
 class ChestPhysicalScene extends AbstractScene
 {
@@ -40,11 +41,11 @@ class ChestPhysicalScene extends AbstractScene
         return this.scene
     }
 
-    public async reset(): Promise<void>
+    public reset(): void
     {
         this.constructor(this.camera)
 
-        await this.setupModel(this.chest.clone())
+        this.setupModel(this.chest.clone())
     }
 
     public createGround(x: number, y: number, z: number): Physijs.BoxMesh
@@ -81,7 +82,7 @@ class ChestPhysicalScene extends AbstractScene
         return this
     }
 
-    public async setupModel(chest: Physijs.ConvexMesh): Promise<this>
+    public setupModel(chest: Physijs.ConvexMesh): this
     {
         chest.position.set(0, 312, 0)
         chest.rotation.set(d(90), d(0), d(0))

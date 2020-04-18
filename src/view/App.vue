@@ -1,9 +1,10 @@
 <template>
     <div id="app">
-        <circle-center/>
-        <chest/>
-        <chest-insides/>
-        <roulette/>
+        <CircleCenter/>
+        <Chest/>
+        <ChestInsides/>
+        <Roulette/>
+        <WinScreen/>
     </div>
 </template>
 
@@ -11,6 +12,7 @@
     import { Component, Vue } from "vue-property-decorator"
     import ChestInsides from "./component/ChestInsides.vue"
     import CircleCenter from "./component/Circle.vue"
+    import WinScreen from "./component/WinScreen.vue"
     import Roulette from "./component/Roulette.vue"
     import Chest from "./component/Chest.vue"
 
@@ -21,6 +23,7 @@
             ChestInsides,
             CircleCenter,
             Roulette,
+            WinScreen,
         },
     })
 

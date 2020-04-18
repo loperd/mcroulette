@@ -68,9 +68,6 @@
             this.arc.x(this.stage.width() / 2)
             this.arc.y(this.stage.height() / 2)
 
-            const today = new Date()
-            console.log(today.getHours() + ":" + today.getMinutes() + ":" + today.getSeconds())
-
             this.drawArc()
             this.drawCircle()
         }
@@ -79,7 +76,18 @@
         {
             const width: number = this.stage.width()
 
-            return (width / 1024) <= 1 ? width / 3 : width / 10
+            switch (true) {
+                case width < 640:
+                    return width / 3
+                case width < 768:
+                    return width / 4
+                case width < 1024:
+                    return width / 5
+                case width < 1280:
+                    return width / 7
+            }
+
+            return width / 10
         }
 
         private drawCircle(): this

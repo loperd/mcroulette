@@ -16,8 +16,9 @@
     @Component
     export default class extends Vue
     {
-        private chest!: Chest
+        public name: string = 'Chest'
         private id: string = "chest"
+        private chest!: Chest
 
         @Inject(EventBus) private bus!: EventBus
 
@@ -37,13 +38,18 @@
                     e.payload.scene.play() // turn physic to enable
                 }
             })
-            this.bus.subscribe(EventName.CHEST_OPEN, (e: BusEvent): void => {
-                console.log('open')
-                this.open()
-            })
-            this.bus.subscribe(EventName.CHEST_OPENED, (e: BusEvent): void => {
-                console.log('opened')
+            this.bus.subscribe(EventName.CHEST_OPEN, () => this.open())
+            this.bus.subscribe(EventName.CHEST_OPENED, () => {
                 setTimeout(() => this.chest.reset(), 700)
+
+                setTimeout(() => console.log(this.chest.getPhysicalScene()), 1200)
+            })
+            this.bus.subscribe(EventName.CLOSE_WIN_SCREEN, () => {
+                this.chest.swapActiveScene() // turn physic to enable
+
+                console.log(this.chest.getActiveScene())
+
+                this.chest.play()
             })
         }
 
