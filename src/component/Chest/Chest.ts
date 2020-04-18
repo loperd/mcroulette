@@ -17,16 +17,15 @@ class Chest
     private readonly physicalScene: ChestPhysicalScene
 
     private requestAnimationId?: number
-    private activeScene?: AbstractScene
+    private activeScene?: ChestPhysicalScene|ChestDefaultScene
 
     constructor(
-        private readonly camera: THREE.Camera,
         private renderer: THREE.WebGLRenderer,
         private loader: GLTFLoader,
         private bus: EventBus
     ) {
-        this.nonPhysicalScene = new ChestDefaultScene(camera, bus)
-        this.physicalScene = new ChestPhysicalScene(camera, bus)
+        this.nonPhysicalScene = new ChestDefaultScene(bus)
+        this.physicalScene = new ChestPhysicalScene(bus)
 
         this.subscribeScenesOnLoadModel()
     }
@@ -108,7 +107,7 @@ class Chest
         scene.moveAndScale().onComplete(onComplete).animate()
     }
 
-    public getActiveScene(): AbstractScene
+    public getActiveScene(): ChestPhysicalScene|ChestDefaultScene
     {
         if (undefined === this.activeScene) {
             throw new Error('Chest.activeScene was not defined.')
@@ -127,11 +126,6 @@ class Chest
         return this.nonPhysicalScene
     }
 
-    private getCamera(): THREE.Camera
-    {
-        return this.camera
-    }
-
     public play(): void
     {
         this.getActiveScene().play()
@@ -148,7 +142,7 @@ class Chest
         this.getPhysicalScene().reset()
         this.getDefaultScene().reset()
 
-        this.renderer.render(new THREE.Scene(), this.getCamera())
+        this.renderer.render(new THREE.Scene(), new THREE.PerspectiveCamera(50.0, window.innerWidth / window.innerHeight, 0.1, 1000))
 
         return this
     }
@@ -159,7 +153,7 @@ class Chest
             cancelAnimationFrame(this.requestAnimationId)
         }
 
-        const activeScene: AbstractScene|undefined = this.activeScene
+        const activeScene: ChestPhysicalScene|ChestDefaultScene|undefined = this.activeScene
 
         switch (true) {
             case activeScene instanceof ChestPhysicalScene:
@@ -189,7 +183,7 @@ class Chest
             })
         }
 
-        this.renderer.render(scene.getScene(), this.getCamera())
+        this.renderer.render(scene.getScene(), this.getActiveScene().getCamera())
     }
 }
 

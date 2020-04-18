@@ -1,5 +1,5 @@
 <template>
-    <div v-if="show" class="chest-inside animated fadeInUp" :class="{ fadeOutDown: hideInsides }">
+    <div v-if="show" class="chest-inside animated" :class="!isOpen ? 'fadeInUp' : 'fadeOutDown'">
         <div class="chest-inside__container">
             <div class="chest-inside__more-text">Предметы, которые могут быть в этом сундуке:</div>
             <vue-custom-scrollbar class="chest-inside__container-items" :settings="{
@@ -40,17 +40,6 @@
 
         private isOpen: boolean = false
         private show: boolean = false
-        private hideInsides: boolean = false
-
-        @Watch('isOpen')
-        onChildChanged(value: boolean): void
-        {
-            if (!value)
-                setTimeout(() => this.show = false, 1000)
-            else
-                setTimeout(() => this.show = true, 200)
-
-        }
 
         public mounted(): void
         {
@@ -63,7 +52,7 @@
             })
 
             this.bus.subscribe(EventName.CLOSE_WIN_SCREEN, () => {
-                this.isOpen = false
+                setTimeout(() => this.isOpen = false, 0)
             })
         }
 
@@ -73,7 +62,6 @@
                 return
 
             this.bus.publish(CHEST_OPEN_EVENT())
-            this.hideInsides = true
             this.isOpen = true
         }
     }
@@ -92,6 +80,7 @@
         margin 0 auto
         height 100vh
         width 100%
+        opacity 0
         bottom 0
         &__container
             position relative

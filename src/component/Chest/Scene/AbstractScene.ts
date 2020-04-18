@@ -4,6 +4,8 @@ import { SCENE_LOADED_EVENT } from "@/event"
 
 abstract class AbstractScene
 {
+    protected camera: THREE.Camera = this.createCamera()
+
     abstract loadModel({ models, animations }: {
         models: THREE.Object3D[] | THREE.Mesh[],
         animations: THREE.AnimationClip[]
@@ -15,6 +17,11 @@ abstract class AbstractScene
 
     public play(): void
     {
+    }
+
+    public createCamera(): THREE.Camera
+    {
+        return new THREE.PerspectiveCamera(50.0, window.innerWidth / window.innerHeight, 0.1, 1000)
     }
 
     public setupCamera(camera: THREE.Camera): this
@@ -44,6 +51,11 @@ abstract class AbstractScene
     protected sendLoadedSceneEvent(bus: EventBus): void
     {
         setTimeout(() => bus.publish(SCENE_LOADED_EVENT({ scene: this })), 500)
+    }
+
+    public getCamera(): THREE.Camera
+    {
+        return this.camera
     }
 }
 
