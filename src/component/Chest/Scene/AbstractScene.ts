@@ -4,7 +4,7 @@ import { SCENE_LOADED_EVENT } from "@/event"
 
 abstract class AbstractScene
 {
-    protected camera: THREE.Camera = this.createCamera()
+    protected _camera: THREE.PerspectiveCamera = this.createCamera()
 
     abstract loadModel({ models, animations }: {
         models: THREE.Object3D[] | THREE.Mesh[],
@@ -19,7 +19,16 @@ abstract class AbstractScene
     {
     }
 
-    public createCamera(): THREE.Camera
+    public onResize(renderer: THREE.WebGLRenderer): void
+    {
+        this.camera.aspect = window.innerWidth / window.innerHeight
+        this.camera.updateProjectionMatrix()
+
+        renderer.setSize(window.innerWidth, window.innerHeight)
+
+    }
+
+    public createCamera(): THREE.PerspectiveCamera
     {
         return new THREE.PerspectiveCamera(50.0, window.innerWidth / window.innerHeight, 0.1, 1000)
     }
@@ -53,9 +62,12 @@ abstract class AbstractScene
         setTimeout(() => bus.publish(SCENE_LOADED_EVENT({ scene: this })), 500)
     }
 
-    public getCamera(): THREE.Camera
+    public get camera(): THREE.PerspectiveCamera
     {
-        return this.camera
+        if (undefined === this._camera)
+            this._camera =  this.createCamera()
+
+        return this._camera
     }
 }
 

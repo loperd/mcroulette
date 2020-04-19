@@ -15,11 +15,11 @@ class ChestPhysicalScene extends AbstractScene
     {
         super()
         this.scene = new Physijs.Scene()
-        this.setupScene(this.getCamera())
-        this.setupCamera(this.getCamera())
+        this.setupScene(this.camera)
+        this.setupCamera(this.camera)
         this.setupGround()
 
-        this.setupLight(this.getCamera())
+        this.setupLight(this.camera)
     }
 
     public play(): void
@@ -45,12 +45,11 @@ class ChestPhysicalScene extends AbstractScene
     public async reset(): Promise<void>
     {
         this.scene = new Physijs.Scene()
-        this.camera = this.createCamera()
 
-        this.setupScene(this.getCamera())
-        this.setupCamera(this.getCamera())
+        this.setupScene(this.camera)
+        this.setupCamera(this.camera)
         this.setupGround()
-        this.setupLight(this.getCamera())
+        this.setupLight(this.camera)
         this.setupModel(this.chest.clone())
     }
 

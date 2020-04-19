@@ -54,10 +54,12 @@
             this.layer.add(this.circle)
             this.stage.add(this.layer)
 
-            window.addEventListener('resize', () => this.resize())
+            window.addEventListener('resize', e => {
+                setTimeout(() => this.resize(e), 0)
+            })
         }
 
-        resize(): void
+        async resize(event: UIEvent): Promise<void>
         {
             this.stage.width(window.innerWidth)
             this.stage.height(window.innerHeight)
@@ -65,29 +67,33 @@
             this.circle.x(this.stage.width() / 2)
             this.circle.y(this.stage.height() / 2)
 
-            this.arc.x(this.stage.width() / 2)
-            this.arc.y(this.stage.height() / 2)
+            this.arc.x(window.innerWidth / 2)
+            this.arc.y(window.innerHeight / 2)
 
             this.drawArc()
             this.drawCircle()
+
+            this.stage.draw()
         }
 
         private radius(): number
         {
-            const width: number = this.stage.width()
+            const value: number = this.stage.width() > this.stage.height()
+                ? this.stage.width()
+                : this.stage.height()
 
             switch (true) {
-                case width < 640:
-                    return width / 3
-                case width < 768:
-                    return width / 4
-                case width < 1024:
-                    return width / 5
-                case width < 1280:
-                    return width / 7
+                case value < 640:
+                    return value / 3
+                case value < 768:
+                    return value / 4
+                case value < 1024:
+                    return value / 5
+                case value < 1280:
+                    return value / 7
             }
 
-            return width / 10
+            return value / 10
         }
 
         private drawCircle(): this
