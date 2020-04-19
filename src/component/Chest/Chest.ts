@@ -27,7 +27,7 @@ class Chest
         this.nonPhysicalScene = new ChestDefaultScene(bus)
         this.physicalScene = new ChestPhysicalScene(bus)
 
-        this.subscribeScenesOnLoadModel()
+        this.setupScenes()
     }
 
     private onChestOpened(): void
@@ -35,12 +35,17 @@ class Chest
         this.bus.publish(CHEST_OPENED_EVENT({ chest: this }))
     }
 
-    public subscribeScenesOnLoadModel(): void
+    public setupScenes(): void
     {
         this.bus.subscribe(EventName.MODEL_LOADED, event =>
         {
             this.nonPhysicalScene.loadModel(event.payload)
             this.physicalScene.loadModel(event.payload)
+        })
+
+        window.addEventListener('resize', () => {
+            this.physicalScene.onResize(this.renderer)
+            this.nonPhysicalScene.onResize(this.renderer)
         })
     }
 
@@ -183,7 +188,7 @@ class Chest
             })
         }
 
-        this.renderer.render(scene.getScene(), this.getActiveScene().getCamera())
+        this.renderer.render(scene.getScene(), this.getActiveScene().camera)
     }
 }
 

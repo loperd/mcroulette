@@ -16,9 +16,9 @@ class ChestDefaultScene extends AbstractScene
     constructor(private bus: EventBus)
     {
         super()
-        this.setupScene(this.getCamera())
-        this.setupCamera(this.getCamera())
-        this.setupLight(this.getCamera())
+        this.setupScene(this.camera)
+        this.setupCamera(this.camera)
+        this.setupLight(this.camera)
     }
 
     get animations(): THREE.AnimationClip[]
@@ -46,9 +46,9 @@ class ChestDefaultScene extends AbstractScene
 
         const chest = this.chest.clone()
 
-        this.setupScene(this.getCamera())
-        this.setupCamera(this.getCamera())
-        this.setupLight(this.getCamera())
+        this.setupScene(this.camera)
+        this.setupCamera(this.camera)
+        this.setupLight(this.camera)
 
         this.setupAnimations(chest).catch(err => err)
         this.setupModel(chest).catch(err => err)
