@@ -40,7 +40,7 @@
             })
             this.bus.subscribe(EventName.CHEST_OPEN, () => this.open())
             this.bus.subscribe(EventName.CLOSE_WIN_SCREEN, () => {
-                setTimeout(() => this.chest.reset().swapActiveScene().play(), 500)
+                this.chest.reset().swapActiveScene().play()
             })
         }
 
