@@ -49,9 +49,9 @@
             const listManager = new ListManager(".roulette")
 
             this._roulette = new Roulette(listManager, {
-                acceleration: 450,
+                acceleration: 500,
                 spacing: 5,
-                duration: 1300,
+                duration: 1200,
                 audio: audio,
                 bus: this.bus,
             })
@@ -73,7 +73,7 @@
         {
             this.showRoulette = true
 
-            setTimeout(() => this.roulette.rotateTo(1, { time: 7, random: true }), 200)
+            setTimeout(() => this.roulette.rotateTo(1, { time: 5, random: true }), 200)
         }
 
         public stop(): void
