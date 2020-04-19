@@ -73,19 +73,16 @@ body, html
   outline 0 !important
 
 .blurOut {
-  -webkit-transition all 0.25s ease-out
-  -webkit-transform scale(.9, .9)
   transition all 0.25s ease-out
-  -webkit-filter blur(8px)
+  transform scale(.85, .85)
   visibility hidden
+  filter blur(15px)
   opacity 0.25
 }
 
 .blurIn {
-  -webkit-transition all 0.25s ease-in
-  visibility visible !important
   transition all 0.25s ease-in
-  -webkit-transform scale(1, 1)
-  filter blur(0px) !important
-  -webkit-filter blur(0px)
+  transform scale(1, 1)
+  visibility visible
+  filter blur(0px)
 }
