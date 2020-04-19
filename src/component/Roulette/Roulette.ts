@@ -131,8 +131,16 @@ class Roulette
 
     playClick(): void
     {
+        if (this.isAudioPlaying())
+            return
+
         try {
-            let promise = this.audio["clone"]().play()
+
+            const audio = this.audio["clone"]()
+
+            audio.volume = .05
+
+            let promise = audio.play()
 
             if (promise && promise.catch)
                 promise.catch(e => e)
@@ -221,7 +229,6 @@ class Roulette
             totalTime = v0 / k
 
         let
-            halfBlock = this.spacing + this.prizeWidth / 2,
             blockWidth = this.prizeWidth + this.spacing,
             start = performance.now(),
             currentBlock = 0
@@ -231,27 +238,21 @@ class Roulette
 
             let t = (time - start) / this.duration
 
-            if (t > totalTime) {
-                this.stop()
-                return
-            }
+            if (t > totalTime)
+                return this.stop()
 
             let currentPos = (starter + (v0 * t - k * t * t / 2)) % this.width
-
-            if (Math.floor(currentPos / blockWidth) !== currentBlock) {
-                let block = this.firstBlock
-                block.marginLeft(0)
-                this.list.appendChild(block)
-                currentBlock = (currentBlock + 1) % this.prizes.length
-            }
-
             let margin = currentPos % blockWidth
 
-            this.firstBlock.marginLeft(-margin)
+            if (Math.floor(currentPos / blockWidth) === currentBlock)
+                return this.firstBlock.marginLeft(-margin)
 
-            if (margin > halfBlock && !this.isAudioPlaying) {
-                this.playClick()
-            }
+            this.firstBlock.marginLeft(0)
+            this.list.appendChild(this.firstBlock)
+
+            currentBlock = (currentBlock + 1) % this.prizes.length
+
+            this.playClick()
         }
 
         requestAnimationFrame(rotate)
