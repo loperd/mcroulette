@@ -1,5 +1,5 @@
 <template>
-    <div v-if="show" class="chest-inside animated" :class="!isOpen ? 'fadeInUp' : 'fadeOutDown'">
+    <div v-if="isLoaded" class="chest-inside animated" :class="!isOpen ? 'fadeInUp' : 'fadeOutDown'">
         <div class="chest-inside__container">
             <div class="chest-inside__more-text">Предметы, которые могут быть в этом сундуке:</div>
             <vue-custom-scrollbar class="chest-inside__container-items" :settings="{
@@ -26,7 +26,7 @@
 <script lang="ts">
     /* eslint-disable */
     import { ChestPhysicalScene } from "@/component/Chest/Scene"
-    import { Component, Vue, Watch } from "vue-property-decorator"
+    import { Component, Vue } from "vue-property-decorator"
     import { CHEST_OPEN_EVENT } from "@/event"
     import EventName from "@/event/EventName"
     import { Inject } from "vue-di-container"
@@ -39,7 +39,7 @@
         @Inject(EventBus) private bus!: EventBus
 
         private isOpen: boolean = false
-        private show: boolean = false
+        private isLoaded: boolean = false
 
         public mounted(): void
         {
@@ -48,11 +48,11 @@
                     return
                 }
 
-                this.show = true
+                this.isLoaded = true
             })
 
             this.bus.subscribe(EventName.CLOSE_WIN_SCREEN, () => {
-                setTimeout(() => this.isOpen = false, 0)
+                setTimeout(() => this.isOpen = false, 500)
             })
         }
 
