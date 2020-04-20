@@ -5,6 +5,7 @@
         <ChestInsides/>
         <Roulette/>
         <WinScreen/>
+        <Loader/>
     </div>
 </template>
 
@@ -14,6 +15,7 @@
     import CircleCenter from "./component/Circle.vue"
     import WinScreen from "./component/WinScreen.vue"
     import Roulette from "./component/Roulette.vue"
+    import Loader from "./component/Loader.vue"
     import Chest from "./component/Chest.vue"
 
 
@@ -24,6 +26,7 @@
             CircleCenter,
             Roulette,
             WinScreen,
+            Loader,
         },
     })
 
