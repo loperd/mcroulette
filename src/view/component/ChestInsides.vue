@@ -83,12 +83,12 @@
             height 50%
             top 50%
         &__more-text
-            font-family 'M PLUS Rounded 1c', sans-serif
+            font-family "Exo 2", sans-serif
             user-select none
             pointer-events none
             position: relative
             padding 0 0 10px 0
-            font-weight: 600
+            font-weight: 700
             text-align left
             z-index 1
             font-size $moreTextFS
@@ -125,8 +125,9 @@
             &-title
                 text-shadow 6px 7px 10px #000000
                 color rgba(255, 255, 255, .9)
+                font-family 'Exo 2', sans-serif
                 user-select none
-                font-weight 700
+                font-weight 600
                 padding 6px 0 0
                 pointer-events none
 

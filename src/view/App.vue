@@ -39,7 +39,7 @@
 
 <style lang="stylus" scoped>
     #app
-        font-family 'M PLUS Rounded 1c', sans-serif
+        font-family 'Roboto', sans-serif
         -webkit-font-smoothing antialiased
         -moz-osx-font-smoothing grayscale
         text-align center
