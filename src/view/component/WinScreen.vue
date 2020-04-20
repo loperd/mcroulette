@@ -87,10 +87,11 @@
 
         &__item-title
             text-shadow 8px 5px 10px rgba(26,26,26,0.55)
+            font-family 'Exo 2', sans-serif
+            font-weight 600
             position relative
             padding 20px 0
             font-size 2.5em
-            font-weight 500
             color #fff
             &:after
                 transform translate(-50%, 0)

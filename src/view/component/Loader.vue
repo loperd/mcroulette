@@ -1,6 +1,6 @@
 <template>
-    <div class="loader animated">
-        <div class="loader__container animated">
+    <div v-if="show" class="loader animated">
+        <div class="loader__container animated flash infinite">
             <div class="loader__title animated">LOADING</div>
             <div class="loader__progress-bar"></div>
         </div>
@@ -43,9 +43,6 @@
                 // @ts-ignore
                 progressBar.style.width = loadedPercent.toString() + '%'
 
-                if (loadedPercent > 0 && !loadingTitle.classList.contains('infinite'))
-                        loadingTitle.classList.add('flash', 'infinite')
-
                 if (loadedPercent >= 90)
                     loadingTitle.classList.remove('infinite')
 
@@ -54,7 +51,9 @@
 
                 setTimeout(() => this.bus.publish(LOADING_IS_COMPLETE_EVENT()), 2400)
                 setTimeout(() => container.classList.add('fadeOutUp'), 800)
+                setTimeout(() => container.style.display = 'none', 1400)
                 setTimeout(() => loader.classList.add('fadeOutUp'), 1600)
+                setTimeout(() => this.show = false, 2400)
             }
         }
     }
@@ -63,7 +62,6 @@
 <style lang="stylus" scoped>
     .loader
         background radial-gradient(circle at 50%, #000000, #000000, #000000)
-        font-family 'Orbitron', sans-serif
         justify-content center
         pointer-events none
         align-items center
@@ -85,8 +83,8 @@
                 display block
 
         &__title
+            font-family 'Orbitron', sans-serif
             text-transform uppercase
-            opacity 0
             font-weight 400
             font-size 2em
             color #fff
