@@ -43,25 +43,22 @@
                 // @ts-ignore
                 progressBar.style.width = loadedPercent.toString() + '%'
 
-                if (loadedPercent > 0 && loadedPercent < 90)
-                    loadingTitle.classList.add('flash', 'infinite')
-                else
+                if (loadedPercent > 0 && !loadingTitle.classList.contains('infinite'))
+                        loadingTitle.classList.add('flash', 'infinite')
+
+                if (loadedPercent >= 90)
                     loadingTitle.classList.remove('infinite')
 
-                if (loadedPercent > 95) {
-                    setTimeout(() => this.bus.publish(LOADING_IS_COMPLETE_EVENT()), 2400)
-                    setTimeout(() => container.classList.add('fadeOutUp'), 800)
-                    setTimeout(() => loader.classList.add('fadeOutUp'), 1600)
-                }
+                if (loadedPercent <= 95)
+                    return
+
+                setTimeout(() => this.bus.publish(LOADING_IS_COMPLETE_EVENT()), 2400)
+                setTimeout(() => container.classList.add('fadeOutUp'), 800)
+                setTimeout(() => loader.classList.add('fadeOutUp'), 1600)
             }
         }
     }
 </script>
-
-<style lang="stylus">
-    @import url('https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@100;300;400;500;600;700&display=swap')
-    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600&display=swap')
-</style>
 
 <style lang="stylus" scoped>
     .loader
