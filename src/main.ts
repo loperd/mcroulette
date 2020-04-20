@@ -1,6 +1,6 @@
 import VueCustomScrollbar from "vue-custom-scrollbar"
 import { VueDiContainer } from "vue-di-container"
-import { EventBus } from "ts-bus"
+import { diProvide } from "@/services"
 import App from "./view/App.vue"
 import { store } from "./store"
 import Vue from "vue"
@@ -13,6 +13,6 @@ Vue.use(VueDiContainer)
 
 new Vue({
     render: h => h(App),
-    diProvide: [EventBus],
+    diProvide,
     store,
 }).$mount("#app")

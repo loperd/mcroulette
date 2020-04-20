@@ -33,18 +33,14 @@
             this.chest.swapActiveScene()
             this.renderCanvas()
 
-            this.bus.subscribe(EventName.SCENE_LOADED, (e: BusEvent): void => {
-                if (e.payload.scene instanceof ChestPhysicalScene) {
-                    e.payload.scene.play() // turn physic to enable
-                }
-            })
+            this.bus.subscribe(EventName.LOADING_IS_COMPLETE, () => this.chest.play())
             this.bus.subscribe(EventName.CHEST_OPEN, () => this.open())
             this.bus.subscribe(EventName.CLOSE_WIN_SCREEN, () => {
                 this.chest.reset().swapActiveScene().play()
             })
         }
 
-        public open()
+        public open(): void
         {
             this.chest.swapActiveScene()
             this.chest.open()

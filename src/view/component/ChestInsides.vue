@@ -25,12 +25,10 @@
 
 <script lang="ts">
     /* eslint-disable */
-    import { ChestPhysicalScene } from "@/component/Chest/Scene"
     import { Component, Vue } from "vue-property-decorator"
     import { CHEST_OPEN_EVENT } from "@/event"
     import EventName from "@/event/EventName"
     import { Inject } from "vue-di-container"
-    import { BusEvent } from "ts-bus/types"
     import { EventBus } from "ts-bus"
 
     @Component
@@ -43,11 +41,7 @@
 
         public mounted(): void
         {
-            this.bus.subscribe(EventName.SCENE_LOADED, (e: BusEvent): void => {
-                if (!(e.payload.scene instanceof ChestPhysicalScene)) {
-                    return
-                }
-
+            this.bus.subscribe(EventName.LOADING_IS_COMPLETE, (): void => {
                 this.isLoaded = true
             })
 
@@ -90,6 +84,8 @@
             top 50%
         &__more-text
             font-family 'M PLUS Rounded 1c', sans-serif
+            user-select none
+            pointer-events none
             position: relative
             padding 0 0 10px 0
             font-weight: 600
@@ -128,9 +124,11 @@
             margin-bottom 15px
             &-title
                 text-shadow 6px 7px 10px #000000
+                color rgba(255, 255, 255, .9)
+                user-select none
                 font-weight 700
                 padding 6px 0 0
-                color rgba(255, 255, 255, .9)
+                pointer-events none
 
             &-overlay
                 display inline-block
