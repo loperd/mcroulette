@@ -1,8 +1,9 @@
 export class Item {
     constructor(
-        public id: number,
+        public id: string,
         public title: string,
         public image: string,
-        public type: string
+        public type: string,
+        public chance: number
     ) {}
 }

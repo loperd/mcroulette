@@ -1,9 +1,9 @@
 <template>
-    <div class="roulette-view" :class="showRoulette ? 'blurIn' : 'blurOut'">
+    <div v-if="initialized" class="roulette-view" :class="showRoulette ? 'blurIn' : 'blurOut'">
         <div class="roulette-view__zoom-loupe roulette-view__roulette-wrapper">
             <div class="roulette-view__cursor"></div>
             <div class="roulette">
-                <div class="prize-item" :data-key="item.id" v-for="(item, i) in items" :key="item.id + 5 + i" :class="item.type">
+                <div class="prize-item" :data-key="item.id" v-for="(item, i) in prizes" :key="item.id + 5 + i" :class="item.type">
                     <div class="prize-item__overlay"
                          :style="`background-image: url(${item.image})`"
                          :class="item.type"
@@ -21,43 +21,50 @@
     import ListManager from "@/component/Roulette/ListManager"
     import { Component, Vue } from "vue-property-decorator"
     import Roulette from "@/component/Roulette/Roulette"
-    import axios from "axios"
-    import { EventBus } from "ts-bus"
-    import { EventName } from "@/event"
-    import { BusEvent } from "ts-bus/types"
     import { Inject } from "vue-di-container"
+    import { Item } from "@/struct/Item"
+    import { Getter } from "vuex-class"
+    import { EventName } from "@/event"
+    import { EventBus } from "ts-bus"
+    import axios from "axios"
 
     @Component
     export default class extends Vue
     {
+        @Inject(EventBus) private bus!: EventBus
+        @Getter prizes!: Item[]
+
+        private audio?: HTMLAudioElement
         public name: string = "Roulette"
-        private showRoulette: boolean = false
         private _roulette?: Roulette
 
-        @Inject(EventBus) private bus!: EventBus
-
-
-        get items(): Array<object>
-        {
-            return this.$store.getters.items
-        }
+        private initialized: boolean = false
+        private showRoulette: boolean = false
 
         public async mounted(): Promise<void>
         {
-            const audio: HTMLAudioElement = await this.loadAudio("/audio/click.wav")
+            this.audio = await this.loadAudio("/audio/click.wav")
 
-            const listManager = new ListManager(".roulette")
+            this.bus.subscribe(EventName.CHEST_OPEN, () => this.init())
+            this.bus.subscribe(EventName.CHEST_OPENED, () => this.play())
+            this.bus.subscribe(EventName.ROULETTE_STOPPED, () => this.stop())
+        }
 
-            this._roulette = new Roulette(listManager, {
-                acceleration: 500,
-                spacing: 5,
-                duration: 1200,
-                audio: audio,
-                bus: this.bus,
-            })
+        init(): void
+        {
+            this.initialized = true
 
-            this.bus.subscribe(EventName.CHEST_OPENED, (e: BusEvent) => this.play())
-            this.bus.subscribe(EventName.ROULETTE_STOPPED, (e: BusEvent) => this.stop())
+            setTimeout(() => {
+                const listManager = new ListManager(".roulette")
+
+                this._roulette = new Roulette(listManager, {
+                    acceleration: 500,
+                    spacing: 5,
+                    duration: 1200,
+                    audio: this.audio,
+                    bus: this.bus,
+                })
+            }, 100)
         }
 
         public get roulette(): Roulette
