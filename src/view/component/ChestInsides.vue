@@ -6,7 +6,7 @@
                     minScrollbarLength: 60,
                     suppressScrollX: true,
             }">
-                <div v-for="(item, i) in $store.getters.items" :key="`ci${item.id}-${i}`" class="chest-inside__item">
+                <div v-for="(item, i) in items" :key="`ci${item.id}-${i}`" class="chest-inside__item">
                     <div class="chest-inside__item-overlay" :class="item.type">
                         <div class="chest-inside__item-overlay_preview-image" :style="`background-image: url(${item.image})`"></div>
                     </div>
@@ -29,7 +29,9 @@
     import { CHEST_OPEN_EVENT } from "@/event"
     import EventName from "@/event/EventName"
     import { Inject } from "vue-di-container"
+    import { Getter } from "vuex-class"
     import { EventBus } from "ts-bus"
+    import { Item } from "@/struct/Item"
 
     @Component
     export default class extends Vue
@@ -38,6 +40,8 @@
 
         private isOpen: boolean = false
         private isLoaded: boolean = false
+
+        @Getter items!: Item[]
 
         public mounted(): void
         {

@@ -7,8 +7,6 @@ import { EventBus } from "ts-bus"
 import { filter } from "lodash"
 import * as THREE from "three"
 
-import AbstractScene from "./Scene/AbstractScene"
-
 class Chest
 {
     public static DEFAULT_MODEL_FILENAME: string = "treasure-game-chest.gltf"

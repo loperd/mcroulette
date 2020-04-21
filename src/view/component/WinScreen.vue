@@ -14,35 +14,39 @@
 <script lang="ts">
     import UnexpectedErrorException from "@/component/Roulette/Exception/UnexpectedErrorException"
     import { Component, Vue, Watch } from "vue-property-decorator"
+    import { CLOSE_WIN_SCREEN_EVENT, EventName } from "@/event"
     import Prize from "@/component/Roulette/Prize"
     import { Inject } from "vue-di-container"
+    import CircleCenter from "./Circle.vue"
     import { BusEvent } from "ts-bus/types"
     import { Item } from "@/struct/Item"
-    import { CLOSE_WIN_SCREEN_EVENT, EventName } from "@/event"
     import { Getter } from "vuex-class"
     import { EventBus } from "ts-bus"
-    import CircleCenter from './Circle.vue'
 
-    @Component({ components: {CircleCenter} })
-    export default class extends Vue {
+    @Component({ components: { CircleCenter } })
+    export default class extends Vue
+    {
         @Inject(EventBus) private bus!: EventBus
 
-        private item: Item = new Item(1, 'default', 'default', 'default')
-        public name: string =  "WinScreen"
-        private prize: null|Prize = null
+        private item?: Item;
+        public name: string = "WinScreen"
+        private prize: null | Prize = null
         private show: boolean = false
 
-        @Getter items
+        @Getter findItemById!: (id: string) => Item
 
-        @Watch('prize')
-        public findItem(): void
+        constructor() {
+            super(); this.item = new Item("0", "default", "img", "default", 100)
+        }
+
+        @Watch("prize")
+        public selectPrizeItem(): void
         {
             if (!this.prize)
                 return
 
-            const itemId = parseInt(this.prize?.itemId)
-
-            let item = this.items.filter(item => itemId === item.id)?.pop()
+            let itemId = this.prize?.itemId || "",
+                item = this.findItemById(itemId)
 
             if (!item) {
                 throw new UnexpectedErrorException(`Can not find item with id #${itemId}.`)
@@ -59,7 +63,8 @@
 
         public mounted(): void
         {
-            this.bus.subscribe(EventName.ROULETTE_STOPPED, (e: BusEvent) => {
+            this.bus.subscribe(EventName.ROULETTE_STOPPED, (e: BusEvent) =>
+            {
                 this.prize = e.payload.prize
                 this.show = true
             })
@@ -79,6 +84,7 @@
         content ''
         left 0
         top 0
+
         &__container
             position: relative
             margin: 0 auto
@@ -86,13 +92,14 @@
             width 50%
 
         &__item-title
-            text-shadow 8px 5px 10px rgba(26,26,26,0.55)
+            text-shadow 8px 5px 10px rgba(26, 26, 26, 0.55)
             font-family 'Exo 2', sans-serif
             font-weight 600
             position relative
             padding 20px 0
             font-size 2.5em
             color #fff
+
             &:after
                 transform translate(-50%, 0)
                 box-shadow 9px 9px 7px 0 rgba(26, 26, 26, 0.55)
@@ -103,10 +110,13 @@
                 width 25%
                 left 50%
                 bottom 0
+
             &.default:after
                 background-image linear-gradient(90deg, #005bff, #0c5399)
+
             &.primary:after
                 background-image linear-gradient(90deg, #8846c7, #671ab4)
+
             &.legendary:after
                 background-image linear-gradient(90deg, #da3217, #9a1616)
 
@@ -126,6 +136,7 @@
             position: absolute
             bottom 20px
             width 100%
+
             > .btn
                 float right
 
