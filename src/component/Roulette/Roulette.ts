@@ -126,7 +126,7 @@ class Roulette
             return
         }
 
-        this.rotateByTracks(prize, tracks, random)
+        setTimeout(() => this.rotateByTracks(prize, tracks, random), 200)
     }
 
     playClick(): void
@@ -199,8 +199,6 @@ class Roulette
     get firstBlock(): Prize
     {
         const element = this.list.defaultList.querySelector<HTMLLIElement>(`:scope > .${roulettePrizeClass}`)
-
-        // console.log(this.list.defaultList)
 
         return this.findPrize({ element: element || undefined })
     }

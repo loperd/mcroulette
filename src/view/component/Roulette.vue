@@ -1,9 +1,10 @@
 <template>
-    <div v-if="initialized" class="roulette-view" :class="showRoulette ? 'blurIn' : 'blurOut'">
+    <div class="roulette-view" :class="showRoulette ? 'blurIn' : 'blurOut'">
         <div class="roulette-view__zoom-loupe roulette-view__roulette-wrapper">
             <div class="roulette-view__cursor"></div>
             <div class="roulette">
-                <div class="prize-item" :data-key="item.id" v-for="(item, i) in prizes" :key="item.id + 5 + i" :class="item.type">
+                <div class="prize-item" :data-key="`${item.id}_${i}`" v-for="(item, i) in prizes"
+                     :key="Math.random() * item.id" :class="item.type">
                     <div class="prize-item__overlay"
                          :style="`background-image: url(${item.image})`"
                          :class="item.type"
@@ -18,6 +19,7 @@
 </template>
 
 <script lang="ts">
+    import { CHEST_OPEN, CREATE_PRIZES } from "@/store/modules/types"
     import ListManager from "@/component/Roulette/ListManager"
     import { Component, Vue } from "vue-property-decorator"
     import Roulette from "@/component/Roulette/Roulette"
@@ -32,39 +34,25 @@
     export default class extends Vue
     {
         @Inject(EventBus) private bus!: EventBus
+        @Getter prizeIndex!: number
         @Getter prizes!: Item[]
+        @Getter prize!: Item
 
         private audio?: HTMLAudioElement
         public name: string = "Roulette"
         private _roulette?: Roulette
 
-        private initialized: boolean = false
         private showRoulette: boolean = false
 
         public async mounted(): Promise<void>
         {
             this.audio = await this.loadAudio("/audio/click.wav")
 
+            await this.$store.dispatch(CREATE_PRIZES)
+
             this.bus.subscribe(EventName.CHEST_OPEN, () => this.init())
             this.bus.subscribe(EventName.CHEST_OPENED, () => this.play())
             this.bus.subscribe(EventName.ROULETTE_STOPPED, () => this.stop())
-        }
-
-        init(): void
-        {
-            this.initialized = true
-
-            setTimeout(() => {
-                const listManager = new ListManager(".roulette")
-
-                this._roulette = new Roulette(listManager, {
-                    acceleration: 500,
-                    spacing: 5,
-                    duration: 1200,
-                    audio: this.audio,
-                    bus: this.bus,
-                })
-            }, 100)
         }
 
         public get roulette(): Roulette
@@ -76,11 +64,28 @@
             return this._roulette
         }
 
+        public async init(): Promise<void>
+        {
+            await this.$store.dispatch(CHEST_OPEN)
+
+            const listManager = new ListManager(".roulette")
+
+            this._roulette = new Roulette(listManager, {
+                audio: this.audio,
+                bus: this.bus,
+                spacing: 5,
+                duration: 1200,
+                acceleration: 500,
+            })
+        }
+
         public play(): void
         {
             this.showRoulette = true
 
-            setTimeout(() => this.roulette.rotateTo(1, { time: 5, random: true }), 200)
+            console.log(this.$store.state.selectedPrizeIndex)
+
+            this.roulette.rotateTo(this.prizeIndex, { time: 5, random: true })
         }
 
         public stop(): void
@@ -117,6 +122,7 @@
         width 100%
         left 0
         top 0
+
         &:after
             background-image radial-gradient(circle at 50%, transparent 15%, rgba(0, 0, 0, .2), rgba(0, 0, 0, .7))
             position absolute
@@ -125,6 +131,7 @@
             content ''
             top 0
             left 0
+
         &__roulette-wrapper
             align-items center
             position absolute
@@ -133,6 +140,7 @@
             width 100%
             top 0
             left 0
+
         &__zoom-loupe
             clip-path circle(15% at 50% 50%)
             background rgba(0, 0, 0, .1)
@@ -143,13 +151,14 @@
             width 100%
             top 0
             left 0
+
         &__bg-roulette
             filter blur(5px)
+
             &:before
                 background-image url($chestImage)
                 clip-path circle(18% at 50% 50%)
                 transform translate(0, -50%)
-                filter blur(8px)
                 background-repeat no-repeat
                 background-position center
                 background-size contain
@@ -159,6 +168,7 @@
                 content ''
                 top 50%
                 left 0
+
             &:after
                 background-image url($chestImage)
                 background-repeat no-repeat
@@ -173,14 +183,17 @@
                 content ''
                 top 50%
                 left 0
+
             .roulette
                 z-index -1
                 opacity .6
+
         &__cursor
             height $rouletteHeight
             position absolute
             width 100%
             content ''
+
             &:before
                 display: block
                 position absolute
