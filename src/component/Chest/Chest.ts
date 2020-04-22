@@ -9,7 +9,7 @@ import * as THREE from "three"
 
 class Chest
 {
-    public static DEFAULT_MODEL_FILENAME: string = "treasure-game-draco.glb"
+    public static DEFAULT_MODEL_FILENAME: string = "treasure-game.glb"
 
     private readonly nonPhysicalScene: ChestDefaultScene
     private readonly physicalScene: ChestPhysicalScene
