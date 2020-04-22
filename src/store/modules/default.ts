@@ -17,7 +17,7 @@ class DefaultState
 {
     public selectedPrize: Item = Item.mock()
     public selectedPrizeIndex: number = 0
-    public totalCountPrizes: number = 50
+    public totalCountPrizes: number = 40
     public prizes: Item[] = new Array<Item>()
     public items: Item[] = new Array<Item>()
 }
