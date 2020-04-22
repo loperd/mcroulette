@@ -2,15 +2,7 @@
     <div class="roulette-view" :class="showRoulette ? 'blurIn' : 'blurOut'">
         <div class="roulette-view__zoom-loupe roulette-view__roulette-wrapper">
             <div class="roulette-view__cursor"></div>
-            <div class="roulette">
-                <div class="prize-item" :data-key="`${item.id}_${i}`" v-for="(item, i) in prizes"
-                     :key="Math.random() * item.id" :class="item.type">
-                    <div class="prize-item__overlay"
-                         :style="`background-image: url(${item.image})`"
-                         :class="item.type"
-                    ></div>
-                </div>
-            </div>
+            <div class="roulette"></div>
         </div>
         <div class="roulette-view__bg-roulette roulette-view__roulette-wrapper">
             <div class="roulette"></div>
@@ -38,17 +30,28 @@
         @Getter prizes!: Item[]
         @Getter prize!: Item
 
+        private showRoulette: boolean = false
+        private listManager!: ListManager
         private audio?: HTMLAudioElement
         public name: string = "Roulette"
         private _roulette?: Roulette
 
-        private showRoulette: boolean = false
+        private readonly SELECTOR = '.roulette'
 
         public async mounted(): Promise<void>
         {
             this.audio = await this.loadAudio("/audio/click.wav")
 
             await this.$store.dispatch(CREATE_PRIZES)
+
+            this.listManager = new ListManager(".roulette")
+            this._roulette = new Roulette(this.listManager, {
+                audio: this.audio,
+                bus: this.bus,
+                spacing: 5,
+                duration: 1200,
+                acceleration: 500,
+            })
 
             this.bus.subscribe(EventName.CHEST_OPEN, () => this.init())
             this.bus.subscribe(EventName.CHEST_OPENED, () => this.play())
@@ -68,15 +71,24 @@
         {
             await this.$store.dispatch(CHEST_OPEN)
 
-            const listManager = new ListManager(".roulette")
+            const roulette: Element | null = document.querySelector<HTMLElement>(`${this.SELECTOR}:last-child`)
 
-            this._roulette = new Roulette(listManager, {
-                audio: this.audio,
-                bus: this.bus,
-                spacing: 5,
-                duration: 1200,
-                acceleration: 500,
-            })
+            if (null === roulette)
+                throw "Roulette was not find"
+
+            for (let [i, prize] of this.prizes.entries()) {
+                roulette.insertAdjacentHTML("beforeend",
+                    `<div class="prize-item" data-key="${prize.id}_${i}" class="${prize.type}">
+                        <div class="prize-item__overlay"
+                             style="background-image: url(${prize.image})"
+                             class="item.type"
+                        ></div>
+                    </div>`
+                )
+            }
+
+            this.listManager.init()
+            this.roulette.init()
         }
 
         public play(): void
@@ -92,6 +104,14 @@
         public stop(): void
         {
             this.showRoulette = false
+            setTimeout(() => this.reset(), 200)
+        }
+
+        public reset(): void
+        {
+            this.listManager.reset()
+            document.querySelectorAll(this.SELECTOR)
+                .forEach(roulette => roulette.innerHTML = '')
         }
 
         private async loadAudio(path): Promise<HTMLAudioElement>

@@ -15,16 +15,17 @@ import { ROULETTE_START_EVENT, ROULETTE_STOPPED_EVENT } from "@/event"
 class Roulette
 {
     private readonly _audio: HTMLAudioElement | undefined
-    private readonly prizes: Prize[]
     private readonly acceleration: number
-    private readonly prizeWidth: number
+    private readonly selector: string
     private readonly duration: number
     private readonly spacing: number
-    private readonly width: number
 
-    private bus: EventBus
-    private list: ListManager
     private rotationTokens: WeakMap<this, number> = new WeakMap<this, number>()
+    private prizes: Prize[] = new Array<Prize>()
+    private listManager: ListManager
+    private prizeWidth: number = 0
+    private width: number = 0
+    private bus: EventBus
 
     constructor(listManager: ListManager, {
         spacing = 10,
@@ -42,39 +43,64 @@ class Roulette
         selector?: string
     })
     {
-        this.list = listManager
-        this.spacing = spacing
-
         if (duration < 1000)
             throw new UnexpectedErrorException("Error cannot less then 1000")
 
-        const node: (Node & ParentNode) = <(Node & ParentNode)>listManager.defaultList.parentNode
-
-        const childNodes = [...node.querySelectorAll<HTMLLIElement>(selector)]
+        if (audio && !audio["clone"]) {
+            audio["clone"] = audio.cloneNode ? audio.cloneNode : () => audio
+        }
 
         this.bus = bus
+        this._audio = audio
+        this.spacing = spacing
+        this.selector = selector
+        this.duration = duration
+        this.listManager = listManager
+        this.acceleration = acceleration
+        this.rotationTokens.set(this, -1)
+    }
+
+    public init(): this
+    {
+        const node: (Node & ParentNode) = <(Node & ParentNode)>this.listManager.defaultList.parentNode
+        const childNodes = [...node.querySelectorAll<HTMLLIElement>(this.selector)]
 
         if (!childNodes.length)
             throw new ItemsNotFoundException()
 
         let maxWidth: number = Math.max(...childNodes.map(x => x.offsetWidth))
         let maxHeight: number = Math.max(...childNodes.map(x => x.offsetHeight))
-
         let prizes: Prize[] = this.createPrizes(childNodes, maxWidth, maxHeight)
 
-        if (audio && !audio["clone"]) {
-            audio["clone"] = audio.cloneNode ? audio.cloneNode : () => audio
-        }
-
-        this._audio = audio
         this.prizes = prizes
-        this.duration = duration
-        this.acceleration = acceleration
-        this.width = (spacing + maxWidth) * prizes.length
         this.prizeWidth = maxWidth
-        this.rotationTokens.set(this, -1)
+        this.width = (this.spacing + maxWidth) * prizes.length
+
+        return this
     }
 
+    private createPrizes(childNodes: HTMLLIElement[], width, height): Prize[]
+    {
+        return childNodes.map((el: HTMLLIElement, i: number) => {
+            const key: string = el.dataset.key || ''
+
+            if (key === '')
+                throw new UnexpectedErrorException(`Key was not set for item #${i}`)
+
+            let wrapper = document.createElement("li");
+            wrapper.classList.add(roulettePrizeClass)
+            wrapper.style.marginRight = `${this.spacing}px`
+            wrapper.style.minHeight = `${height}px`
+            wrapper.style.minWidth = `${width}px`
+            wrapper.appendChild(el)
+
+            const prize: Prize = new Prize(key, i)
+
+            this.listManager.addChild(wrapper, prize)
+
+            return prize
+        })
+    }
 
     public get audio(): HTMLAudioElement
     {
@@ -197,7 +223,7 @@ class Roulette
 
     get firstBlock(): Prize
     {
-        const element = this.list.defaultList.querySelector<HTMLLIElement>(`:scope > .${roulettePrizeClass}`)
+        const element = this.listManager.defaultList.querySelector<HTMLLIElement>(`:scope > .${roulettePrizeClass}`)
 
         return this.findPrize({ element: element || undefined })
     }
@@ -209,7 +235,7 @@ class Roulette
 
     get center(): number
     {
-        return this.list.offsetLeft + window.innerWidth / 2
+        return this.listManager.offsetLeft + window.innerWidth / 2
     }
 
     rotateForward(pixels: number): void
@@ -245,7 +271,7 @@ class Roulette
                 return this.firstBlock.marginLeft(-margin)
 
             this.firstBlock.marginLeft(0)
-            this.list.appendChild(this.firstBlock)
+            this.listManager.appendChild(this.firstBlock)
 
             currentBlock = (currentBlock + 1) % this.prizes.length
 
@@ -282,29 +308,6 @@ class Roulette
         let l = v0 * v0 / (2 * this.acceleration)
         let tracks = Math.ceil(l / this.width)
         this.rotateByTracks(prize, tracks, random)
-    }
-
-    private createPrizes(childNodes: HTMLLIElement[], width, height): Prize[]
-    {
-        return childNodes.map((el: HTMLLIElement, i: number) => {
-            const key: string = el.dataset.key || ''
-
-            if (key === '')
-                throw new UnexpectedErrorException(`Key was not set for item #${i}`)
-
-            let wrapper = document.createElement("li");
-            wrapper.classList.add(roulettePrizeClass)
-            wrapper.style.marginRight = `${this.spacing}px`
-            wrapper.style.minHeight = `${height}px`
-            wrapper.style.minWidth = `${width}px`
-            wrapper.appendChild(el)
-
-            const prize: Prize = new Prize(key, i)
-
-            this.list.addChild(wrapper, prize)
-
-            return prize
-        })
     }
 }
 

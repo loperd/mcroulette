@@ -16,7 +16,7 @@ const _img = (s: string): string => "/static/icon/" + s
 class DefaultState
 {
     public selectedPrize: Item = Item.mock()
-    public selectedPrizeIndex?: number = undefined
+    public selectedPrizeIndex: number = 0
     public totalCountPrizes: number = 50
     public prizes: Item[] = new Array<Item>()
     public items: Item[] = new Array<Item>()
@@ -34,19 +34,14 @@ class DefaultGetters extends Getters<DefaultState>
         return this.state.items
     }
 
-    get prize(): Item | undefined
+    get prize(): Item
     {
         return this.state.selectedPrize
     }
 
-    get prizeIndex(): number | undefined
+    get prizeIndex(): number
     {
         return this.state.selectedPrizeIndex
-    }
-
-    get findItemById(): (id: string) => Item | undefined
-    {
-        return (id: string) => this.state.items.find(item => item.id === id)
     }
 }
 
@@ -68,7 +63,7 @@ class DefaultMutations extends Mutations<DefaultState>
     {
         this.state.prizes = []
         this.state.selectedPrize = Item.mock()
-        this.state.selectedPrizeIndex = undefined
+        this.state.selectedPrizeIndex = 0
     }
 
     public [SELECT_PRIZE] (prize: Item): void
@@ -80,22 +75,25 @@ class DefaultMutations extends Mutations<DefaultState>
     {
         prize = new Item(prize)
 
-        const selectedPrizeItems: number[] = new Array<number>()
+        const indexItems: number[] = new Array<number>()
+
         for (let [i, item] of this.state.prizes.entries()) {
             if (item.id === prize.id) {
-                selectedPrizeItems.push(i + 1)
+                indexItems.push(i + 1)
             }
         }
 
-        if (selectedPrizeItems.length === 0) {
-            // inject item if it doesn't exists in current prizes array
-            this.state.selectedPrizeIndex = randomInt(1, this.state.totalCountPrizes)
-            this.state.prizes.splice(this.state.selectedPrizeIndex - 1, 0, prize)
-            return
+        switch (indexItems.length.toString()) {
+            case '0':
+                this.state.selectedPrizeIndex = randomInt(1, this.state.totalCountPrizes)
+                this.state.prizes.splice(this.state.selectedPrizeIndex - 1, 0, prize)
+                break;
+            case '1':
+                this.state.selectedPrizeIndex = indexItems[0]
+                break;
+            default:
+                this.state.selectedPrizeIndex = indexItems[randomInt(0, indexItems.length)]
         }
-
-        // select one of more selected prize items
-        this.state.selectedPrizeIndex = selectedPrizeItems[randomInt(1, selectedPrizeItems.length)]
     }
 }
 

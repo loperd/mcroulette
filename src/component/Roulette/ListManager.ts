@@ -6,9 +6,16 @@ export default class ListManager
 {
     private lists: Array<HTMLUListElement> = new Array<HTMLUListElement>()
 
-    constructor(selector: string)
+    constructor(private selector: string) {}
+
+    public reset(): void
     {
-        document.querySelectorAll<HTMLElement>(selector).forEach((el: HTMLElement) => {
+        this.lists = new Array<HTMLUListElement>()
+    }
+
+    public init(): void
+    {
+        document.querySelectorAll<HTMLElement>(this.selector).forEach((el: HTMLElement) => {
             let list = document.createElement("ul")
             list.classList.add(rouletteListClass)
             el.appendChild(list)
@@ -18,6 +25,9 @@ export default class ListManager
 
     public get defaultList(): HTMLUListElement
     {
+        if (0 === this.lists.length)
+            throw "ListManager was not initialized"
+
         return this.lists[0]
     }
 
