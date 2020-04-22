@@ -83,9 +83,10 @@
         {
             this.showRoulette = true
 
-            console.log(this.$store.state.selectedPrizeIndex)
-
-            this.roulette.rotateTo(this.prizeIndex, { time: 5, random: true })
+            this.roulette.rotateTo(this.prizeIndex, {
+                time: 5, // times rotate
+                random: true // random position cursor on selected prize
+            })
         }
 
         public stop(): void

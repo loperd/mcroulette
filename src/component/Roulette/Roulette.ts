@@ -155,7 +155,6 @@ class Roulette
     }): Prize
     {
         if (Number.isNaN(index) && undefined === element) {
-            console.log(arguments)
             throw new NotEnoughArgumentsException()
         }
 

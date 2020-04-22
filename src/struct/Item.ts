@@ -18,4 +18,9 @@ export class Item {
         this.type = type
         this.chance = chance
     }
+
+    public static mock(): Item
+    {
+        return new Item({id: '0', title: 'default', image: 'default', chance: 100, type: 'default'})
+    }
 }
