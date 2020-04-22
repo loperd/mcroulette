@@ -120,7 +120,7 @@
                 margin-right 15px
         &__container-items
             overflow hidden
-            padding 25px 0
+            padding 25px 0 0
             height calc(100% - 115px)
             width 100%
         &__item
