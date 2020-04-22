@@ -258,8 +258,6 @@
         .chest-inside
             &__item
                 width 10%
-            &__buttons
-                margin 50px 0
     @media screen and (min-width: 2048px) and (max-width: 2559px)
         .chest-inside
             &__item
