@@ -203,6 +203,10 @@
                 bottom 10px
                 width 100%
                 right 0
+    @media screen and (max-height: 640px)
+        .chest-inside
+            &__container
+                display none
     @media screen and (max-width: 640px)
         .chest-inside
             &__footer
