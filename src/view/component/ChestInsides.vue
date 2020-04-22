@@ -26,12 +26,13 @@
 <script lang="ts">
     /* eslint-disable */
     import { Component, Vue } from "vue-property-decorator"
+    import { PULL_ITEMS } from "@/store/modules/types"
     import { CHEST_OPEN_EVENT } from "@/event"
     import EventName from "@/event/EventName"
     import { Inject } from "vue-di-container"
+    import { Item } from "@/struct/Item"
     import { Getter } from "vuex-class"
     import { EventBus } from "ts-bus"
-    import { Item } from "@/struct/Item"
 
     @Component
     export default class extends Vue
@@ -43,8 +44,10 @@
 
         @Getter items!: Item[]
 
-        public mounted(): void
+        public async mounted(): Promise<void>
         {
+            await this.$store.dispatch(PULL_ITEMS)
+
             this.bus.subscribe(EventName.LOADING_IS_COMPLETE, (): void => {
                 this.isLoaded = true
             })

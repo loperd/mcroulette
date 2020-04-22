@@ -2,8 +2,8 @@
     <div class="win-screen" :class="show ? 'blurIn' : 'blurOut'">
         <CircleCenter></CircleCenter>
         <div class="win-screen__container">
-            <div class="win-screen__item-title" :class="item.type">{{ item.title }}</div>
-            <div class="win-screen__item-image" :style="`background-image: url(${item.image})`"></div>
+            <div class="win-screen__item-title" :class="prize ? prize.type : ''">{{ prize ? prize.title : '' }}</div>
+            <div class="win-screen__item-image" :style="prize ? `background-image: url(${prize.image})` : ''"></div>
             <div class="win-screen__footer">
                 <button class="btn btn-transparent" @click.prevent="close">Закрыть</button>
             </div>
@@ -12,13 +12,10 @@
 </template>
 
 <script lang="ts">
-    import UnexpectedErrorException from "@/component/Roulette/Exception/UnexpectedErrorException"
-    import { Component, Vue, Watch } from "vue-property-decorator"
     import { CLOSE_WIN_SCREEN_EVENT, EventName } from "@/event"
-    import Prize from "@/component/Roulette/Prize"
+    import { Component, Vue } from "vue-property-decorator"
     import { Inject } from "vue-di-container"
     import CircleCenter from "./Circle.vue"
-    import { BusEvent } from "ts-bus/types"
     import { Item } from "@/struct/Item"
     import { Getter } from "vuex-class"
     import { EventBus } from "ts-bus"
@@ -27,32 +24,13 @@
     export default class extends Vue
     {
         @Inject(EventBus) private bus!: EventBus
+        @Getter prize!: Item
 
-        private item?: Item;
         public name: string = "WinScreen"
-        private prize: null | Prize = null
         private show: boolean = false
 
-        @Getter findItemById!: (id: string) => Item
-
         constructor() {
-            super(); this.item = new Item("0", "default", "img", "default", 100)
-        }
-
-        @Watch("prize")
-        public selectPrizeItem(): void
-        {
-            if (!this.prize)
-                return
-
-            let itemId = this.prize?.itemId || "",
-                item = this.findItemById(itemId)
-
-            if (!item) {
-                throw new UnexpectedErrorException(`Can not find item with id #${itemId}.`)
-            }
-
-            this.item = item
+            super()
         }
 
         close(): void
@@ -63,9 +41,7 @@
 
         public mounted(): void
         {
-            this.bus.subscribe(EventName.ROULETTE_STOPPED, (e: BusEvent) =>
-            {
-                this.prize = e.payload.prize
+            this.bus.subscribe(EventName.ROULETTE_STOPPED, () => {
                 this.show = true
             })
         }

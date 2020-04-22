@@ -4,14 +4,12 @@
 
 <script lang="ts">
     /* eslint-disable */
-    import { loader, renderer } from "@/component/Chest"
-    import { ChestPhysicalScene } from "@/component/Chest/Scene"
     import { Component, Vue } from "vue-property-decorator"
+    import { loader, renderer } from "@/component/Chest"
+    import EventName from "@/event/EventName"
     import { Inject } from "vue-di-container"
-    import { BusEvent } from "ts-bus/types"
     import { Chest } from "@/component"
     import { EventBus } from "ts-bus"
-    import EventName from "@/event/EventName"
 
     @Component
     export default class extends Vue
@@ -34,10 +32,10 @@
             this.renderCanvas()
 
             this.bus.subscribe(EventName.LOADING_IS_COMPLETE, () => this.chest.play())
+            this.bus.subscribe(EventName.CHEST_OPENED, () => this.chest.reset())
             this.bus.subscribe(EventName.CHEST_OPEN, () => this.open())
-            this.bus.subscribe(EventName.CLOSE_WIN_SCREEN, () => {
-                this.chest.reset().swapActiveScene().play()
-            })
+            this.bus.subscribe(EventName.CLOSE_WIN_SCREEN, () =>
+                this.chest.reset().swapActiveScene().play())
         }
 
         public open(): void
