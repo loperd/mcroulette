@@ -15,9 +15,9 @@ const _img = (s: string): string => "/static/icon/" + s
 
 class DefaultState
 {
-    public selectedPrize?: Item
-    public selectedPrizeIndex?: number
-    public totalCountPrizes: number = 30
+    public selectedPrize: Item = Item.mock()
+    public selectedPrizeIndex?: number = undefined
+    public totalCountPrizes: number = 50
     public prizes: Item[] = new Array<Item>()
     public items: Item[] = new Array<Item>()
 }
@@ -52,22 +52,22 @@ class DefaultGetters extends Getters<DefaultState>
 
 class DefaultMutations extends Mutations<DefaultState>
 {
-    public [CREATE_COPY_PRIZE]({ prize, count }: { prize: Item, count: number }): void
+    public [CREATE_COPY_PRIZE] ({ prize, count }: { prize: Item, count: number }): void
     {
         for (let i = 0; i < count; i++)
             this.state.prizes.push(prize)
     }
 
-    public async [PULL_ITEMS](items: Array<Item>): Promise<void>
+    public [PULL_ITEMS] (items: Item[]): void
     {
         for (let item of items)
             this.state.items.push(new Item(item))
     }
 
-    public [CLEAR_PRIZES](): void
+    public [CLEAR_PRIZES] (): void
     {
         this.state.prizes = []
-        this.state.selectedPrize = undefined
+        this.state.selectedPrize = Item.mock()
         this.state.selectedPrizeIndex = undefined
     }
 
@@ -80,16 +80,22 @@ class DefaultMutations extends Mutations<DefaultState>
     {
         prize = new Item(prize)
 
+        const selectedPrizeItems: number[] = new Array<number>()
         for (let [i, item] of this.state.prizes.entries()) {
             if (item.id === prize.id) {
-                this.state.selectedPrizeIndex = i + 1
-                return
+                selectedPrizeItems.push(i + 1)
             }
         }
 
-        // inject item if it doesn't exists in current prizes array
-        this.state.selectedPrizeIndex = randomInt(1, this.state.totalCountPrizes)
-        this.state.prizes.splice(this.state.selectedPrizeIndex - 1, 0, prize)
+        if (selectedPrizeItems.length === 0) {
+            // inject item if it doesn't exists in current prizes array
+            this.state.selectedPrizeIndex = randomInt(1, this.state.totalCountPrizes)
+            this.state.prizes.splice(this.state.selectedPrizeIndex - 1, 0, prize)
+            return
+        }
+
+        // select one of more selected prize items
+        this.state.selectedPrizeIndex = selectedPrizeItems[randomInt(1, selectedPrizeItems.length)]
     }
 }
 
@@ -98,15 +104,20 @@ class DefaultActions extends Actions<DefaultState,
     DefaultMutations,
     DefaultActions>
 {
-    public async [CREATE_PRIZES](): Promise<void>
+    public async [CREATE_PRIZES] (): Promise<void>
     {
         await this.dispatch(PULL_ITEMS)
 
         this.commit(CLEAR_PRIZES)
 
         for (let prize of _.shuffle(this.state.items)) {
-            const percent = this.state.totalCountPrizes / 100
-            const percentCount = Math.round(percent * prize.chance)
+            let percent = this.state.totalCountPrizes / 100,
+                percentCount = Math.round(percent * prize.chance)
+
+            if ((this.state.totalCountPrizes -this.state.prizes.length) < percentCount) {
+                percentCount = (this.state.totalCountPrizes - this.state.prizes.length)
+            }
+
             this.commit(CREATE_COPY_PRIZE, { prize, count: percentCount })
         }
     }
