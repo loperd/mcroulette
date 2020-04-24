@@ -5,7 +5,7 @@
             <div class="win-screen__item-title" :class="prize.type">{{ prize.title }}</div>
             <div class="win-screen__item-image" :style="`background-image: url(${prize.image})`"></div>
             <div class="win-screen__footer">
-                <button class="btn btn-transparent" @click.prevent="close">Закрыть</button>
+                <button class="btn btn-transparent" @click.prevent="close">Close</button>
             </div>
         </div>
     </div>
