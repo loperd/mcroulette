@@ -1,7 +1,7 @@
 <template>
     <div v-if="isLoaded" class="chest-inside animated" :class="!isOpen ? 'fadeInUp' : 'fadeOutDown'">
         <div class="chest-inside__container">
-            <div class="chest-inside__more-text">Предметы, которые могут быть в этом сундуке:</div>
+            <div class="chest-inside__more-text">Items that may be in this chest:</div>
             <vue-custom-scrollbar class="chest-inside__container-items" :settings="{
                     minScrollbarLength: 60,
                     suppressScrollX: true,
@@ -16,8 +16,8 @@
         </div>
         <div class="chest-inside__footer">
             <div class="chest-inside__buttons">
-                <button class="btn btn-green" @click.prevent="open">Открыть Сундук</button>
-                <button class="btn btn-transparent">Закрыть</button>
+                <button class="btn btn-green" @click.prevent="open">Open Chest</button>
+                <button class="btn btn-transparent">Close</button>
             </div>
         </div>
     </div>
