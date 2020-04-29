@@ -108,6 +108,8 @@ class ChestDefaultScene extends AbstractScene
     }): Promise<void> {
         const [model] = <THREE.Mesh[]>models
 
+        console.log(animations)
+
         model.children[1].visible = false
 
         this._chest = model

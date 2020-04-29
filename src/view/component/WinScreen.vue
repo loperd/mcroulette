@@ -42,7 +42,7 @@
         public mounted(): void
         {
             this.bus.subscribe(EventName.ROULETTE_STOPPED, () => {
-                this.show = true
+                setTimeout(() => this.show = true, 600)
             })
         }
     }
