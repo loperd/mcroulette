@@ -1,0 +1,7 @@
+export const CREATE_COPY_PRIZE = "CREATE_COPY_PRIZE"
+export const CREATE_PRIZES = "CREATE_PRIZES"
+export const SELECT_PRIZE = "SELECT_PRIZE"
+export const CLEAR_PRIZES = "CLEAR_PRIZES"
+export const INJECT_PRIZE = "INJECT_PRIZE"
+export const CHEST_OPEN = "CHEST_OPEN"
+export const PULL_ITEMS = "PULL_ITEMS"

@@ -1,0 +1,87 @@
+@import "~animate.css/animate.css"
+
+*
+  margin 0
+  padding 0
+  box-sizing border-box
+
+button:focus
+  outline 0
+
+body, html
+  height 100%
+  width: 100%
+  overflow hidden
+  font-family: 'Roboto';
+  color: #333;
+
+.btn
+  color #fff
+  cursor pointer
+  background transparent
+  font-family 'Manrope', sans-serif
+  box-shadow 5px 5px 50px 5px rgba(0,0,0,.5)
+  text-shadow 2px 2px 3px rgba(0,0,0,.5)
+  text-transform uppercase
+  text-align: center;
+  display inline-block
+  border-radius 3px
+  font-size 1.06rem
+  padding 10px 20px
+  font-weight 800
+  border none
+
+.btn-transparent
+  background transparent
+  transition background-color .3s ease-in-out
+  &:hover
+    background-color rgba(255,255,255,.1)
+
+.btn-green
+  position relative
+  color #fff
+  background #23fa0a
+  background-image linear-gradient(.96turn, #226c1e, #099715, #3dd720)
+  &:after
+    content ''
+    top 0
+    left 0
+    opacity 0
+    width 100%
+    height 100%
+    position absolute
+    transition: opacity 0.2s ease-in-out
+    box-shadow 0 0 40px 1px #23fa0a
+  &:hover
+    &:after
+      opacity .5
+
+.ps .ps__rail-y:hover,
+.ps .ps__rail-y:focus
+  background-color transparent
+  outline 0 !important
+
+.ps .ps__rail-y.ps--clicking
+  background transparent
+
+.ps__rail-y.ps--clicking .ps__thumb-y
+  background rgba(255, 255, 255, .3)
+
+.ps__rail-y:hover > .ps__thumb-y
+  background-color rgba(255, 255, 255, .3)
+  outline 0 !important
+
+.blurOut {
+  transition all 0.25s ease-out
+  transform scale(.85, .85)
+  visibility hidden
+  filter blur(15px)
+  opacity 0.25
+}
+
+.blurIn {
+  transition all 0.25s ease-in
+  transform scale(1, 1)
+  visibility visible
+  filter blur(0px)
+}

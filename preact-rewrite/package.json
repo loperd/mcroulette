@@ -1,0 +1,28 @@
+{
+  "name": "roulette",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "animate.css": "^4.1.1",
+    "axios": "^1.4.0",
+    "konva": "^9.0.1",
+    "lodash": "^4.17.21",
+    "physijs": "^1.0.4",
+    "preact": "^10.13.2",
+    "redux-zero": "^5.1.7",
+    "three": "^0.152.2"
+  },
+  "devDependencies": {
+    "@originjs/vite-plugin-global-style": "^1.0.3",
+    "@preact/preset-vite": "^2.5.0",
+    "stylus": "^0.59.0",
+    "typescript": "^5.0.4",
+    "vite": "^4.3.2"
+  }
+}
