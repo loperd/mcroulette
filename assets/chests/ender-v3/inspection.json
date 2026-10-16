@@ -1,0 +1,13 @@
+{
+  "revision": "ender-v3.1",
+  "bytes": 276568,
+  "triangles": 4158,
+  "parts": [
+    "Body",
+    "LidAssembly"
+  ],
+  "animations": [
+    "Vault.Open"
+  ],
+  "textures": 5
+}

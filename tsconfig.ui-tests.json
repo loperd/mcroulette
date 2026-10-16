@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "rewriteRelativeImportExtensions": true,
+    "rootDir": "./src",
+    "outDir": "./.test-build",
+    "types": [
+      "react",
+      "react-dom"
+    ]
+  },
+  "include": [
+    "src/adapters/inbound/react"
+  ]
+}
