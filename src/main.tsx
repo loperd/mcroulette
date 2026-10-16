@@ -1,6 +1,7 @@
 import { caseOpenAction } from './application/case-open-action.ts';
 import { parentRoute } from './application/navigation-map.ts';
 import { gameAudio } from './adapters/outbound/browser/game-audio.ts';
+import { loadWreck, saveWreck } from './adapters/outbound/browser/wreck-snapshots.ts';
 import { chestEffectColor } from './adapters/outbound/chest/chest-appearance.ts';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -102,7 +103,11 @@ function createCaseRuntime(definition: CaseDefinition, instance?: CaseInstance) 
     if (key === heard) return;
     heard = key;
     if (state.phase === 'prize-visible') gameAudio.reward(state.selection.prize.rarity);
-    else if (state.phase === 'destroyed') gameAudio.destroyed();
+    else if (state.phase === 'destroyed') {
+      // Take the picture of the wreck once, now, and keep it for this session.
+      if (!loadWreck(state.sessionId)) saveWreck(state.sessionId, scene.captureWreck());
+      gameAudio.destroyed();
+    }
   });
   const unsubscribe = () => { unsubscribeOutcome(); unsubscribeSync(); };
   const unsubscribeSync = application.session!.subscribe(syncRoute);
@@ -168,7 +173,7 @@ function renderRoute() {
   if (!fresh && route.screen === 'case' && state.phase === 'prize-visible') void current.application.session!.closePrize();
   root.render(<StrictMode><NavigationContext.Provider value={{ navigation, storage }}>
     <CasePresentationContext.Provider value={definition.presentation}>
-      <App captureWreck={() => current.scene.captureWreck()} inspectedCase={instance} caseAccent={current.effectColor} availableCaseCount={action.availableCount}
+      <App captureWreck={() => { const state = current.application.session!.getState(); return 'sessionId' in state ? loadWreck(state.sessionId) : undefined; }} inspectedCase={instance} caseAccent={current.effectColor} availableCaseCount={action.availableCount}
         openLabel={action.label}
         onOpenRequest={() => {
           const { target, action: offer } = caseOpenAction(inventory.getState(), definition.id, current.instanceId);

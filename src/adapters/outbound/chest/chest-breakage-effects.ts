@@ -77,6 +77,8 @@ export class ChestBreakageEffects {
   /** Parts outside the breakage: they ride on the carrier and fall when it is destroyed. */
   private readonly riders: Mesh[][] = [];
   private readonly carrierDetached: boolean;
+  /** All parts: the chest's own extent for cores, flashes and the dust, never its growth. */
+  private readonly partMeshes: Mesh[];
   /** The carrier (body): the beam rises from its top, obstacles are its walls. */
   private readonly carrierMeshes: Mesh[];
   /** Loose pieces torn off by the beam, with where they came from, to put them back on reset. */
@@ -117,6 +119,7 @@ export class ChestBreakageEffects {
     this.flash.color.copy(this.accent);
     const parts = new Map(profile.parts.map(part => [part.id, part.nodes]));
     this.carrierMeshes = profile.parts[0] ? meshesOf(chest, profile.parts[0].nodes) : [];
+    this.partMeshes = profile.parts.flatMap(part => meshesOf(chest, part.nodes));
     const resolved = resolveModifications(appearance, profile);
     for (const item of breakage.parts) {
       const meshes = meshesOf(chest, parts.get(item.part) ?? []);
@@ -233,6 +236,13 @@ export class ChestBreakageEffects {
     this.flash.dispose();
   }
 
+  /** Union of the parts' own boxes (the visible chest without its growth). */
+  private chestBox(): Box3 {
+    const box = new Box3();
+    for (const mesh of this.partMeshes) if (isShown(mesh)) box.union(ownBox(mesh));
+    return box.isEmpty() ? new Box3().setFromObject(this.chest) : box;
+  }
+
   private strength() {
     const detached = this.sources.filter(source => source.detached).length;
     return .5 + Math.min(1, detached / Math.max(1, this.sources.length)) * .8;
@@ -252,7 +262,7 @@ export class ChestBreakageEffects {
     for (const mesh of this.carrierMeshes) {
       if (gone.has(mesh) || !mesh.visible) continue;
       mesh.updateWorldMatrix(true, false);
-      const box = new Box3().setFromObject(mesh), centre = box.getCenter(new Vector3()), half = box.getSize(new Vector3()).multiplyScalar(.5);
+      const box = ownBox(mesh), centre = box.getCenter(new Vector3()), half = box.getSize(new Vector3()).multiplyScalar(.5);
       const body = world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(centre.x, centre.y, centre.z));
       world.createCollider(RAPIER.ColliderDesc.cuboid(half.x, half.y, half.z).setFriction(.8), body);
     }
@@ -260,7 +270,7 @@ export class ChestBreakageEffects {
 
   private detach(moment: BreakMoment) {
     this.chest.updateWorldMatrix(true, true);
-    const core = new Box3().setFromObject(this.chest).getCenter(new Vector3());
+    const core = this.chestBox().getCenter(new Vector3());
     const detached = this.sources.filter(source => source.detached);
     const gone = new Set<Mesh>([...detached.flatMap(source => source.meshes), ...(this.carrierDetached ? this.riders.flat() : [])]);
     if (!this.reduced && gone.size) {
@@ -287,8 +297,8 @@ export class ChestBreakageEffects {
     this.beamed = true;
     this.chest.updateWorldMatrix(true, true);
     const carrier = new Box3();
-    for (const mesh of this.carrierMeshes) carrier.expandByObject(mesh);
-    if (carrier.isEmpty()) carrier.setFromObject(this.chest);
+    for (const mesh of this.carrierMeshes) carrier.union(ownBox(mesh));
+    if (carrier.isEmpty()) carrier.copy(this.chestBox());
     const top = carrier.max.y, axis = carrier.getCenter(new Vector3()), radius = Math.max(carrier.max.x - carrier.min.x, carrier.max.z - carrier.min.z) * .75;
     const world = this.requirePhysics();
     if (!this.addedObstacles) { this.addObstacles(world, new Set()); this.addedObstacles = true; }
@@ -374,7 +384,7 @@ export class ChestBreakageEffects {
     mesh.updateWorldMatrix(true, false);
     mesh.geometry.computeBoundingBox();
     const box = mesh.geometry.boundingBox!;
-    const texel = new Box3().setFromObject(mesh).getSize(new Vector3()).x / 16;
+    const texel = ownBox(mesh).getSize(new Vector3()).x / 16;
     const outer = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material)!;
     const height = box.max.y - box.min.y || 1;
     // A damaged part has more pieces: rust and cracks weaken it.
@@ -419,7 +429,7 @@ export class ChestBreakageEffects {
   /** A part coming off in one piece: a clone (overlays included) on a box collider. */
   private whole(world: World, mesh: Mesh, moment: BreakMoment, core: Vector3) {
     mesh.updateWorldMatrix(true, false);
-    const box = new Box3().setFromObject(mesh), centre = box.getCenter(new Vector3()), half = box.getSize(new Vector3()).multiplyScalar(.5);
+    const box = ownBox(mesh), centre = box.getCenter(new Vector3()), half = box.getSize(new Vector3()).multiplyScalar(.5);
     const object = mesh.clone(true);
     object.visible = true; object.matrixAutoUpdate = false; object.userData.chestOverlay = true; object.castShadow = true;
     this.world.add(object);
@@ -491,11 +501,11 @@ export class ChestBreakageEffects {
   private chips(source: PartSource, count: number, moment: BreakMoment) {
     if (this.reduced || count <= 0) return;
     this.chest.updateWorldMatrix(true, true);
-    const core = new Box3().setFromObject(this.chest).getCenter(new Vector3());
+    const core = this.chestBox().getCenter(new Vector3());
     const total = source.debris.reduce((sum, item) => sum + item.weight, 0);
     for (let index = 0; index < count; index++) {
       const mesh = source.meshes[Math.floor(this.next() * source.meshes.length)]!;
-      const box = new Box3().setFromObject(mesh), size = box.getSize(new Vector3());
+      const box = ownBox(mesh), size = box.getSize(new Vector3());
       const unit = Math.max(size.x, size.z) / 16; // one model texel
       let pick = this.next() * total, debris = source.debris[0]!.style;
       for (const item of source.debris) { pick -= item.weight; if (pick <= 0) { debris = item.style; break; } }
@@ -548,14 +558,14 @@ export class ChestBreakageEffects {
   private glow(intensity: number) {
     if (!this.flash.parent) this.world.add(this.flash);
     this.chest.updateWorldMatrix(true, false);
-    new Box3().setFromObject(this.chest).getCenter(this.flash.position);
+    this.chestBox().getCenter(this.flash.position);
     this.flash.intensity = this.reduced ? 0 : intensity;
   }
 
   /** Energy release: a bright flash at the core and a ring running along the floor. */
   private shockwave() {
     this.chest.updateWorldMatrix(true, false);
-    const centre = new Box3().setFromObject(this.chest).getCenter(new Vector3());
+    const centre = this.chestBox().getCenter(new Vector3());
     if (!this.ring) {
       this.ring = new Mesh(new RingGeometry(.9, 1, 64), new MeshBasicMaterial({ color: this.accent, transparent: true, opacity: .7,
         blending: AdditiveBlending, depthWrite: false, side: DoubleSide, toneMapped: false }));
@@ -584,7 +594,7 @@ export class ChestBreakageEffects {
   private dust(count: number) {
     if (this.reduced) return;
     this.chest.updateWorldMatrix(true, false);
-    const box = new Box3().setFromObject(this.chest), size = box.getSize(new Vector3());
+    const box = this.chestBox(), size = box.getSize(new Vector3());
     const unit = Math.max(size.x, size.z) / 16;
     for (let index = 0; index < count; index++) {
       const object = new Mesh(this.box(), this.material({ shape: 'puff', color: '#7d8584', share: 1 }));
@@ -668,6 +678,16 @@ function weakPoints(mesh: Mesh, damage: readonly ResolvedModification[], next: (
     }
   }
   return result;
+}
+
+/**
+ * The part's own extent: its geometry only. Box3.setFromObject would include children — vines and
+ * cobwebs hanging far below a lid made it a huge invisible block resting on its own growth.
+ */
+function ownBox(mesh: Mesh): Box3 {
+  mesh.updateWorldMatrix(true, false);
+  if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+  return mesh.geometry.boundingBox!.clone().applyMatrix4(mesh.matrixWorld);
 }
 
 /** Visible all the way up its parents (hidden parts take their loose growth with them). */
