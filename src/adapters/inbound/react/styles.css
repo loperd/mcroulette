@@ -2,6 +2,7 @@
 @import './item-details.css';
 @import './case-directory.css';
 @import './inventory.css';
+@import './error-notice.css';
 
 :root {
   font-family: system-ui, sans-serif;
@@ -39,7 +40,6 @@ h1 { margin-top: 8px; font-size: clamp(2rem, 6vw, 3.5rem); line-height: 1.1; let
 
 .feedback { display: grid; justify-items: center; align-content: center; gap: 16px; min-height: 280px; text-align: center; color: #c2cdd5; }
 .feedback h2 { color: #f1f5f7; font-size: 1.25rem; }
-.feedback--error { border: 1px solid #69443c; border-radius: 12px; background: #2d1e1acf; padding: 32px 20px; }
 .loader { width: 26px; height: 26px; border: 2px solid #3d505e; border-top-color: #99e382; border-radius: 50%; animation: spin 600ms linear infinite; }
 .actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
 .prize { display: grid; justify-items: center; gap: 20px; padding: 40px 20px; text-align: center; }

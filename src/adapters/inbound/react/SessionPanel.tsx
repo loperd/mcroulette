@@ -8,6 +8,7 @@ import { IntroScene } from './IntroScene.tsx';
 import { PrizeScene } from './PrizeScene.tsx';
 import { DestroyedScene } from './DestroyedScene.tsx';
 import { Button } from './Button.tsx';
+import { ErrorNotice } from './ErrorNotice.tsx';
 import { useObservableState } from './use-observable-state.ts';
 
 const PHASE_LABELS: Record<SessionState['phase'], string> = {
@@ -50,17 +51,15 @@ export function SessionPanel({ session, items, onOpenGesture, recentFind, onOpen
   }
   if (state.phase === 'failed') {
     return (
-      <section className="feedback feedback--error" role="alert">
-        <h2>Не удалось подготовить сундук</h2>
-        <p>Попробуйте ещё раз.</p>
-        <div className="actions">
-          <Button onClick={() => { void session.retry(); }}>Повторить</Button>
-          {state.failure.recovery !== 'initialize' && (
-            <Button variant="transparent"
-              onClick={() => { void session.resetAfterError(); }}>Вернуться к сундуку</Button>
-          )}
-        </div>
-      </section>
+      <ErrorNotice title="Не удалось подготовить сундук" actions={<>
+        <Button onClick={() => { void session.retry(); }}>Повторить</Button>
+        {state.failure.recovery !== 'initialize' && (
+          <Button variant="transparent"
+            onClick={() => { void session.resetAfterError(); }}>Вернуться к сундуку</Button>
+        )}
+      </>}>
+        <p>Сундук и награды на месте — попробуйте ещё раз.</p>
+      </ErrorNotice>
     );
   }
   if (state.phase === 'destroyed') {

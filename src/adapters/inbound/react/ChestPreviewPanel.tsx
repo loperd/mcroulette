@@ -3,6 +3,7 @@ import type { ChestPreview } from '../../../application/ports/chest-preview.ts';
 import { useObservableState } from './use-observable-state.ts';
 import { ChestBackdrop } from './ChestBackdrop.tsx';
 import { Button } from './Button.tsx';
+import { ErrorNotice } from './ErrorNotice.tsx';
 
 export function ChestPreviewPanel({ preview, element }: {
   readonly preview: ChestPreview;
@@ -26,10 +27,8 @@ export function ChestPreviewPanel({ preview, element }: {
         </div>
       )}
       {state.phase === 'failed' && (
-        <div className="chest-preview__status" role="alert">
-          <p>Не удалось загрузить сундук</p>
-          <Button onClick={() => { void preview.retry(); }}>Повторить</Button>
-        </div>
+        <ErrorNotice compact title="Не удалось загрузить сундук"
+          actions={<Button onClick={() => { void preview.retry(); }}>Повторить</Button>} />
       )}
       {state.phase === 'ready' && (
         <div className="chest-preview__actions">
