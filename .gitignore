@@ -8,7 +8,6 @@ coverage/
 !.env.example
 .DS_Store
 !README.md
-!REPO_REVIEW.md
 !docs/rewrite/*.md
 
 .test-build/

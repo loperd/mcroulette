@@ -292,4 +292,4 @@ PhysicsWorldPort использует plain Vec3/Quat/BoxCollider/Pose; Rapier t
 
 FixedStepper ограничивает физику пятью шагами по 1/60 секунды; FrameScheduler содержит одну visibility subscription и один RAF. Pause/resume обнуляет временной остаток, а generation token отсекает отменённый callback. Ошибки рендера и context loss освобождают ресурсы и переходят в failed preview с Retry. Reset переиспользует renderer/assets/world, удаляя только старое dynamic body с его collider children.
 
-Draco decoder генерируется из установленного Three.js scripts/sync-draco.mjs; static URL учитывает base path. Проверка через настоящий Rapier WASM выделена в test:physics и не заменяется mock-физикой. Текущий статус проверок: [итерация 03](./iteration-03.md).
+Draco decoder генерируется из установленного Three.js scripts/sync-draco.mjs; static URL учитывает base path. Проверка через настоящий Rapier WASM выделена в test:physics и не заменяется mock-физикой. Текущий статус проверок:.
