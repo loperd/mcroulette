@@ -7,6 +7,7 @@ import { InventoryScreen } from './adapters/inbound/react/InventoryScreen.tsx';
 import { DemoInventoryStore } from './adapters/outbound/browser/demo-inventory-store.ts';
 import { ChestPreviewRenderer } from './adapters/outbound/chest/chest-preview-renderer.ts';
 import { withImpactDamage } from './domain/chest-appearance.ts';
+import { demoBreakage } from './adapters/outbound/browser/demo-breakage.ts';
 import { nextOwnedCase, type CaseInstance } from './domain/case-instance.ts';
 import { CaseDirectory } from './adapters/inbound/react/CaseDirectory.tsx';
 import { CasePresentationContext } from './adapters/inbound/react/case-presentation.ts';
@@ -55,7 +56,7 @@ function createCaseRuntime(definition: CaseDefinition, instance?: CaseInstance) 
     if (!current) return;
     const damaged = withImpactDamage(current.appearance, definition.model.modifications);
     if (damaged !== current.appearance) inventory.updateAppearance(instance.id, damaged);
-  });
+  }, instance ? demoBreakage(instance, definition.model.modifications) : undefined);
   const sound = new ClickSound(resolvePublicAsset('audio/click.wav', baseUrl));
   sound.setMuted(soundPreference.isMuted()); scene.setSoundMuted(soundPreference.isMuted());
   const roulette = new CanvasRoulette(document, { sound, theme });

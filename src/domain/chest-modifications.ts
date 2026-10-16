@@ -52,7 +52,14 @@ export interface GrowthStyle {
   /** Coverage opacity of moss/frost over the base texture. */
   readonly opacity: number;
 }
-interface DefinitionBase { readonly id: string; readonly label: string; readonly parts: readonly string[] }
+export const DEBRIS_SHAPES = ['chip', 'shard', 'leaf', 'flake', 'spark', 'puff'] as const;
+/** What breaking a part carrying this modification throws off: rust flakes, moss clumps, ice shards… */
+export interface DebrisStyle { readonly shape: typeof DEBRIS_SHAPES[number]; readonly color: string; readonly share: number }
+interface DefinitionBase {
+  readonly id: string; readonly label: string; readonly parts: readonly string[];
+  /** Server-configured debris; absent = derived from the kind by the client (see defaultDebris). */
+  readonly debris?: DebrisStyle;
+}
 export type ModificationDefinition = DefinitionBase & (
   | { readonly kind: 'fracture'; readonly style: FractureStyle }
   | { readonly kind: 'wear'; readonly style: WearStyle }
@@ -122,6 +129,27 @@ function copyStyle(kind: ModificationKind, value: unknown, what: string) {
   }
 }
 
+function copyDebris(value: unknown, what: string): DebrisStyle {
+  if (!isRecord(value)) return fail(`${what} must be an object.`);
+  const shape = DEBRIS_SHAPES.includes(value.shape as DebrisStyle['shape']) ? value.shape as DebrisStyle['shape'] : fail(`${what}.shape is unknown.`);
+  return Object.freeze({ shape, color: color(value.color, `${what}.color`), share: number(value.share ?? 1, `${what}.share`, 0, 4) });
+}
+
+/** Debris a modification throws off when no explicit style is configured. */
+export function defaultDebris(definition: ModificationDefinition, accent: string): DebrisStyle {
+  if (definition.debris) return definition.debris;
+  switch (definition.kind) {
+    case 'fracture': return { shape: 'chip', color: definition.style.scarColor, share: .6 };
+    case 'wear': return { shape: 'flake', color: definition.style.colorEnd ?? definition.style.color, share: 1 };
+    case 'glow': return { shape: 'spark', color: definition.style.color ?? accent, share: .8 };
+    case 'growth': {
+      const style = definition.style;
+      const shape = ({ moss: 'leaf', vines: 'leaf', lichen: 'leaf', frost: 'shard', snow: 'puff', crystals: 'shard', cobweb: 'flake', blight: 'spark' } as const)[style.type];
+      return { shape, color: style.type === 'blight' ? style.highlight ?? style.color : style.color, share: 1.2 };
+    }
+  }
+}
+
 /** Validates server data. Unknown modification kinds are skipped so newer servers do not break older clients. */
 export function copyModificationProfile(value: unknown): ChestModificationProfile {
   if (!isRecord(value) || value.schemaVersion !== 1) return fail('Unsupported modification profile version.');
@@ -149,8 +177,9 @@ export function copyModificationProfile(value: unknown): ChestModificationProfil
       const kind = v.kind as ModificationKind;
       const targets = names(v.parts, `${what}.parts`);
       if (!targets.length || targets.some(part => !partIds.has(part))) fail(`${what}.parts must reference declared parts.`);
+      const debris = v.debris === undefined ? undefined : copyDebris(v.debris, `${what}.debris`);
       return Object.freeze({ id: id(v.id, `${what}.id`), label: text(v.label, `${what}.label`, 48), kind, parts: targets,
-        style: Object.freeze(copyStyle(kind, v.style, `${what}.style`)) }) as ModificationDefinition;
+        style: Object.freeze(copyStyle(kind, v.style, `${what}.style`)), ...(debris ? { debris } : {}) }) as ModificationDefinition;
     });
   if (new Set(catalog.map(entry => entry.id)).size !== catalog.length) fail('Modification ids must be unique.');
   return Object.freeze({ schemaVersion: 1, revision: text(value.revision, 'revision', 64), parts, colorZones,
