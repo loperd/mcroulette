@@ -1,5 +1,6 @@
 import { ACESFilmicToneMapping, Box3, DirectionalLight, HemisphereLight, Mesh, PCFSoftShadowMap, PerspectiveCamera, PlaneGeometry, Scene,
   ShadowMaterial, WebGLRenderer } from 'three';
+import RAPIER from '@dimforge/rapier3d-compat';
 import { ENDER_CASE } from '../config/cases.ts';
 import { loadChestAssets } from '../adapters/outbound/chest/chest-assets.ts';
 import { BURST_AT, ChestBreakageEffects } from '../adapters/outbound/chest/chest-breakage-effects.ts';
@@ -27,8 +28,11 @@ const scenarios = [
     { part: 'lid', severity: .5, detached: false, pattern: 'shatter' }], mods: [{ id: 'body-cracks', intensity: .8 }] },
   { label: 'impact · latch falls off, lid chips', moment: 'impact', parts: [{ part: 'latch', severity: .7, detached: true, pattern: 'fall' },
     { part: 'lid', severity: .7, detached: false, pattern: 'shatter' }], mods: [{ id: 'latch-patina', intensity: .7 }] },
+  { label: 'opening · rusty latch breaks where it rusted (close-up)', moment: 'opening', zoom: true, parts: [
+    { part: 'latch', severity: .9, detached: true, pattern: 'split' }], mods: [{ id: 'latch-rust', intensity: 1 }] },
 ] as const;
 
+await RAPIER.init();
 const width = 360, height = 300;
 const renderer = new WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
 renderer.setSize(width, height, false); renderer.toneMapping = ACESFilmicToneMapping; renderer.toneMappingExposure = 1.1;
@@ -68,7 +72,8 @@ for (const [row, scenario] of scenarios.entries()) {
       }
     }
     const camera = new PerspectiveCamera(42, width / height, .1, 50);
-    camera.position.set(-3.4, 2.6, -4.8); camera.lookAt(0, .5, 0);
+    if ('zoom' in scenario) { camera.position.set(-1.3, 1.9, -2.9); camera.lookAt(0, .9, -.4); }
+    else { camera.position.set(-3.4, 2.6, -4.8); camera.lookAt(0, .5, 0); }
     renderer.render(scene, camera);
     const x = column * width, y = row * (height + 22);
     context.drawImage(renderer.domElement, x, y + 22);
