@@ -128,13 +128,15 @@ export class Failsafe {
       dialog.setAttribute('role', 'alertdialog');
       dialog.setAttribute('aria-labelledby', 'failsafe-title');
       dialog.setAttribute('aria-describedby', 'failsafe-text');
-      dialog.innerHTML = `<div class="failsafe__panel">
-        <p class="failsafe__eyebrow">Что-то пошло не так</p>
-        <h2 id="failsafe-title">Сундук завис</h2>
-        <p id="failsafe-text">Мы уже знаем об ошибке. Ваши сундуки и награды на месте — можно вернуться на главную или перезагрузить страницу.</p>
-        <p class="failsafe__code"></p>
-        <div class="failsafe__actions"><button type="button" class="btn btn-green" data-action="home">На главную</button>
+      // Same card as the React ErrorNotice (error-notice.css), so every error looks alike.
+      dialog.innerHTML = `<div class="error-notice__panel">
+        <span class="error-notice__mark" aria-hidden="true">!</span>
+        <p class="error-notice__eyebrow">Что-то пошло не так</p>
+        <h2 class="error-notice__title" id="failsafe-title">Сундук завис</h2>
+        <div class="error-notice__text"><p id="failsafe-text">Мы уже знаем об ошибке. Ваши сундуки и награды на месте — можно вернуться на главную или перезагрузить страницу.</p></div>
+        <div class="error-notice__actions"><button type="button" class="btn btn-green" data-action="home">На главную</button>
           <button type="button" class="btn btn-transparent" data-action="reload">Перезагрузить</button></div>
+        <p class="failsafe__code"></p>
       </div>`;
       dialog.addEventListener('click', event => {
         const action = (event.target as Element | null)?.closest?.('[data-action]')?.getAttribute('data-action');
@@ -162,15 +164,17 @@ function ensureStyles(document: Document) {
   if (document.getElementById('failsafe-styles')) return;
   const style = document.createElement('style');
   style.id = 'failsafe-styles';
+  // Only the dialog frame and a fallback of the card: error-notice.css normally styles the card,
+  // but this modal must still read correctly when the app's styles never loaded.
   style.textContent = `
-    .failsafe { padding: 0; border: 0; background: transparent; max-width: min(460px, calc(100vw - 32px)); }
+    .failsafe { padding: 0; border: 0; background: transparent; max-width: min(440px, calc(100vw - 32px)); width: 100%; overflow: visible; }
     .failsafe::backdrop { background: #07050acc; backdrop-filter: blur(4px); }
-    .failsafe__panel { display: grid; gap: 12px; padding: 30px 26px; border: 1px solid #6b3a33; border-radius: 12px;
-      background: radial-gradient(ellipse at 50% 0%, #3a1d1a, #140d0c 75%); color: #e9dcd9; text-align: center; font: 15px/1.45 system-ui, sans-serif; }
-    .failsafe__eyebrow { margin: 0; color: #e3665a; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; }
-    .failsafe h2 { margin: 0; color: #f4e9e6; font-size: 26px; }
+    .failsafe .error-notice__panel { display: grid; justify-items: center; gap: 10px; padding: 34px 28px 24px; border: 1px solid #e3665a33; border-radius: 6px;
+      background: linear-gradient(145deg, #241817, #120d0d 72%); color: #e9dcd9; text-align: center; font: 15px/1.45 Manrope, system-ui, sans-serif; }
+    .failsafe .error-notice__eyebrow { margin: 0; color: #e3665a; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; }
+    .failsafe .error-notice__title { margin: 0; color: #f4e9e6; font-size: 24px; }
     .failsafe p { margin: 0; }
-    .failsafe__code { color: #8c716b; font-size: 11px; }
-    .failsafe__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 8px; }`;
+    .failsafe .error-notice__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 14px; }
+    .failsafe__code { margin-top: 8px !important; color: #7d625d; font-size: 11px; letter-spacing: .04em; }`;
   document.head.append(style);
 }

@@ -24,7 +24,7 @@ export interface ChestAssets {
   dispose(): void;
 }
 
-export async function loadChestAssets(baseUrl: URL, signal: AbortSignal, definition: ChestModelDefinition = ENDER_CASE.model, metadata: ChestAppearance = createChestAppearance()): Promise<ChestAssets> {
+export async function loadChestAssets(baseUrl: URL, signal: AbortSignal, definition: ChestModelDefinition = ENDER_CASE.model, metadata: ChestAppearance = createChestAppearance(), effectColor = chestEffectColor(metadata)): Promise<ChestAssets> {
   signal.throwIfAborted();
   const appearance = copyChestAppearance(metadata);
   const response = await waitFor(fetch(resolvePublicAsset(definition.path, baseUrl), { signal }), signal);
@@ -105,7 +105,7 @@ export async function loadChestAssets(baseUrl: URL, signal: AbortSignal, definit
     });
     // After bounds and shadows: crystals must not enlarge colliders, overlays must not cast shadows.
     const modifications = new ChestModificationLayers(gltf.scene, definition.modifications,
-      resolveModifications(appearance, definition.modifications), chestEffectColor(appearance));
+      resolveModifications(appearance, definition.modifications), effectColor);
     let disposed = false;
     const assets: ChestAssets = {
       appearance,

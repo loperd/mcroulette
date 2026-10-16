@@ -11,6 +11,7 @@ import { GameViewport } from './GameViewport.tsx';
 import { useObservableState } from './use-observable-state.ts';
 import { SoundControl, type SoundPreference } from './SoundControl.tsx';
 import { Button } from './Button.tsx';
+import { ErrorNotice } from './ErrorNotice.tsx';
 
 export function App({ captureWreck, catalog, session, preview, sceneElement, rouletteElement, transitionElement, backgroundUrl, onRetryInitialization, onOpenGesture, soundPreference, recentFind, onOpenRequest, onPrizeClose, openLabel, availableCaseCount, caseAccent, inspectedCase }: {
   readonly onOpenRequest?: () => void;
@@ -52,13 +53,11 @@ export function App({ captureWreck, catalog, session, preview, sceneElement, rou
           </div>
         )}
         {state.phase === 'failed' && (
-          <section className="feedback feedback--error" role="alert">
-            <h2>Не удалось загрузить предметы</h2>
-            <p>Попробуйте ещё раз.</p>
-            <Button onClick={() => {
-              void (onRetryInitialization ? onRetryInitialization() : catalog.retry());
-            }}>Повторить</Button>
-          </section>
+          <ErrorNotice title="Не удалось загрузить предметы" actions={<Button onClick={() => {
+            void (onRetryInitialization ? onRetryInitialization() : catalog.retry());
+          }}>Повторить</Button>}>
+            <p>Проверьте соединение и попробуйте ещё раз.</p>
+          </ErrorNotice>
         )}
         {state.phase === 'ready' && (session
           ? <SessionPanel captureWreck={captureWreck} inspectedCase={inspectedCase} availableCaseCount={availableCaseCount} onOpenRequest={onOpenRequest} onPrizeClose={onPrizeClose} openLabel={openLabel} recentFind={recentFind} session={session} items={state.items} onOpenGesture={onOpenGesture} />
