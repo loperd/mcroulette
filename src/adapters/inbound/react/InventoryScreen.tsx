@@ -1,4 +1,5 @@
 import { ChestIndicators } from './ChestIndicators.tsx';
+import { isConsumed } from '../../../domain/case-instance.ts';
 import { partConditions } from '../../../domain/chest-appearance.ts';
 import { damageLevel, groupInventory } from '../../../application/inventory-groups.ts';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
@@ -36,7 +37,7 @@ export function InventoryScreen({ inventory, cases, navigation, storage, rendere
     return () => { save(); element.removeEventListener('scroll', save); };
   }, [storage, query, rarity, density, mode]);
   const available = instances.filter(item => item.status === 'available');
-  const screenInstances = instances.filter(item => mode === 'archive' ? item.status === 'opened' : item.status !== 'opened');
+  const screenInstances = instances.filter(item => mode === 'archive' ? isConsumed(item) : !isConsumed(item));
   const visible = screenInstances.filter(item => (!rarity || rarity === 'all' || cases.find(def => def.id === item.caseId)?.rarity === rarity)
     && `${cases.find(def => def.id === item.caseId)?.presentation.title ?? ''} ${item.id}`.toLowerCase().includes(query.toLowerCase().trim()));
   const groups = groupInventory(visible);
@@ -44,7 +45,7 @@ export function InventoryScreen({ inventory, cases, navigation, storage, rendere
   return <main className={`inventory inventory--${density} inventory--${mode}`} ref={page}><div className="inventory__content">
     <header className="inventory__header"><span className="inventory__brand"><span aria-hidden="true">◇</span> Voxel Vault</span>
       <nav aria-label="Разделы">{mode === 'archive' ? <button type="button" onClick={() => navigation.go({ screen: 'inventory' })}>Инвентарь</button> : <span aria-current="page">Инвентарь</span>}
-        {mode !== 'archive' && <button type="button" onClick={() => navigation.go({ screen: 'archive' })}>Архив <span>{instances.filter(item => item.status === 'opened').length}</span></button>}
+        {mode !== 'archive' && <button type="button" onClick={() => navigation.go({ screen: 'archive' })}>Архив <span>{instances.filter(isConsumed).length}</span></button>}
         {mode === 'archive' && <span aria-current="page">Архив</span>}
         <button type="button" onClick={() => navigation.go({ screen: 'catalog' })}>Все кейсы</button></nav>
     </header>
@@ -74,7 +75,7 @@ export function InventoryScreen({ inventory, cases, navigation, storage, rendere
           <div className="inventory-card__info"><span className="inventory-card__condition"><i style={{ background: instance.appearance.palette.panel }} />{condition.label}</span>
             <h2>{definition.presentation.title}</h2>
             <ChestIndicators appearance={instance.appearance} profile={profile} grouped />
-            <div className="inventory-card__footer"><span>{instance.status === 'opening' ? 'Открывается' : instance.status === 'opened' ? 'Открыт' : 'Готов к открытию'}</span><span aria-hidden="true">↗</span></div>
+            <div className="inventory-card__footer"><span>{instance.status === 'opening' ? 'Открывается' : instance.status === 'opened' ? 'Открыт' : instance.status === 'destroyed' ? 'Разрушен' : 'Готов к открытию'}</span><span aria-hidden="true">↗</span></div>
             {instance.reward && <p className="inventory-card__reward">{group.instances.length === 1 ? `Найдено: ${instance.reward.title}` : `Наград получено: ${group.instances.length}`}</p>}
           </div>
         </article>;

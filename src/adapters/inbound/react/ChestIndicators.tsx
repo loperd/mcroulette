@@ -12,7 +12,7 @@ export function ChestIndicators({ appearance, profile, status }: {
   readonly appearance: ChestAppearance; readonly profile: ChestModificationProfile;
   /** Stacks show their representative's exact value too: one number, no ranges. */
   readonly grouped?: boolean;
-  readonly status?: 'available' | 'opening' | 'opened';
+  readonly status?: 'available' | 'opening' | 'opened' | 'destroyed';
 }) {
   // Parts and labels come from the model profile: each model reports its own condition rows.
   const conditions = partConditions(appearance, profile);
@@ -31,6 +31,6 @@ export function ChestIndicators({ appearance, profile, status }: {
       </div>;
     })}</div>
     {features.length > 0 && <p className="chest-indicators__features"><span>Особенности</span> {features.map(item => item.definition.label).join(' · ')}</p>}
-    {status && <p className="chest-indicators__status"><span>Состояние</span> {status === 'available' ? 'Готов к открытию' : status === 'opening' ? 'Открывается' : 'Открыт'}</p>}
+    {status && <p className="chest-indicators__status"><span>Состояние</span> {status === 'available' ? 'Готов к открытию' : status === 'opening' ? 'Открывается' : status === 'destroyed' ? 'Разрушен' : 'Открыт'}</p>}
   </div>;
 }

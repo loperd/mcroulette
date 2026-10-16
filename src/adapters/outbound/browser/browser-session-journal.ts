@@ -10,6 +10,7 @@ export function decodeCheckpoint(value: unknown): SessionCheckpoint {
   if (typeof v.sessionId !== 'string' || !v.sessionId.trim() || v.sessionId.length > 256) throw new Error('Invalid session id.');
   if (v.stage === 'chest') return { stage: 'chest', sessionId: v.sessionId,
     ...(v.prize ? { prize: copyItem(v.prize as Parameters<typeof copyItem>[0]) } : {}) };
+  if (v.stage === 'destroyed') return { stage: 'destroyed', sessionId: v.sessionId };
   if (v.stage !== 'roulette' && v.stage !== 'prize') throw new Error('Invalid stage.');
   const selection = v.selection as TargetSelection, plan = v.plan as SpinPlan;
   if (!selection || !Array.isArray(selection.slots) || selection.slots.length > 2000) throw new Error('Invalid strip.');

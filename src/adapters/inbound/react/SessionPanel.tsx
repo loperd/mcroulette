@@ -13,7 +13,7 @@ const PHASE_LABELS: Record<SessionState['phase'], string> = {
   idle: 'Готовим сундук…', loading: 'Готовим сундук…', ready: 'Сундук готов',
   opening: 'Открываем сундук…', spinning: 'Выбираем награду…', settling: 'Награда выбрана',
   clearing: 'Готовим открытие…', dropping: 'Сундук падает…', flashing: 'Открываем награду…',
-  revealing: 'Показываем награду…', 'prize-visible': 'Ваша награда',
+  revealing: 'Показываем награду…', 'prize-visible': 'Ваша награда', destroyed: 'Сундук разрушен',
   resetting: 'Готовим новый сундук…', failed: 'Не удалось открыть сундук', disposed: '',
 };
 
@@ -32,8 +32,8 @@ export function SessionPanel({ session, items, onOpenGesture, recentFind, onOpen
   const actionButton = useRef<HTMLButtonElement>(null);
   const previousPhase = useRef(state.phase);
   useEffect(() => {
-    if (state.phase === 'prize-visible'
-        || state.phase === 'ready' && ['resetting', 'prize-visible', 'failed'].includes(previousPhase.current)) {
+    if (state.phase === 'prize-visible' || state.phase === 'destroyed'
+        || state.phase === 'ready' && ['resetting', 'prize-visible', 'destroyed', 'failed'].includes(previousPhase.current)) {
       actionButton.current?.focus();
     }
     previousPhase.current = state.phase;
@@ -57,6 +57,19 @@ export function SessionPanel({ session, items, onOpenGesture, recentFind, onOpen
             <Button variant="transparent"
               onClick={() => { void session.resetAfterError(); }}>Вернуться к сундуку</Button>
           )}
+        </div>
+      </section>
+    );
+  }
+  if (state.phase === 'destroyed') {
+    // Shown over the wreckage: the scene stays visible behind the message.
+    return (
+      <section className="feedback feedback--destroyed" role="alert">
+        <h2>Сундук не выдержал</h2>
+        <p>Энергия внутри оказалась сильнее — сундук разрушился, и награда сгорела вместе с ним.</p>
+        <div className="actions">
+          <Button ref={actionButton} onClick={() => { if (onPrizeClose) onPrizeClose(); else void session.closePrize(); }}>
+            {onPrizeClose ? 'Вернуться в инвентарь' : 'Продолжить'}</Button>
         </div>
       </section>
     );

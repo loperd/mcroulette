@@ -50,13 +50,15 @@ const soundPreference = new SoundSettings(() => window.localStorage,
 function createCaseRuntime(definition: CaseDefinition, instance?: CaseInstance) {
   const identity = `${definition.id}:${instance?.id ?? 'browse'}`;
   const routeBase = { caseId: definition.id, ...(instance ? { instanceId: instance.id } : {}) };
+  // Server stand-in: this chest's fate. The scene draws it; the session skips the roulette if it is destroyed.
+  const breakage = instance ? demoBreakage(instance, definition.model.modifications) : undefined;
   const scene = new ThreeChestDropScene(baseUrl, document, definition.model, instance?.appearance ?? definition.appearance, () => {
     if (!instance) return;
     const current = inventory.getState().find(item => item.id === instance.id);
     if (!current) return;
     const damaged = withImpactDamage(current.appearance, definition.model.modifications);
     if (damaged !== current.appearance) inventory.updateAppearance(instance.id, damaged);
-  }, instance ? demoBreakage(instance, definition.model.modifications) : undefined);
+  }, breakage);
   const sound = new ClickSound(resolvePublicAsset('audio/click.wav', baseUrl));
   sound.setMuted(soundPreference.isMuted()); scene.setSoundMuted(soundPreference.isMuted());
   const roulette = new CanvasRoulette(document, { sound, theme });
@@ -69,7 +71,9 @@ function createCaseRuntime(definition: CaseDefinition, instance?: CaseInstance) 
     journal, ownership: instance ? {
       claim: sessionId => inventory.claim(instance.id, sessionId),
       complete: (sessionId, reward) => inventory.complete(instance.id, sessionId, reward),
-    } : undefined, presentation: { chest: scene, roulette, transitions } });
+      destroy: sessionId => inventory.destroy(instance.id, sessionId),
+    } : undefined, destruction: breakage?.destroyed ? { moment: breakage.moment } : undefined,
+    presentation: { chest: scene, roulette, transitions } });
   const recentFind = new RecentFindStore(application.session!, definition.id, () => window.localStorage);
   let initializing = true;
   const syncRoute = () => {

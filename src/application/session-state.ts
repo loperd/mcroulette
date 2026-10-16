@@ -19,6 +19,8 @@ export interface SessionFailure {
 export type SessionDetails =
   | { readonly phase: 'idle' | 'loading' | 'ready' | 'resetting' | 'disposed' }
   | { readonly phase: 'clearing' | 'dropping' | 'opening'; readonly sessionId: string }
+  /** The chest broke apart under the energy: the session ends without a reward. */
+  | { readonly phase: 'destroyed'; readonly sessionId: string }
   | {
     readonly phase: 'flashing' | 'spinning' | 'settling' | 'revealing' | 'prize-visible';
     readonly sessionId: string;

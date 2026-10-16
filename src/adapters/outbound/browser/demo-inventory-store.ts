@@ -1,5 +1,5 @@
 import type { CaseDefinition } from '../../../config/cases.ts';
-import { claimCase, completeCase, copyCaseInstance, type CaseInstance } from '../../../domain/case-instance.ts';
+import { claimCase, completeCase, copyCaseInstance, destroyCase, type CaseInstance } from '../../../domain/case-instance.ts';
 import { changeChestAppearance, copyChestAppearance, createChestAppearance, type ChestAppearance } from '../../../domain/chest-appearance.ts';
 import type { Item } from '../../../domain/item.ts';
 import type { PlayerInventory } from '../../../application/ports/player-inventory.ts';
@@ -24,6 +24,7 @@ export class DemoInventoryStore implements PlayerInventory {
   readonly subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   claim(instanceId: string, sessionId: string): void { this.update(instanceId, item => claimCase(item, sessionId)); }
   complete(instanceId: string, sessionId: string, reward: Item): void { this.update(instanceId, item => completeCase(item, sessionId, reward)); }
+  destroy(instanceId: string, sessionId: string): void { this.update(instanceId, item => destroyCase(item, sessionId)); }
   updateAppearance(instanceId: string, appearance: ChestAppearance): void { this.update(instanceId, item => copyCaseInstance({ ...item, appearance })); }
   /** One-time demo top-up per type; reloads must not replenish consumed cases. */
   seedDemoStock(cases: readonly CaseDefinition[], target = 100): void {

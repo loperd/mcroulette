@@ -6,6 +6,7 @@ export interface PlayerInventory {
   subscribe(listener: () => void): () => void;
   claim(instanceId: string, sessionId: string): void;
   complete(instanceId: string, sessionId: string, reward: Item): void;
+  destroy(instanceId: string, sessionId: string): void;
   updateAppearance(instanceId: string, appearance: ChestAppearance): void;
 }
-export interface CaseOwnership { claim(sessionId: string): void; complete(sessionId: string, reward: Item): void }
+export interface CaseOwnership { claim(sessionId: string): void; complete(sessionId: string, reward: Item): void; destroy?(sessionId: string): void }
