@@ -1,0 +1,33 @@
+/* Ported from master:src/styles/main.styl; shared by all screen scenes. */
+.btn {
+  color: #fff;
+  cursor: pointer;
+  background: transparent;
+  font-family: Manrope, sans-serif;
+  box-shadow: 5px 5px 50px 5px rgba(0, 0, 0, 0.5);
+  text-shadow: 2px 2px 3px rgba(0, 0, 0, 0.5);
+  text-transform: uppercase;
+  text-align: center;
+  display: inline-block;
+  border-radius: 3px;
+  font-size: 1.06rem;
+  padding: 10px 20px;
+  font-weight: 800;
+  border: none;
+  min-height: 44px;
+}
+.btn-transparent { background: transparent; transition: background-color 0.3s ease-in-out; }
+.btn-green { position: relative; color: #fff; background: #23fa0a; background-image: linear-gradient(0.96turn, #226c1e, #099715, #3dd720); }
+.btn-green::after { content: ''; position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity 0.2s ease-in-out; box-shadow: 0 0 40px 1px #23fa0a; }
+.btn:focus-visible { outline: none; }
+.btn-green:focus-visible:not(:disabled)::after { opacity: 0.65; }
+.btn-transparent:focus-visible { background-color: #86ead012; box-shadow: inset 0 0 18px #86ead016, 0 0 18px #86ead020; color: #b4f2df; }
+@media (forced-colors: active) { .btn:focus-visible { outline: 2px solid Highlight; outline-offset: -2px; } }
+.btn:disabled { opacity: 0.5; cursor: default; }
+@media (hover: hover) and (pointer: fine) {
+  .btn-transparent:hover:not(:disabled) { background-color: rgba(255, 255, 255, 0.1); }
+  .btn-green:hover:not(:disabled)::after { opacity: 0.5; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn-transparent, .btn-green::after { transition: none; }
+}

@@ -1,0 +1,105 @@
+{
+  "scene": "Ender Reference",
+  "objects": [
+    {
+      "name": "chest",
+      "type": "EMPTY",
+      "parent": null
+    },
+    {
+      "name": "6e2da91e-9722-6cba-1061-d46d14d9b13d",
+      "type": "MESH",
+      "parent": "chest",
+      "vertices": 36,
+      "triangles": 12,
+      "bounds": {
+        "min": [
+          -0.4375,
+          -0.4375,
+          -1.1102230246251565e-16
+        ],
+        "max": [
+          0.4375,
+          0.4375,
+          0.625
+        ]
+      }
+    },
+    {
+      "name": "Lid",
+      "type": "EMPTY",
+      "parent": "chest"
+    },
+    {
+      "name": "e516d948-1af8-52ff-c195-b07266936ce7",
+      "type": "MESH",
+      "parent": "Lid",
+      "vertices": 36,
+      "triangles": 12,
+      "bounds": {
+        "min": [
+          -0.0625,
+          -0.5,
+          0.5
+        ],
+        "max": [
+          0.0625,
+          -0.4375,
+          0.75
+        ]
+      }
+    },
+    {
+      "name": "a8485cb4-c06f-afd9-9293-9865a0d32ee5",
+      "type": "MESH",
+      "parent": "Lid",
+      "vertices": 36,
+      "triangles": 12,
+      "bounds": {
+        "min": [
+          -0.4375,
+          -0.4375,
+          0.625
+        ],
+        "max": [
+          0.4375,
+          0.4375,
+          0.9375
+        ]
+      }
+    },
+    {
+      "name": "block",
+      "type": "EMPTY",
+      "parent": "chest"
+    },
+    {
+      "name": "0ddf48a8-b575-713f-ba1c-d732f96101cf",
+      "type": "MESH",
+      "parent": "block",
+      "vertices": 36,
+      "triangles": 12,
+      "bounds": {
+        "min": [
+          -0.25,
+          -0.25,
+          0.0625
+        ],
+        "max": [
+          0.25,
+          0.25,
+          0.5625
+        ]
+      }
+    }
+  ],
+  "actions": [
+    {
+      "name": "Open",
+      "frames": [
+        0.0,
+        137.27999877929688
+      ]
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "revision": "ender-v2.2",
+  "bytes": 388248,
+  "scenes": 1,
+  "meshes": 2,
+  "materials": [
+    "Vault.Shell",
+    "Vault.Interior",
+    "Vault.Metal",
+    "Vault.Panel",
+    "Vault.Edge",
+    "Vault.Accent",
+    "Vault.Crystal"
+  ],
+  "animations": [
+    "Animation"
+  ],
+  "pixel_textures": 5,
+  "triangles": 4700
+}

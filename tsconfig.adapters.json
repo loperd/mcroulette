@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.core.json",
+  "include": [
+    "src/domain",
+    "src/application",
+    "src/adapters/outbound/browser",
+    "src/adapters/outbound/data",
+    "src/adapters/outbound/chest/physics-world-port.ts",
+    "src/adapters/outbound/chest/physics-config.ts",
+    "src/adapters/outbound/chest/chest-bounds.ts",
+    "src/composition"
+  ]
+}

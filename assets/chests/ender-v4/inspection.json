@@ -1,0 +1,13 @@
+{
+  "revision": "ender-v4.1",
+  "triangles": 216,
+  "bytes": 26108,
+  "materials": [
+    "Vault.Shell",
+    "Vault.Panel",
+    "Vault.Interior",
+    "Vault.Latch",
+    "Vault.Keyhole"
+  ],
+  "textures": 2
+}
