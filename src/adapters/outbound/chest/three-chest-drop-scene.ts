@@ -418,7 +418,8 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
         this.impactEffects?.trigger(visual.position.x, visual.position.z,
           this.view.matchMedia('(prefers-reduced-motion: reduce)').matches);
         this.effects?.impact();
-        this.fractureEffects?.impact();
+        // Cracks open on landing only when the decided fate breaks the chest there.
+        if (this.breakageEffects?.breaksOnImpact) this.fractureEffects?.impact();
         this.breakageEffects?.impact();
         this.onImpact?.();
       }

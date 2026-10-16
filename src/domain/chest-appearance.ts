@@ -106,12 +106,22 @@ export function partConditions(appearance: ChestAppearance, profile: ChestModifi
     .map(item => item.intensity)) }));
 }
 
-/** A hard landing cracks every fracture entry the model offers, never lowering existing damage. */
-export function withImpactDamage(appearance: ChestAppearance, profile: ChestModificationProfile, level = .9): ChestAppearance {
+/**
+ * Persists what an actual break did: each broken part's fracture entries rise to its severity
+ * (never lowering existing damage). A chest that survived intact gains nothing.
+ */
+export function withBreakageDamage(appearance: ChestAppearance, profile: ChestModificationProfile,
+  parts: readonly { readonly part: string; readonly severity: number }[]): ChestAppearance {
   const current = new Map(appearance.modifications.map(item => [item.id, item.intensity]));
-  const raised = profile.catalog.filter(definition => definition.kind === 'fracture' && (current.get(definition.id) ?? 0) < level)
-    .map(definition => ({ id: definition.id, intensity: level }));
-  return raised.length ? changeChestAppearance(appearance, { modifications: raised }) : appearance;
+  const raised = new Map<string, number>();
+  for (const { part, severity } of parts) {
+    for (const definition of profile.catalog) {
+      if (definition.kind !== 'fracture' || !definition.parts.includes(part)) continue;
+      const level = Math.max(severity, raised.get(definition.id) ?? 0);
+      if (level > (current.get(definition.id) ?? 0)) raised.set(definition.id, Math.min(1, level));
+    }
+  }
+  return raised.size ? changeChestAppearance(appearance, { modifications: [...raised].map(([id, intensity]) => ({ id, intensity })) }) : appearance;
 }
 
 /** Stable default seed of a catalogue entry on an instance, so a pattern keeps its shape everywhere. */

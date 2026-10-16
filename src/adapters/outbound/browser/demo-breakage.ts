@@ -23,16 +23,18 @@ export function demoBreakage(instance: CaseInstance, profile: ChestModificationP
   const moment = next() < .4 ? 'impact' : 'opening';
   const pick = (options: readonly BreakPattern[]) => options[Math.floor(next() * options.length)]!;
   const parts = conditions.flatMap(({ part, value }, index) => {
-    if (value === 0 || next() > value + .15) return [];
+    // A decrepit chest gives way everywhere, its sound body included.
+    if (!decrepit && (value === 0 || next() > value + .15)) return [];
     const detached = decrepit || next() < Math.max(0, (value - .45) / .55) * .8;
     const carrier = index === 0;
     const pattern = !detached ? 'shatter'
       : !carrier && next() < .55 ? 'fall'
       : moment === 'impact' ? pick(['crumble', 'split', 'split']) : pick(['shatter', 'shatter', 'split']);
-    return [{ part: part.id, severity: Math.round(Math.min(1, value * (.6 + next() * .4)) * 100) / 100, detached, pattern }];
+    const severity = Math.max(decrepit ? .5 : 0, Math.min(1, value * (.6 + next() * .4)));
+    return [{ part: part.id, severity: Math.round(severity * 100) / 100, detached, pattern }];
   });
   const carrier = profile.parts[0]?.id;
-  const destroyed = parts.some(item => item.part === carrier && item.detached);
+  const destroyed = decrepit || parts.some(item => item.part === carrier && item.detached);
   return copyChestBreakage({ seed: Math.floor(next() * 0xffffffff), moment, parts, destroyed }, profile);
 }
 

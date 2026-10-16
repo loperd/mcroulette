@@ -5,6 +5,9 @@ import type { Item } from '../../../domain/item.ts';
 import type { PlayerInventory } from '../../../application/ports/player-inventory.ts';
 import type { ScreenStorage } from './screen-storage.ts';
 
+/** v2: appearance schema v2 with modifications; a fresh, varied demo inventory. */
+const STORAGE_KEY = 'demo-inventory-v2';
+
 /** Local demo adapter; replace with a server inventory gateway before real ownership/issuance. */
 export class DemoInventoryStore implements PlayerInventory {
   private state: readonly CaseInstance[];
@@ -12,13 +15,13 @@ export class DemoInventoryStore implements PlayerInventory {
   private readonly storage: ScreenStorage;
   constructor(storage: ScreenStorage) {
     this.storage = storage;
-    this.state = storage.read('demo-inventory', value => {
+    this.state = storage.read(STORAGE_KEY, value => {
       if (!Array.isArray(value) || value.length > 1000) throw new Error('Invalid inventory.');
       const items = value.map(copyCaseInstance);
       if (new Set(items.map(item => item.id)).size !== items.length) throw new Error('Duplicate instances.');
       return Object.freeze(items);
     }) ?? this.seed();
-    this.storage.write('demo-inventory', this.state);
+    this.storage.write(STORAGE_KEY, this.state);
   }
   readonly getState = () => this.state;
   readonly subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
@@ -30,12 +33,15 @@ export class DemoInventoryStore implements PlayerInventory {
   seedDemoStock(cases: readonly CaseDefinition[], target = 100): void {
     if (!Number.isSafeInteger(target) || target < 1 || target > 1000) throw new Error('Invalid demo stock size.');
     for (const definition of cases) {
-      const marker = `demo-stock:100-v1:${definition.id}`;
+      const marker = `demo-stock:100-v2:${definition.id}`;
       if (this.storage.read(marker, value => value === true)) continue;
       const available = this.state.filter(item => item.caseId === definition.id && item.status === 'available').length;
       const additions = Array.from({ length: Math.max(0, target - available) }, (_, index) => {
         const seed = (Date.now() + index * 2654435761) >>> 0;
-        const appearance = copyChestAppearance({ ...definition.appearance, seed });
+        // Varied stock: each chest rolls a condition and modifications, so fates differ too.
+        const base = copyChestAppearance({ ...definition.appearance, seed });
+        const modifications = demoModifications(definition, lcg(seed));
+        const appearance = modifications.length ? changeChestAppearance(base, { modifications }) : base;
         return copyCaseInstance({ id: globalThis.crypto.randomUUID(), caseId: definition.id, status: 'available', appearance });
       });
       if (additions.length) { this.state = Object.freeze([...this.state, ...additions]); this.publish(); }
@@ -59,7 +65,7 @@ export class DemoInventoryStore implements PlayerInventory {
     if (!this.state.some(item => item.id === id)) throw new Error('Case does not belong to this inventory.');
     this.state = Object.freeze(this.state.map(item => item.id === id ? action(item) : item)); this.publish();
   }
-  private publish(): void { this.storage.write('demo-inventory', this.state); for (const listener of [...this.listeners]) listener(); }
+  private publish(): void { this.storage.write(STORAGE_KEY, this.state); for (const listener of [...this.listeners]) listener(); }
   private seed(): readonly CaseInstance[] {
     return Object.freeze([
       { id: 'demo-ender-1', appearance: createChestAppearance(731) },
@@ -90,4 +96,9 @@ function demoModifications(definition: CaseDefinition, random: () => number) {
     else if (random() < .18) result.push({ id: entry.id, intensity: intensity(.5 + random() * .5) });
   }
   return result;
+}
+
+function lcg(seed: number) {
+  let state = seed || 1;
+  return () => { state = (Math.imul(state, 1664525) + 1013904223) >>> 0; return state / 4294967296; };
 }
