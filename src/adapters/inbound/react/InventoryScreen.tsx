@@ -10,10 +10,10 @@ import type { ChestPreviewRenderer } from '../../outbound/chest/chest-preview-re
 import { useObservableState } from './use-observable-state.ts';
 import { ChestThumbnail } from './ChestThumbnail.tsx';
 
-export function InventoryScreen({ inventory, cases, navigation, storage, renderer, onAddDemo, mode = 'inventory' }: {
+export function InventoryScreen({ inventory, cases, navigation, storage, renderer, mode = 'inventory' }: {
   readonly mode?: 'inventory' | 'archive';
   readonly inventory: PlayerInventory; readonly cases: readonly CaseDefinition[]; readonly navigation: Navigation;
-  readonly storage: ScreenStorage; readonly renderer: Pick<ChestPreviewRenderer, 'render'>; readonly onAddDemo: () => void;
+  readonly storage: ScreenStorage; readonly renderer: Pick<ChestPreviewRenderer, 'render'>;
 }) {
   const instances = useObservableState(inventory);
   const saved = useRef(storage.read(mode === 'archive' ? 'screen:archive' : 'screen:inventory', value => {
@@ -50,7 +50,6 @@ export function InventoryScreen({ inventory, cases, navigation, storage, rendere
     </header>
     <div className="inventory__intro"><div><p className="eyebrow">{mode === 'archive' ? 'Открытия и награды' : 'Твои находки. Твои истории.'}</p><h1>{mode === 'archive' ? 'Архив' : 'Инвентарь'} <span>{mode === 'archive' ? screenInstances.length : available.length}</span></h1>
       <p>{mode === 'archive' ? 'Открытые сундуки и найденные в них предметы.' : 'Сундуки собраны по типу, окраске, повреждениям и состоянию.'}</p></div>
-      {mode === 'inventory' && <div className="inventory__demo"><span>Демо-инвентарь</span><button type="button" onClick={onAddDemo}>+ Добавить кейс</button></div>}
     </div>
     <nav className="inventory__rarities" aria-label="Редкость сундука">
       <button type="button" aria-pressed={rarity === 'all'} onClick={() => setRarity('all')}>Все классы</button>

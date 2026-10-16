@@ -357,7 +357,7 @@ test('inventory previews use individual metadata, selects an owned instance and 
   const storage = new ScreenStorage(() => window.localStorage), inventory = new DemoInventoryStore(storage);
   const navigation = new BrowserRouter(window, storage), seen = [];
   const renderer = { async render(definition, appearance) { seen.push(appearance); return document.createElement('canvas'); } };
-  const props = { inventory, cases: CASES, navigation, storage, renderer, onAddDemo: () => inventory.addDemoCase() };
+  const props = { inventory, cases: CASES, navigation, storage, renderer };
   try {
     await act(async () => { root.render(createElement(StrictMode, null, createElement(InventoryScreen, props))); });
     assert.equal(document.querySelectorAll('.inventory-card').length, 4);
@@ -420,7 +420,7 @@ test('bulk demo inventory renders stacks with quantity, wear and palette; an ope
   const navigation = new BrowserRouter(window, storage);
   const renderer = { async render() { return document.createElement('canvas'); } };
   try {
-    await act(async () => { root.render(createElement(InventoryScreen, { inventory, cases: CASES, navigation, storage, renderer, onAddDemo() {} })); });
+    await act(async () => { root.render(createElement(InventoryScreen, { inventory, cases: CASES, navigation, storage, renderer })); });
     assert.equal(document.querySelectorAll('.inventory-card').length, 4);
     assert.equal(document.querySelector('.inventory-card__quantity').textContent, '97 шт.');
     assert.equal(document.querySelectorAll('.inventory-card:first-child .chest-indicators__palette > span').length, 4);
