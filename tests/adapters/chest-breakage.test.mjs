@@ -116,6 +116,8 @@ test('demo fate: pristine chests never break, the same instance always breaks th
 
 test('the beam tears loose growth off the top and throws it up; the chest itself stays put', () => {
   const { world, root, meshes, dispose } = chest();
+  // Every standing part is a solid body now: the latch hangs on the front, not on top of the snow.
+  meshes.latch.position.set(0, 1, -1);
   const snow = new Mesh(new BoxGeometry(), new MeshStandardMaterial()); snow.userData.loose = true; snow.userData.chestOverlay = true;
   snow.scale.set(.2, .1, .2); snow.position.y = .6; meshes.lid.add(snow);
   const low = new Mesh(new BoxGeometry(), new MeshStandardMaterial()); low.userData.loose = true; low.position.y = -.9; meshes.body.add(low);

@@ -34,6 +34,8 @@ const scenarios = [
     mods: [{ id: 'snow', intensity: .9 }, { id: 'end-crystals', intensity: 1 }, { id: 'cobweb', intensity: 1 }, { id: 'vines', intensity: .8 }] },
   { label: 'opening · snowy lid falls off, the beam throws it', moment: 'opening', parts: [{ part: 'lid', severity: .6, detached: true, pattern: 'fall' }],
     mods: [{ id: 'snow', intensity: .9 }, { id: 'end-crystals', intensity: 1 }] },
+  { label: 'landing · intact: snow and crystals at the edges fall, latch and vines swing', moment: 'impact', parts: [],
+    mods: [{ id: 'snow', intensity: 1 }, { id: 'end-crystals', intensity: 1 }, { id: 'vines', intensity: .9 }, { id: 'cobweb', intensity: 1 }] },
 ] as const;
 
 await RAPIER.init();
@@ -66,7 +68,7 @@ for (const [row, scenario] of scenarios.entries()) {
     effects.start(false);
     const step = 1 / 60;
     if (scenario.moment === 'impact') {
-      effects.impact();
+      effects.impact(); effects.landed(1);
       for (let t = 0; t < time; t += step) effects.update(step);
     } else {
       // Charge up to the burst (~1.4 s of a 6 s opening), then run `time` seconds past it.

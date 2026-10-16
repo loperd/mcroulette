@@ -15,7 +15,7 @@ export const ENDER_REFERENCE_MODIFICATIONS = {
   parts: [
     { id: 'body', label: 'Корпус', nodes: ['Chest_bottom'] },
     { id: 'lid', label: 'Крышка', nodes: ['Chest_top'] },
-    { id: 'latch', label: 'Замок', nodes: ['e516d948-1af8-52ff-c195-b07266936ce7'] },
+    { id: 'latch', label: 'Замок', nodes: ['e516d948-1af8-52ff-c195-b07266936ce7'], swing: true },
   ],
   colorZones: [
     { role: 'shell', mode: 'tint', strength: .35, nodes: ['Chest_bottom', 'Chest_top'] },
