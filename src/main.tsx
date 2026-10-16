@@ -1,4 +1,6 @@
 import { caseOpenAction } from './application/case-open-action.ts';
+import { parentRoute } from './application/navigation-map.ts';
+import { gameAudio } from './adapters/outbound/browser/game-audio.ts';
 import { chestEffectColor } from './adapters/outbound/chest/chest-appearance.ts';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -43,8 +45,14 @@ let previews: ChestPreviewRenderer | undefined;
 let runtime: ReturnType<typeof createCaseRuntime> | undefined;
 let pendingOpenInstanceId: string | undefined;
 const soundPreference = new SoundSettings(() => window.localStorage,
-  muted => { runtime?.sound.setMuted(muted); runtime?.scene.setSoundMuted(muted); },
-  () => { runtime?.sound.unlock(); runtime?.scene.unlockAudio(); });
+  muted => { runtime?.sound.setMuted(muted); runtime?.scene.setSoundMuted(muted); gameAudio.setMuted(muted); },
+  () => { runtime?.sound.unlock(); runtime?.scene.unlockAudio(); gameAudio.unlock(); });
+gameAudio.setMuted(soundPreference.isMuted());
+// Every action is heard: a tick on any button press (also unlocks audio inside the gesture).
+document.addEventListener('click', event => {
+  if (!(event.target instanceof Element) || !event.target.closest('button, a, [role="button"]')) return;
+  gameAudio.unlock(); gameAudio.click();
+}, true);
 
 /** Resources belong to the selected case, outside React effects and StrictMode. */
 function createCaseRuntime(definition: CaseDefinition, instance?: CaseInstance) {
@@ -86,7 +94,18 @@ function createCaseRuntime(definition: CaseDefinition, instance?: CaseInstance) 
     else if ('sessionId' in state) navigation.go({ screen: 'opening', ...routeBase, sessionId: state.sessionId }, route.screen === 'opening' || route.screen === 'reward');
     else if (state.phase === 'ready' && (route.screen === 'opening' || route.screen === 'reward')) navigation.go({ screen: 'case', ...routeBase }, true);
   };
-  const unsubscribe = application.session!.subscribe(syncRoute);
+  // Outcome stings: the reward by its rarity, or the loss.
+  let heard: string | undefined;
+  const unsubscribeOutcome = application.session!.subscribe(() => {
+    const state = application.session!.getState();
+    const key = 'sessionId' in state ? `${state.phase}:${state.sessionId}` : state.phase;
+    if (key === heard) return;
+    heard = key;
+    if (state.phase === 'prize-visible') gameAudio.reward(state.selection.prize.rarity);
+    else if (state.phase === 'destroyed') gameAudio.destroyed();
+  });
+  const unsubscribe = () => { unsubscribeOutcome(); unsubscribeSync(); };
+  const unsubscribeSync = application.session!.subscribe(syncRoute);
   return { identity, effectColor, instanceId: instance?.id, definition, scene, sound, roulette, transitions, application, recentFind,
     initialize() { void application.initialize().finally(() => {
       initializing = false; syncRoute();
@@ -98,6 +117,22 @@ function createCaseRuntime(definition: CaseDefinition, instance?: CaseInstance) 
     dispose() { unsubscribe(); recentFind.dispose(); try { application.dispose(); } finally { sound.dispose(); } },
   };
 }
+
+/**
+ * Escape = back towards the inventory. Dialogs and text fields keep their own Escape; while a chest
+ * is opening it does nothing; on a reward or destruction screen it closes it, landing on the case
+ * overview of the same chest.
+ */
+window.addEventListener('keydown', event => {
+  if (event.key !== 'Escape' || event.repeat || event.defaultPrevented) return;
+  const target = event.target instanceof Element ? event.target : null;
+  if (document.querySelector('dialog[open]') || target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+  const phase = runtime?.application.session?.getState().phase;
+  if (phase === 'prize-visible' || phase === 'destroyed') { event.preventDefault(); void runtime!.application.session!.closePrize(); return; }
+  if (phase && ['clearing', 'dropping', 'opening', 'flashing', 'spinning', 'settling', 'revealing', 'resetting'].includes(phase)) return;
+  const parent = parentRoute(navigation.getState());
+  if (parent) { event.preventDefault(); navigation.go(parent); }
+});
 
 function renderRoute() {
   const route = navigation.getState();
@@ -131,17 +166,17 @@ function renderRoute() {
   if (!fresh && route.screen === 'case' && state.phase === 'prize-visible') void current.application.session!.closePrize();
   root.render(<StrictMode><NavigationContext.Provider value={{ navigation, storage }}>
     <CasePresentationContext.Provider value={definition.presentation}>
-      <App inspectedCase={instance} caseAccent={current.effectColor} availableCaseCount={action.availableCount}
+      <App captureWreck={() => current.scene.captureWreck()} inspectedCase={instance} caseAccent={current.effectColor} availableCaseCount={action.availableCount}
         openLabel={action.label}
         onOpenRequest={() => {
-          const { target } = caseOpenAction(inventory.getState(), definition.id, current.instanceId);
-          if (!target) { navigation.go({ screen: 'archive' }); return; }
+          const { target, action: offer } = caseOpenAction(inventory.getState(), definition.id, current.instanceId);
+          if (offer === 'leave' || !target) { navigation.go(parentRoute(navigation.getState()) ?? { screen: 'inventory' }); return; }
           if (target.id === current.instanceId) { void current.application.session!.openChest(); return; }
           pendingOpenInstanceId = target.status === 'available' ? target.id : undefined;
           navigation.go({ screen: 'case', caseId: definition.id, instanceId: target.id });
           runtime?.sound.unlock(); runtime?.scene.unlockAudio();
         }}
-        onPrizeClose={() => { void current.application.session!.closePrize().then(() => { if (runtime === current) navigation.go({ screen: 'archive' }); }); }}
+        onPrizeClose={() => { void current.application.session!.closePrize(); }}
         recentFind={current.recentFind} soundPreference={soundPreference} catalog={current.application.catalog}
         session={current.application.session} sceneElement={current.scene.element} rouletteElement={current.roulette.element}
         onOpenGesture={() => { current.sound.unlock(); current.scene.unlockAudio(); }} transitionElement={current.transitions.element}
@@ -150,7 +185,13 @@ function renderRoute() {
   </NavigationContext.Provider></StrictMode>);
   if (fresh) current.initialize();
 }
-const unsubscribeRoute = navigation.subscribe(renderRoute);
+let lastScreen = navigation.getState().screen;
+const unsubscribeRoute = navigation.subscribe(() => {
+  const screen = navigation.getState().screen;
+  if (screen !== lastScreen && screen !== 'opening' && screen !== 'reward') gameAudio.navigate();
+  lastScreen = screen;
+  renderRoute();
+});
 const unsubscribeInventory = inventory.subscribe(renderRoute);
 renderRoute();
 if (import.meta.hot) import.meta.hot.dispose(() => {
