@@ -8,6 +8,11 @@ import { chestEffectColor } from './adapters/outbound/chest/chest-appearance.ts'
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './adapters/inbound/react/App.tsx';
+import { LoginScreen } from './adapters/inbound/react/LoginScreen.tsx';
+import { ErrorNotice } from './adapters/inbound/react/ErrorNotice.tsx';
+import { Button } from './adapters/inbound/react/Button.tsx';
+import { ApiAuthGateway } from './adapters/outbound/data/api-auth-gateway.ts';
+import type { Player } from './application/ports/auth-gateway.ts';
 import { InventoryScreen } from './adapters/inbound/react/InventoryScreen.tsx';
 import { DemoInventoryStore } from './adapters/outbound/browser/demo-inventory-store.ts';
 import { ChestPreviewRenderer } from './adapters/outbound/chest/chest-preview-renderer.ts';
@@ -148,7 +153,39 @@ window.addEventListener('keydown', event => {
   if (parent) { event.preventDefault(); navigation.go(parent); }
 });
 
+/**
+ * Nothing is shown before the server knows the player: the session cookie is checked first, and
+ * without one the way in is the login screen (passkey or Telegram). A server that cannot be
+ * reached is said plainly, with a retry, instead of an app that fails piece by piece.
+ */
+const auth = new ApiAuthGateway(baseUrl);
+let session: { readonly state: 'checking' } | { readonly state: 'signed-out' | 'unavailable' } | { readonly state: 'signed-in'; readonly player: Player } = { state: 'checking' };
+async function checkSession() {
+  session = { state: 'checking' }; renderRoute();
+  try {
+    const player = await auth.current();
+    session = player ? { state: 'signed-in', player } : { state: 'signed-out' };
+  } catch (error) {
+    reporter.capture(error, { code: 'SESSION_CHECK_FAILED' });
+    session = { state: 'unavailable' };
+  }
+  renderRoute();
+}
+function renderGate(): boolean {
+  if (session.state === 'signed-in') return false;
+  root.render(<StrictMode>{session.state === 'signed-out'
+    ? <LoginScreen auth={auth} onSignedIn={player => { session = { state: 'signed-in', player }; renderRoute(); }} />
+    : <main className="page-shell">{session.state === 'unavailable'
+      ? <ErrorNotice eyebrow="Нет связи с сервером" title="Хранилище недоступно" actions={<Button onClick={() => { void checkSession(); }}>Повторить</Button>}>
+          <p>Не удалось связаться с сервером. Проверьте соединение — сундуки и награды хранятся на сервере и никуда не денутся.</p>
+        </ErrorNotice>
+      : <div className="feedback" role="status" aria-live="polite"><span className="loader" aria-hidden="true" /><p>Открываем хранилище…</p></div>}</main>}
+  </StrictMode>);
+  return true;
+}
+
 function renderRoute() {
+  if (renderGate()) return;
   const route = navigation.getState();
   if (route.screen === 'case' && !route.instanceId) {
     const owned = nextOwnedCase(inventory.getState(), route.caseId);
@@ -209,7 +246,7 @@ const unsubscribeRoute = navigation.subscribe(() => {
   renderRoute();
 });
 const unsubscribeInventory = inventory.subscribe(renderRoute);
-renderRoute();
+void checkSession();
 if (import.meta.hot) import.meta.hot.dispose(() => {
   unsubscribeRoute(); unsubscribeInventory(); navigation.dispose(); root.unmount(); previews?.dispose(); runtime?.dispose();
 });
