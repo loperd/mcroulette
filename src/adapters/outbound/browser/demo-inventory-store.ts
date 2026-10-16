@@ -62,8 +62,13 @@ export class DemoInventoryStore implements PlayerInventory {
     this.publish();
   }
   private update(id: string, action: (item: CaseInstance) => CaseInstance): void {
-    if (!this.state.some(item => item.id === id)) throw new Error('Case does not belong to this inventory.');
-    this.state = Object.freeze(this.state.map(item => item.id === id ? action(item) : item)); this.publish();
+    const current = this.state.find(item => item.id === id);
+    if (!current) throw new Error('Case does not belong to this inventory.');
+    const next = action(current);
+    // Idempotent transitions (claim/complete/destroy of the same session) change nothing: no
+    // notification, so restoring a finished session can never feed a render loop.
+    if (next === current) return;
+    this.state = Object.freeze(this.state.map(item => item.id === id ? next : item)); this.publish();
   }
   private publish(): void { this.storage.write(STORAGE_KEY, this.state); for (const listener of [...this.listeners]) listener(); }
   private seed(): readonly CaseInstance[] {

@@ -57,3 +57,13 @@ test('demo drops follow a rolled condition: only catalogue entries, damage consi
     assert.ok(Math.abs(cracks(drop)[0].intensity - cracks(drop)[1].intensity) <= .31);
   }
 });
+
+test('repeating a finished transition changes nothing and notifies nobody', () => {
+  const values = new Map(), storage = new ScreenStorage(() => ({ getItem: key => values.get(key), setItem: (key, value) => values.set(key, value) }));
+  const inventory = new DemoInventoryStore(storage), [first] = inventory.getState();
+  inventory.claim(first.id, 's1'); inventory.destroy(first.id, 's1');
+  let notified = 0; inventory.subscribe(() => notified++);
+  inventory.destroy(first.id, 's1'); inventory.claim('demo-ender-2', 's2'); inventory.claim('demo-ender-2', 's2');
+  assert.equal(notified, 1, 'only the real change (the first claim of demo-ender-2) notifies');
+  assert.equal(inventory.getState()[0].status, 'destroyed');
+});
