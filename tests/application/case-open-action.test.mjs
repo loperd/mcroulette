@@ -23,3 +23,17 @@ test('pending openings can be resumed when there are no fresh copies', () => {
   const result = caseOpenAction([pending], 'ender');
   assert.equal(result.target, pending); assert.equal(result.label, 'Продолжить открытие');
 });
+
+test('counts and the next chest stay within the inspected variant (its inventory stack)', async () => {
+  const { caseOpenAction } = await import('../../src/application/case-open-action.ts');
+  const { createChestAppearance, changeChestAppearance } = await import('../../src/domain/chest-appearance.ts');
+  const plain = createChestAppearance(), mossy = changeChestAppearance(createChestAppearance(), { modifications: [{ id: 'moss', intensity: .8 }] });
+  const make = (id, appearance, status = 'available', extra = {}) => ({ id, caseId: 'ender', status, appearance, ...extra });
+  const instances = [make('p1', plain), make('p2', plain), make('p3', plain), make('m1', mossy, 'opened', { sessionId: 's', reward: { id: 'r' } }), make('m2', mossy)];
+  const inspectingMossy = caseOpenAction(instances, 'ender', 'm1');
+  assert.equal(inspectingMossy.availableCount, 1, 'one mossy chest left, not every ender chest');
+  assert.equal(inspectingMossy.target.id, 'm2', 'the next chest is another mossy one');
+  assert.equal(caseOpenAction(instances, 'ender', 'p2').availableCount, 3);
+  const lastMossy = caseOpenAction(instances.filter(item => item.id !== 'm2'), 'ender', 'm1');
+  assert.equal(lastMossy.target.id, 'p1', 'with none of the variant left, any chest of the type');
+});
