@@ -2,7 +2,7 @@ import { chestEffectColor } from './chest-appearance.ts';
 import { createChestAppearance, copyChestAppearance, type ChestAppearance } from '../../../domain/chest-appearance.ts';
 import { ENDER_CASE, type ChestModelDefinition } from '../../../config/cases.ts';
 import {
-  ACESFilmicToneMapping, AnimationMixer, Box3, LoopOnce, DirectionalLight, HemisphereLight, Mesh, PCFSoftShadowMap, type Object3D,
+  ACESFilmicToneMapping, AnimationMixer, Box3, LoopOnce, Sphere, Vector2, DirectionalLight, HemisphereLight, Mesh, PCFSoftShadowMap, type Object3D,
   PerspectiveCamera, PlaneGeometry, Scene, ShadowMaterial, WebGLRenderer, Vector3,
 } from 'three';
 import type { ChestDropPort } from '../../../application/ports/chest-preview.ts';
@@ -28,6 +28,7 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
   private readonly baseUrl: URL;
   private readonly modelDefinition: ChestModelDefinition;
   private readonly appearance: ChestAppearance;
+  private readonly effectColor: number;
   private readonly onImpact?: () => void;
   private readonly view: Window;
   private readonly document: Document;
@@ -64,11 +65,12 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
   private readonly impactCorner = new Vector3();
   private landing?: { advance(delta: number): void; cancel(error: unknown): void };
 
-  constructor(baseUrl: string | URL, document: Document = globalThis.document, modelDefinition: ChestModelDefinition = ENDER_CASE.model, appearance: ChestAppearance = createChestAppearance(), onImpact?: () => void, breakage: ChestBreakage = NO_BREAKAGE) {
+  constructor(baseUrl: string | URL, document: Document = globalThis.document, modelDefinition: ChestModelDefinition = ENDER_CASE.model, appearance: ChestAppearance = createChestAppearance(), onImpact?: () => void, breakage: ChestBreakage = NO_BREAKAGE, effectColor = chestEffectColor(appearance)) {
     this.baseUrl = normalizeBaseUrl(baseUrl);
     this.breakage = breakage;
     this.modelDefinition = modelDefinition;
     this.appearance = copyChestAppearance(appearance);
+    this.effectColor = effectColor;
     this.onImpact = onImpact;
     this.document = document;
     if (!document.defaultView) throw new Error('The chest scene requires a browser window.');
@@ -85,32 +87,32 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
    * destruction screen. Rendered and read in the same task, so the drawing buffer is still valid.
    */
   captureWreck(): string | undefined {
-    const renderer = this.renderer, scene = this.scene, camera = this.camera;
-    if (!renderer || !scene || !camera) return undefined;
+    const renderer = this.renderer, scene = this.scene, camera = this.camera, assets = this.assets;
+    if (!renderer || !scene || !camera || !assets) return undefined;
     try {
-      this.floor!.visible = false;
-      renderer.render(scene, camera);
-      this.floor!.visible = true;
-      const canvas = renderer.domElement, box = new Box3();
+      // Frame what lies around the chest (fragments, standing parts, debris), not crumbs far away.
+      const origin = assets.visual.position.clone().setY(0), box = new Box3(), point = new Vector3();
       scene.traverse(object => {
-        if (!(object instanceof Mesh) || object === this.floor || !object.visible) return;
-        let shown: Object3D | null = object;
-        while (shown) { if (!shown.visible) return; shown = shown.parent; }
-        box.expandByObject(object);
+        if (!(object instanceof Mesh) || object === this.floor) return;
+        for (let shown: Object3D | null = object; shown; shown = shown.parent) if (!shown.visible) return;
+        object.getWorldPosition(point);
+        if (point.distanceTo(origin) < 2.2) box.expandByObject(object);
       });
       if (box.isEmpty()) return undefined;
-      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-      for (const bits of [0, 1, 2, 3, 4, 5, 6, 7]) {
-        const corner = new Vector3(bits & 1 ? box.max.x : box.min.x, bits & 2 ? box.max.y : box.min.y, bits & 4 ? box.max.z : box.min.z).project(camera);
-        const x = (corner.x + 1) / 2 * canvas.width, y = (1 - corner.y) / 2 * canvas.height;
-        x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
-      }
-      const pad = Math.max(x1 - x0, y1 - y0) * .08;
-      x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad); x1 = Math.min(canvas.width, x1 + pad); y1 = Math.min(canvas.height, y1 + pad);
-      const width = Math.max(1, Math.round(x1 - x0)), height = Math.max(1, Math.round(y1 - y0));
-      const crop = this.document.createElement('canvas'); crop.width = width; crop.height = height;
-      crop.getContext('2d')?.drawImage(canvas, x0, y0, width, height, 0, 0, width, height);
-      return crop.toDataURL('image/png');
+      const sphere = box.getBoundingSphere(new Sphere());
+      // A dedicated camera from the game's own viewing direction, close enough to fill the shot.
+      const width = 720, height = 600, shot = new PerspectiveCamera(32, width / height, 0.05, 60);
+      const direction = camera.position.clone().sub(sphere.center).normalize();
+      const distance = sphere.radius / Math.sin(shot.fov * Math.PI / 360) * 1.08;
+      shot.position.copy(sphere.center).addScaledVector(direction, distance);
+      shot.lookAt(sphere.center);
+      const size = renderer.getSize(new Vector2()), ratio = renderer.getPixelRatio();
+      renderer.setPixelRatio(1); renderer.setSize(width, height, false);
+      renderer.render(scene, shot);
+      const image = renderer.domElement.toDataURL('image/png');
+      renderer.setPixelRatio(ratio); renderer.setSize(size.x, size.y, false);
+      renderer.render(scene, camera);
+      return image;
     } catch { return undefined; }
   }
 
@@ -181,7 +183,7 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
       this.detachContextLost = () => renderer.domElement.removeEventListener('webglcontextlost', contextLost);
 
       await Promise.all([
-        loadChestAssets(this.baseUrl, signal, this.modelDefinition, this.appearance).then(assets => {
+        loadChestAssets(this.baseUrl, signal, this.modelDefinition, this.appearance, this.effectColor).then(assets => {
           if (!this.isCurrent(generation, signal)) { assets.dispose(); signal.throwIfAborted(); throw new Error('Scene preparation was cancelled.'); }
           this.assets = assets;
         }),
@@ -195,7 +197,7 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
       const scene = new Scene();
       this.scene = scene;
       scene.add(this.assets.visual);
-      const effectColor = chestEffectColor(this.assets.appearance);
+      const effectColor = this.effectColor;
       this.fractureEffects = new ChestFractureEffects(this.assets.visual, effectColor, this.assets.appearance, this.modelDefinition.modifications);
       this.effects = new ChestOpeningEffects(this.assets.visual, effectColor);
       this.effects.setMuted(this.soundMuted);
@@ -288,7 +290,8 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
       this.landing = {
         advance: delta => {
           elapsed += delta;
-          if (this.physics!.isChestSleeping()) { cleanup(); resolve(); }
+          // A chest that broke on landing first lets its pieces fall and settle.
+          if (this.physics!.isChestSleeping() && (this.breakageEffects?.settled ?? true)) { cleanup(); resolve(); }
           else if (elapsed > 15) { cleanup(); reject(new Error('The chest did not settle on the floor.')); }
         },
         cancel: error => { cleanup(); reject(error); },

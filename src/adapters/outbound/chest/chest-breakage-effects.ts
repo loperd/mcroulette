@@ -145,6 +145,14 @@ export class ChestBreakageEffects {
   /** True once the break has happened. */
   get broken(): boolean { return this.burst; }
 
+  /** The break has played out: every piece released and at rest (or long enough has passed). */
+  get settled(): boolean {
+    if (!this.burst) return true;
+    if (this.sinceBurst > 3) return true;
+    return this.bodies.every(entry => entry.delay <= 0 && (entry.body.isSleeping() || entry.speed < .08));
+  }
+  private sinceBurst = 0;
+
   start(reduced: boolean): void { this.reset(); this.reduced = reduced; }
 
   /** The hard landing: mechanical damage where the chest hit. */
@@ -185,6 +193,7 @@ export class ChestBreakageEffects {
       }
     }
     const step = Math.min(delta, .05);
+    if (this.burst) this.sinceBurst += step;
     this.animateColumn(step);
     this.animateEnergy(step);
     this.stepPhysics(step);
@@ -193,6 +202,7 @@ export class ChestBreakageEffects {
 
   reset(): void {
     this.charged = this.burst = this.beamed = false;
+    this.sinceBurst = 0;
     this.columnAge = Infinity; this.column?.removeFromParent();
     this.next = random(this.seed); // a replayed session breaks the same way
     this.flash.intensity = 0; this.flash.removeFromParent(); this.flashAge = this.ringAge = Infinity; this.ring?.removeFromParent();
@@ -309,16 +319,15 @@ export class ChestBreakageEffects {
       const t = entry.body.translation();
       const dx = t.x - axis.x, dz = t.z - axis.z, distance = Math.hypot(dx, dz);
       if (t.y < top - .05 || distance > radius * 1.6) continue;
-      if (entry.body.bodyType() !== RAPIER.RigidBodyType.Dynamic) entry.launch();
       const focus = Math.max(.25, 1 - distance / (radius * 1.6)); // strongest on the axis
       // Same force for all: light growth is flung high and far, a heavy lid only hops and drops nearby.
-      const give = 1 / (1 + entry.mass * 3);
+      const give = 1 / (1 + entry.body.mass() * 3);
       const up = (8 + this.next() * 3) * focus * power * give, out = (1.8 + this.next() * 1.4) * power * give;
       // Right over the axis the push has no side to it: give it one, so pieces tip off instead of landing back.
       const angle = this.next() * Math.PI * 2, centred = distance < radius * .3;
       const nx = centred ? Math.cos(angle) : dx / distance, nz = centred ? Math.sin(angle) : dz / distance;
       const side = centred ? Math.max(out, 1.4) : out;
-      const mass = Math.max(entry.mass, 1e-4);
+      const mass = Math.max(entry.body.mass(), 1e-6);
       entry.body.applyImpulse({ x: nx * side * mass, y: up * mass, z: nz * side * mass }, true);
       // Tumble: a tilt across the push direction, plus some spin.
       const twist = .5 * mass;
@@ -423,14 +432,15 @@ export class ChestBreakageEffects {
   private addBody(world: World, object: Object3D, offset: Matrix4, at: Vector3, rotation: Quaternion,
     collider: RAPIER.ColliderDesc | null, mass: number, away: Vector3, pattern: BreakPattern, moment: BreakMoment, delay: number) {
     if (!collider) { object.removeFromParent(); return; }
-    const body = world.createRigidBody((delay > 0 ? RAPIER.RigidBodyDesc.fixed() : RAPIER.RigidBodyDesc.dynamic())
+    // Always dynamic: a delayed piece only gets its push later. A static placeholder would be a
+    // wall in the middle of the pile that stops every other piece dead.
+    const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic()
       .setTranslation(at.x, at.y, at.z).setRotation(rotation).setLinearDamping(.08).setAngularDamping(.35).setCcdEnabled(true));
     world.createCollider(collider.setDensity(STONE_DENSITY).setFriction(.85).setRestitution(.08), body);
     const direction = away.lengthSq() < 1e-6 ? new Vector3(this.next() - .5, 0, this.next() - .5) : away.clone();
     direction.normalize();
     const r = () => this.next();
     const launch = () => {
-      if (body.bodyType() !== RAPIER.RigidBodyType.Dynamic) body.setBodyType(RAPIER.RigidBodyType.Dynamic, true);
       let velocity: Vector3;
       if (moment === 'opening') {
         // Energy from the core: speed by pattern, a lift so chunks arc instead of skating.
@@ -439,13 +449,15 @@ export class ChestBreakageEffects {
         const lift = { shatter: 1.6 + r() * .9, split: 1.8 + r() * .7, crumble: .3, fall: 1.2 + r() * .6 }[pattern];
         velocity = direction.clone().multiplyScalar(speed).setY(Math.max(direction.y * speed, 0) + lift);
       } else {
-        // The hit: pieces give way outwards; gravity does the rest.
-        velocity = direction.clone().setY(0).normalize().multiplyScalar({ shatter: .9, split: .5, crumble: .25, fall: .6 }[pattern] * (.6 + r() * .6)).setY(r() * .4);
+        // The hit: pieces give way outwards so the stack folds instead of standing like masonry;
+        // gravity does the rest.
+        velocity = direction.clone().setY(0).normalize().multiplyScalar({ shatter: 1.9, split: 1.7, crumble: 1.5, fall: 1 }[pattern] * (.7 + r() * .6)).setY(.3 + r() * .6);
       }
-      const total = Math.max(mass, 1e-4);
+      const total = Math.max(body.mass(), 1e-6); // the collider's real mass, not an estimate
       body.applyImpulse({ x: velocity.x * total, y: velocity.y * total, z: velocity.z * total }, true);
-      const twist = (moment === 'opening' ? .06 : .025) * total;
-      body.applyTorqueImpulse({ x: (r() - .5) * twist, y: (r() - .5) * twist, z: (r() - .5) * twist }, true);
+      // Topple: a tilt across the outward direction, so chunks fall over rather than slide.
+      const twist = (moment === 'opening' ? .08 : .22) * total;
+      body.applyTorqueImpulse({ x: (-direction.z + (r() - .5) * .6) * twist, y: (r() - .5) * twist * .5, z: (direction.x + (r() - .5) * .6) * twist }, true);
     };
     if (delay <= 0) launch();
     const entry = { object, offset, body, delay, launch, mass, speed: 0 };
