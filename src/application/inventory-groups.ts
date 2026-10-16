@@ -7,14 +7,18 @@ export function damageLevel(value: number) {
   return { rank, label: ['Нетронутый', 'Лёгкий износ', 'Потёртый', 'Повреждённый', 'Расколотый'][rank]! };
 }
 
+/** What makes two owned chests "the same" to a player: type and look (palette, modifications by band). */
+export function variantKey(instance: CaseInstance): string {
+  const { palette, modifications } = instance.appearance;
+  const visible = [...modifications].sort((a, b) => a.id.localeCompare(b.id)).map(item => [item.id, damageLevel(item.intensity).rank]);
+  return JSON.stringify([instance.caseId, palette.shell, palette.panel, palette.metal, palette.accent, visible]);
+}
+
 /** Stack by meaningful visual/lifecycle properties, preserving each owned instance. */
 export function groupInventory(instances: readonly CaseInstance[]) {
   const groups = new Map<string, { key: string; instances: CaseInstance[]; representative: CaseInstance }>();
   for (const instance of instances) {
-    const { palette, modifications } = instance.appearance;
-    const visible = [...modifications].sort((a, b) => a.id.localeCompare(b.id)).map(item => [item.id, damageLevel(item.intensity).rank]);
-    const key = JSON.stringify([instance.caseId, instance.status, palette.shell, palette.panel, palette.metal, palette.accent,
-      visible, instance.reward?.id ?? null]);
+    const key = JSON.stringify([variantKey(instance), instance.status, instance.reward?.id ?? null]);
     const group = groups.get(key);
     if (group) group.instances.push(instance);
     else groups.set(key, { key, instances: [instance], representative: instance });
