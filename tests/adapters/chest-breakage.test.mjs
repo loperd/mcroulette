@@ -106,5 +106,10 @@ test('demo fate: pristine chests never break, the same instance always breaks th
   assert.deepEqual(demoBreakage(worn, profile), fate);
   assert.ok(fate.parts.length >= 1);
   assert.ok(fate.parts.every(item => item.detached), 'a decrepit chest comes apart entirely');
+  assert.equal(fate.destroyed, true, 'a decrepit chest never survives');
+  // Even when only the lid is decrepit, the whole chest gives way.
+  const lidOnly = { ...pristine, id: 'c', appearance: changeChestAppearance(createChestAppearance(), { modifications: [{ id: 'lid-cracks', intensity: .9 }] }) };
+  const lidFate = demoBreakage(lidOnly, profile);
+  assert.equal(lidFate.destroyed, true); assert.ok(lidFate.parts.some(item => item.part === 'body' && item.detached));
   assert.ok(fate.parts.every(item => item.part !== 'body' || item.pattern !== 'fall'), 'the carrier never falls off whole');
 });

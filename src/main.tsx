@@ -6,7 +6,7 @@ import { App } from './adapters/inbound/react/App.tsx';
 import { InventoryScreen } from './adapters/inbound/react/InventoryScreen.tsx';
 import { DemoInventoryStore } from './adapters/outbound/browser/demo-inventory-store.ts';
 import { ChestPreviewRenderer } from './adapters/outbound/chest/chest-preview-renderer.ts';
-import { withImpactDamage } from './domain/chest-appearance.ts';
+import { withBreakageDamage } from './domain/chest-appearance.ts';
 import { demoBreakage } from './adapters/outbound/browser/demo-breakage.ts';
 import { nextOwnedCase, type CaseInstance } from './domain/case-instance.ts';
 import { CaseDirectory } from './adapters/inbound/react/CaseDirectory.tsx';
@@ -56,7 +56,9 @@ function createCaseRuntime(definition: CaseDefinition, instance?: CaseInstance) 
     if (!instance) return;
     const current = inventory.getState().find(item => item.id === instance.id);
     if (!current) return;
-    const damaged = withImpactDamage(current.appearance, definition.model.modifications);
+    // Only what the decided break actually did on landing is kept; an intact chest stays intact.
+    if (breakage?.moment !== 'impact' || !breakage.parts.length) return;
+    const damaged = withBreakageDamage(current.appearance, definition.model.modifications, breakage.parts);
     if (damaged !== current.appearance) inventory.updateAppearance(instance.id, damaged);
   }, breakage);
   const sound = new ClickSound(resolvePublicAsset('audio/click.wav', baseUrl));

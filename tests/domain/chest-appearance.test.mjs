@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createChestAppearance, copyChestAppearance, changeChestAppearance, chestAppearanceKey, partConditions,
-  resolveModifications, withImpactDamage } from '../../src/domain/chest-appearance.ts';
+  resolveModifications, withBreakageDamage } from '../../src/domain/chest-appearance.ts';
 import { ENDER_CASE } from '../../src/config/cases.ts';
 
 const profile = ENDER_CASE.model.modifications;
@@ -53,11 +53,10 @@ test('entries unknown to the model are kept but not drawn; conditions follow the
   assert.deepEqual(partConditions(appearance, profile).map(item => [item.part.id, item.value]), [['body', .3], ['lid', 0], ['latch', .8]]);
 });
 
-test('impact raises every fracture entry of the model once, never lowering stronger damage', () => {
+test('only an actual break adds damage: broken parts crack up to their severity, never lower', () => {
   const appearance = changeChestAppearance(createChestAppearance(), { modifications: [{ id: 'lid-cracks', intensity: 1 }] });
-  const damaged = withImpactDamage(appearance, profile);
-  assert.deepEqual(damaged.modifications.map(item => [item.id, item.intensity]), [['lid-cracks', 1], ['body-cracks', .9]]);
-  assert.equal(withImpactDamage(damaged, profile), damaged);
-  const calm = { ...profile, catalog: profile.catalog.filter(entry => entry.kind !== 'fracture') };
-  assert.equal(withImpactDamage(appearance, calm), appearance);
+  assert.equal(withBreakageDamage(appearance, profile, []), appearance, 'an intact landing changes nothing');
+  const damaged = withBreakageDamage(appearance, profile, [{ part: 'body', severity: .6 }, { part: 'lid', severity: .3 }]);
+  assert.deepEqual(damaged.modifications.map(item => [item.id, item.intensity]), [['lid-cracks', 1], ['body-cracks', .6]]);
+  assert.equal(withBreakageDamage(damaged, profile, [{ part: 'body', severity: .5 }]), damaged);
 });
