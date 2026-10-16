@@ -179,7 +179,8 @@ export class ChestModificationLayers {
   }
 
   private attach(surface: Mesh, mesh: Mesh) {
-    mesh.userData.chestOverlay = true; mesh.castShadow = true;
+    // Loose growth (snow, crystals, cobweb, vines) is not part of the chest: the energy beam can tear it off.
+    mesh.userData.chestOverlay = true; mesh.userData.loose = true; mesh.castShadow = true;
     surface.add(mesh); this.added.push(mesh);
   }
 

@@ -1,5 +1,5 @@
 import RAPIER, { type RigidBody, type World } from '@dimforge/rapier3d-compat';
-import { AdditiveBlending, Box3, BoxGeometry, Color, DataTexture, DoubleSide, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial,
+import { AdditiveBlending, Box3, BoxGeometry, Color, CylinderGeometry, DataTexture, DoubleSide, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial,
   NearestFilter, PlaneGeometry, PointLight, Quaternion, RepeatWrapping, RGBAFormat, RingGeometry, ShaderMaterial, SRGBColorSpace, Vector3,
   type BufferGeometry, type Material, type Object3D } from 'three';
 import type { BreakMoment, BreakPattern, ChestBreakage } from '../../../domain/chest-breakage.ts';
@@ -15,6 +15,8 @@ import type { ResolvedModification } from '../../../domain/chest-appearance.ts';
  * trembling, first chips); at BURST_AT the chest gives way.
  */
 export const CHARGE_AT = .06, BURST_AT = .22;
+/** When the beam of an intact opening reaches full power (the light burst of ChestOpeningEffects). */
+export const BEAM_AT = .42;
 
 /** Chunks per pattern: base + severity × extra. `fall` keeps the part whole. */
 const CHUNKS: Record<BreakPattern, [number, number]> = { shatter: [5, 4], split: [2, 1], crumble: [4, 3], fall: [1, 0] };
@@ -75,7 +77,13 @@ export class ChestBreakageEffects {
   /** Parts outside the breakage: they ride on the carrier and fall when it is destroyed. */
   private readonly riders: Mesh[][] = [];
   private readonly carrierDetached: boolean;
-  private readonly allMeshes: Mesh[];
+  /** The carrier (body): the beam rises from its top, obstacles are its walls. */
+  private readonly carrierMeshes: Mesh[];
+  /** Loose pieces torn off by the beam, with where they came from, to put them back on reset. */
+  private readonly torn: { object: Object3D; parent: Object3D; matrix: Matrix4 }[] = [];
+  private beamed = false;
+  private column?: Mesh;
+  private columnAge = Infinity;
   private readonly particles: Particle[] = [];
   private readonly bodies: Body[] = [];
   private readonly geometries: BufferGeometry[] = [];
@@ -108,7 +116,7 @@ export class ChestBreakageEffects {
     this.accent = new Color(accent);
     this.flash.color.copy(this.accent);
     const parts = new Map(profile.parts.map(part => [part.id, part.nodes]));
-    this.allMeshes = profile.parts.flatMap(part => meshesOf(chest, part.nodes));
+    this.carrierMeshes = profile.parts[0] ? meshesOf(chest, profile.parts[0].nodes) : [];
     const resolved = resolveModifications(appearance, profile);
     for (const item of breakage.parts) {
       const meshes = meshesOf(chest, parts.get(item.part) ?? []);
@@ -173,27 +181,36 @@ export class ChestBreakageEffects {
         for (const source of this.sources) this.chips(source, Math.round(source.severity * 10), 'opening');
         if (!this.reduced) { this.shockwave(); this.dust(6); }
         this.flashAge = 0;
+        this.beam(1.2 + strength * .6, true);
       }
     }
     const step = Math.min(delta, .05);
+    this.animateColumn(step);
     this.animateEnergy(step);
     this.stepPhysics(step);
     this.simulateParticles(step);
   }
 
   reset(): void {
-    this.charged = this.burst = false;
+    this.charged = this.burst = this.beamed = false;
+    this.columnAge = Infinity; this.column?.removeFromParent();
     this.next = random(this.seed); // a replayed session breaks the same way
     this.flash.intensity = 0; this.flash.removeFromParent(); this.flashAge = this.ringAge = Infinity; this.ring?.removeFromParent();
     for (const source of this.sources) for (const mesh of source.meshes) mesh.visible = true;
     for (const meshes of this.riders) for (const mesh of meshes) mesh.visible = true;
     for (const particle of this.particles) particle.mesh.removeFromParent();
     for (const body of this.bodies) body.object.removeFromParent();
+    // After the bodies are gone: torn-off growth goes back where it grew.
+    for (const { object, parent, matrix } of this.torn) {
+      parent.add(object);
+      object.matrixAutoUpdate = true; matrix.decompose(object.position, object.quaternion, object.scale);
+    }
+    this.torn.length = 0;
     for (const geometry of this.geometries) geometry.dispose();
     this.particles.length = this.bodies.length = this.geometries.length = 0;
     for (const material of this.owned) material.dispose();
     this.owned.length = 0;
-    this.physics?.free(); this.physics = undefined; this.accumulator = 0;
+    this.physics?.free(); this.physics = undefined; this.accumulator = 0; this.addedObstacles = false;
   }
 
   dispose(): void {
@@ -201,6 +218,7 @@ export class ChestBreakageEffects {
     for (const item of this.shared.values()) item.dispose();
     for (const source of this.sources) { source.breakMaterial.map?.dispose(); source.breakMaterial.dispose(); }
     (this.ring?.material as Material | undefined)?.dispose(); this.ring?.geometry.dispose();
+    (this.column?.material as Material | undefined)?.dispose(); this.column?.geometry.dispose();
     this.shared.clear(); this.sources.length = 0;
     this.flash.dispose();
   }
@@ -221,7 +239,7 @@ export class ChestBreakageEffects {
 
   /** Whatever still stands becomes a static obstacle: a fallen lid lands on the body. */
   private addObstacles(world: World, gone: Set<Mesh>) {
-    for (const mesh of this.allMeshes) {
+    for (const mesh of this.carrierMeshes) {
       if (gone.has(mesh) || !mesh.visible) continue;
       mesh.updateWorldMatrix(true, false);
       const box = new Box3().setFromObject(mesh), centre = box.getCenter(new Vector3()), half = box.getSize(new Vector3()).multiplyScalar(.5);
@@ -237,7 +255,7 @@ export class ChestBreakageEffects {
     const gone = new Set<Mesh>([...detached.flatMap(source => source.meshes), ...(this.carrierDetached ? this.riders.flat() : [])]);
     if (!this.reduced && gone.size) {
       const world = this.requirePhysics();
-      this.addObstacles(world, gone);
+      this.addObstacles(world, gone); this.addedObstacles = true;
       for (const source of detached) {
         const [base, extra] = CHUNKS[source.pattern];
         for (const mesh of source.meshes) this.fracture(world, mesh, source, moment, base + Math.round(source.severity * extra), core);
@@ -246,6 +264,99 @@ export class ChestBreakageEffects {
       for (const meshes of this.riders) for (const mesh of meshes) this.whole(world, mesh, 'impact', core);
     }
     for (const mesh of gone) mesh.visible = false;
+  }
+
+  /**
+   * The energy beam: a vertical column of force rising out of the body. Everything loose above the
+   * body's top — fallen-off parts, fragments, chips, snow, crystals, cobwebs, vines, leaves — is
+   * thrown up and away, harder near the axis. `visible` draws the column (the intact opening has
+   * its own beam light).
+   */
+  beam(power = 1, visible = false): void {
+    if (this.beamed || this.reduced) return;
+    this.beamed = true;
+    this.chest.updateWorldMatrix(true, true);
+    const carrier = new Box3();
+    for (const mesh of this.carrierMeshes) carrier.expandByObject(mesh);
+    if (carrier.isEmpty()) carrier.setFromObject(this.chest);
+    const top = carrier.max.y, axis = carrier.getCenter(new Vector3()), radius = Math.max(carrier.max.x - carrier.min.x, carrier.max.z - carrier.min.z) * .75;
+    const world = this.requirePhysics();
+    if (!this.addedObstacles) { this.addObstacles(world, new Set()); this.addedObstacles = true; }
+    // Tear off loose growth sitting above the body: it becomes a rigid piece of its own.
+    const loose: Mesh[] = [];
+    const collect = (root: Object3D) => root.traverse(object => { if (object instanceof Mesh && object.userData.loose && isShown(object)) loose.push(object); });
+    // On the chest and on parts that already came off (a fallen lid still carries its snow).
+    collect(this.chest);
+    for (const entry of this.bodies) collect(entry.object);
+    for (const mesh of loose) {
+      const position = new Vector3(), rotation = new Quaternion(), scale = new Vector3();
+      mesh.updateWorldMatrix(true, false);
+      mesh.matrixWorld.decompose(position, rotation, scale);
+      if (position.y < top - .02) continue;
+      const parent = mesh.parent!;
+      this.torn.push({ object: mesh, parent, matrix: mesh.matrix.clone() });
+      this.world.attach(mesh);
+      mesh.matrixAutoUpdate = false;
+      const half = { x: Math.max(Math.abs(scale.x) / 2, .004), y: Math.max(Math.abs(scale.y) / 2, .004), z: Math.max(Math.abs(scale.z) / 2, .004) };
+      const plane = mesh.geometry.type === 'PlaneGeometry';
+      if (plane) half.z = .004;
+      this.addBody(world, mesh, new Matrix4().makeScale(scale.x, scale.y, scale.z), position, rotation,
+        RAPIER.ColliderDesc.cuboid(half.x, half.y, half.z), half.x * half.y * half.z * 8 * (plane ? .3 : 1.2), new Vector3(), 'shatter', 'opening', 0);
+      this.bodies[this.bodies.length - 1]!.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+    }
+    // Push every rigid piece in the column upwards and outwards.
+    for (const entry of this.bodies) {
+      const t = entry.body.translation();
+      const dx = t.x - axis.x, dz = t.z - axis.z, distance = Math.hypot(dx, dz);
+      if (t.y < top - .05 || distance > radius * 1.6) continue;
+      if (entry.body.bodyType() !== RAPIER.RigidBodyType.Dynamic) entry.launch();
+      const focus = Math.max(.25, 1 - distance / (radius * 1.6)); // strongest on the axis
+      // Same force for all: light growth is flung high and far, a heavy lid only hops and drops nearby.
+      const give = 1 / (1 + entry.mass * 3);
+      const up = (8 + this.next() * 3) * focus * power * give, out = (1.8 + this.next() * 1.4) * power * give;
+      // Right over the axis the push has no side to it: give it one, so pieces tip off instead of landing back.
+      const angle = this.next() * Math.PI * 2, centred = distance < radius * .3;
+      const nx = centred ? Math.cos(angle) : dx / distance, nz = centred ? Math.sin(angle) : dz / distance;
+      const side = centred ? Math.max(out, 1.4) : out;
+      const mass = Math.max(entry.mass, 1e-4);
+      entry.body.applyImpulse({ x: nx * side * mass, y: up * mass, z: nz * side * mass }, true);
+      // Tumble: a tilt across the push direction, plus some spin.
+      const twist = .5 * mass;
+      entry.body.applyTorqueImpulse({ x: -nz * twist + (this.next() - .5) * twist * .4, y: (this.next() - .5) * twist * .6, z: nx * twist + (this.next() - .5) * twist * .4 }, true);
+    }
+    // Light debris rides the updraft.
+    for (const particle of this.particles) {
+      if (particle.mesh.position.y > top - .05 && Math.hypot(particle.mesh.position.x - axis.x, particle.mesh.position.z - axis.z) < radius * 1.6) {
+        particle.velocity.y += 4 * power; particle.velocity.x *= 1.6; particle.velocity.z *= 1.6;
+      }
+    }
+    this.sound.burst(.35 * power);
+    if (visible) this.showColumn(axis, top, radius);
+  }
+
+  private addedObstacles = false;
+
+  /** The beam itself: an additive column shooting up from the body, then fading. */
+  private showColumn(axis: Vector3, top: number, radius: number) {
+    if (!this.column) {
+      this.column = new Mesh(new CylinderGeometry(1, 1, 1, 24, 1, true), new MeshBasicMaterial({ color: this.accent, transparent: true,
+        opacity: .55, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, toneMapped: false }));
+      this.column.userData.chestOverlay = true;
+    }
+    this.column.userData.base = { x: axis.x, y: top, z: axis.z, radius: radius * .55 };
+    this.world.add(this.column);
+    this.columnAge = 0;
+  }
+
+  private animateColumn(delta: number) {
+    if (!this.column || !Number.isFinite(this.columnAge)) return;
+    this.columnAge += delta;
+    const base = this.column.userData.base as { x: number; y: number; z: number; radius: number };
+    const t = this.columnAge, height = Math.min(1, t / .18) * 6;
+    this.column.scale.set(base.radius * (1 - t * .4), height, base.radius * (1 - t * .4));
+    this.column.position.set(base.x, base.y + height / 2, base.z);
+    (this.column.material as MeshBasicMaterial).opacity = Math.max(0, .55 * (1 - t / .9));
+    if (t > .9) { this.columnAge = Infinity; this.column.removeFromParent(); }
   }
 
   /** Solid chunks of the real mesh; `fall` keeps the part whole with its modifications. */
@@ -325,7 +436,7 @@ export class ChestBreakageEffects {
         // Energy from the core: speed by pattern, a lift so chunks arc instead of skating.
         // Heavy stone: a burst throws chunks a body-length or two, not across the room.
         const speed = { shatter: 1.8 + r() * 1.2, split: 1.2 + r() * .8, crumble: .5 + r() * .4, fall: .8 + r() * .6 }[pattern];
-        const lift = { shatter: 1.6 + r() * .9, split: 1.8 + r() * .7, crumble: .3, fall: 3 + r() * .8 }[pattern];
+        const lift = { shatter: 1.6 + r() * .9, split: 1.8 + r() * .7, crumble: .3, fall: 1.2 + r() * .6 }[pattern];
         velocity = direction.clone().multiplyScalar(speed).setY(Math.max(direction.y * speed, 0) + lift);
       } else {
         // The hit: pieces give way outwards; gravity does the rest.
@@ -545,6 +656,12 @@ function weakPoints(mesh: Mesh, damage: readonly ResolvedModification[], next: (
     }
   }
   return result;
+}
+
+/** Visible all the way up its parents (hidden parts take their loose growth with them). */
+function isShown(object: Object3D): boolean {
+  for (let current: Object3D | null = object; current; current = current.parent) if (!current.visible) return false;
+  return true;
 }
 
 /** A random point on an outer face of the box (not the bottom). */
