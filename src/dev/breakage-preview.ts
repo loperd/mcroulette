@@ -3,7 +3,7 @@ import { ACESFilmicToneMapping, Box3, DirectionalLight, HemisphereLight, Mesh, P
 import RAPIER from '@dimforge/rapier3d-compat';
 import { ENDER_CASE } from '../config/cases.ts';
 import { loadChestAssets } from '../adapters/outbound/chest/chest-assets.ts';
-import { BURST_AT, ChestBreakageEffects } from '../adapters/outbound/chest/chest-breakage-effects.ts';
+import { BEAM_AT, BURST_AT, ChestBreakageEffects } from '../adapters/outbound/chest/chest-breakage-effects.ts';
 import { chestEffectColor } from '../adapters/outbound/chest/chest-appearance.ts';
 import { changeChestAppearance, createChestAppearance } from '../domain/chest-appearance.ts';
 import { copyChestBreakage } from '../domain/chest-breakage.ts';
@@ -30,6 +30,10 @@ const scenarios = [
     { part: 'lid', severity: .7, detached: false, pattern: 'shatter' }], mods: [{ id: 'latch-patina', intensity: .7 }] },
   { label: 'opening · rusty latch breaks where it rusted (close-up)', moment: 'opening', zoom: true, parts: [
     { part: 'latch', severity: .9, detached: true, pattern: 'split' }], mods: [{ id: 'latch-rust', intensity: 1 }] },
+  { label: 'opening · intact: the beam blows snow, crystals and cobweb off', moment: 'opening', parts: [],
+    mods: [{ id: 'snow', intensity: .9 }, { id: 'end-crystals', intensity: 1 }, { id: 'cobweb', intensity: 1 }, { id: 'vines', intensity: .8 }] },
+  { label: 'opening · snowy lid falls off, the beam throws it', moment: 'opening', parts: [{ part: 'lid', severity: .6, detached: true, pattern: 'fall' }],
+    mods: [{ id: 'snow', intensity: .9 }, { id: 'end-crystals', intensity: 1 }] },
 ] as const;
 
 await RAPIER.init();
@@ -66,9 +70,13 @@ for (const [row, scenario] of scenarios.entries()) {
     } else {
       // Charge up to the burst (~1.4 s of a 6 s opening), then run `time` seconds past it.
       const duration = 6;
-      for (let t = 0; t < BURST_AT * duration + time; t += step) {
+      // Frames count from the moment that matters: the burst of a break, or the beam of an intact opening.
+      const from = scenario.parts.some(part => part.detached) ? BURST_AT : BEAM_AT;
+      for (let t = 0; t < from * duration + time; t += step) {
         assets.visual.position.set(0, baseY, 0); assets.visual.scale.setScalar(1);
         effects.update(step, t / duration);
+        // The intact opening's beam (in the game the scene fires it at BEAM_AT).
+        if (!breakage.destroyed && t / duration >= BEAM_AT) effects.beam(1);
       }
     }
     const camera = new PerspectiveCamera(42, width / height, .1, 50);

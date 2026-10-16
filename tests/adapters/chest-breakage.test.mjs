@@ -113,3 +113,23 @@ test('demo fate: pristine chests never break, the same instance always breaks th
   assert.equal(lidFate.destroyed, true); assert.ok(lidFate.parts.some(item => item.part === 'body' && item.detached));
   assert.ok(fate.parts.every(item => item.part !== 'body' || item.pattern !== 'fall'), 'the carrier never falls off whole');
 });
+
+test('the beam tears loose growth off the top and throws it up; the chest itself stays put', () => {
+  const { world, root, meshes, dispose } = chest();
+  const snow = new Mesh(new BoxGeometry(), new MeshStandardMaterial()); snow.userData.loose = true; snow.userData.chestOverlay = true;
+  snow.scale.set(.2, .1, .2); snow.position.y = .6; meshes.lid.add(snow);
+  const low = new Mesh(new BoxGeometry(), new MeshStandardMaterial()); low.userData.loose = true; low.position.y = -.9; meshes.body.add(low);
+  const effects = new ChestBreakageEffects(world, root, profile, createChestAppearance(), copyChestBreakage({ seed: 3, moment: 'opening', parts: [] }, profile), '#35905f', 0);
+  effects.start(false);
+  const before = new Vector3(); snow.getWorldPosition(before);
+  effects.beam(1);
+  assert.equal(snow.parent, world, 'torn off the lid into the world');
+  assert.equal(low.parent, meshes.body, 'below the top of the body nothing is blown away');
+  for (let step = 0; step < 20; step++) effects.update(1 / 60);
+  assert.ok(snow.matrix.elements[13] > before.y + .2, 'it flies up');
+  effects.beam(1); // fires once per opening
+  effects.reset();
+  assert.equal(snow.parent, meshes.lid, 'reset puts it back');
+  assert.equal(meshes.lid.visible && meshes.body.visible, true);
+  effects.dispose(); snow.geometry.dispose(); low.geometry.dispose(); dispose();
+});
