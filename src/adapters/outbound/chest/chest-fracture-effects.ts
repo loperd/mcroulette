@@ -44,7 +44,7 @@ export class ChestFractureEffects {
             if (alpha < 0.01) discard;
             gl_FragColor = vec4(tint, alpha); }`,
         transparent: true, depthWrite: false, blending: AdditiveBlending,
-        polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, toneMapped: false,
+        polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -3, toneMapped: false,
       });
       const scarColor = new Color(definition.style.scarColor);
       const scar = new ShaderMaterial({
@@ -62,7 +62,7 @@ export class ChestFractureEffects {
             float alpha = max(centre * 0.95, edge * 0.6) * scarOpacity;
             if (alpha < 0.01) discard;
             gl_FragColor = vec4(mix(rim, core, centre), alpha); }`,
-        transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
+        transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -2,
       });
       const set: FractureSet = { baseline: own?.intensity ?? 0, texture, glow, scar, overlays: [], scars: [] };
       for (const surface of surfaces) {
