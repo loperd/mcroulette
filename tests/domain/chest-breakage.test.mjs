@@ -20,3 +20,11 @@ test('server breakage is validated per part, with a moment and a pattern', () =>
   rejects({ ...base, parts: [{ part: 'lid', severity: .5, detached: true, pattern: 'melt' }] });
   rejects({ ...base, parts: [{ part: 'lid', severity: .5, detached: true }, { part: 'lid', severity: .2, detached: false }] });
 });
+
+test('destroyed is explicit and needs a lost part', () => {
+  assert.equal(copyChestBreakage({ seed: 1, moment: 'impact', parts: [] }, profile).destroyed, false);
+  assert.equal(copyChestBreakage({ seed: 1, moment: 'impact', destroyed: true,
+    parts: [{ part: 'body', severity: 1, detached: true, pattern: 'crumble' }] }, profile).destroyed, true);
+  rejects({ seed: 1, moment: 'impact', destroyed: true, parts: [{ part: 'lid', severity: .4, detached: false }] });
+  rejects({ seed: 1, moment: 'impact', destroyed: 'yes', parts: [] });
+});

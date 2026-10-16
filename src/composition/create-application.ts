@@ -19,6 +19,8 @@ interface ApplicationOptions {
   readonly baseUrl: string | URL;
   readonly journal?: SessionJournal;
   readonly ownership?: CaseOwnership;
+  /** Server-decided: the chest does not survive this opening. */
+  readonly destruction?: { readonly moment: 'impact' | 'opening' };
   readonly catalogPath?: string;
   readonly prizePath?: string;
   readonly fetcher?: FetchJson;
@@ -50,6 +52,7 @@ export function createApplication(options: ApplicationOptions): Application {
   const session = options.presentation ? new RouletteController({
     journal: options.journal,
     ownership: options.ownership,
+    destruction: options.destruction,
     catalog: gateway,
     prize: new FixturePrizeGateway(options.baseUrl, options.fetcher, options.prizePath),
     ...options.presentation,

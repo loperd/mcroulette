@@ -47,6 +47,7 @@ function harness(overrides = {}) {
     },
     random: overrides.random ?? constantRandom(),
     createSessionId: () => `session-${++sequence}`,
+    destruction: overrides.destruction,
   };
   return { controller: new RouletteController(dependencies), calls, signals };
 }
@@ -481,4 +482,35 @@ test('denied ownership never requests a prize or starts physical opening', async
   assert.equal(h.controller.getState().phase, 'failed');
   assert.equal(h.calls.select, undefined); assert.equal(h.calls.drop, undefined);
   h.controller.dispose();
+});
+
+test('a chest destroyed on impact ends the session after the fall: no opening, no prize, no roulette', async () => {
+  const destroyed = [];
+  const h = harness({ destruction: { moment: 'impact' }, ownership: { claim() {}, complete() { throw new Error('no reward'); }, destroy: id => destroyed.push(id) } });
+  await h.controller.initialize();
+  await h.controller.openChest();
+  assert.equal(h.controller.getState().phase, 'destroyed');
+  assert.equal(h.calls.drop.length, 1);
+  assert.equal(h.calls.open, undefined, 'nothing is left to open');
+  assert.equal(h.calls.select, undefined, 'no prize is drawn for a destroyed chest');
+  assert.equal(h.calls.spin, undefined);
+  assert.deepEqual(destroyed, ['session-1']);
+  await h.controller.closePrize();
+  assert.equal(h.controller.getState().phase, 'ready');
+});
+
+test('a chest destroyed while opening bursts first, then shows the destruction; the journal restores it without a new roll', async () => {
+  let saved;
+  const journal = { load: () => saved, save: value => { saved = value; }, clear: () => { saved = undefined; } };
+  const h = harness({ destruction: { moment: 'opening' }, journal });
+  await h.controller.initialize();
+  await h.controller.openChest();
+  assert.equal(h.controller.getState().phase, 'destroyed');
+  assert.equal(h.calls.open.length, 1, 'the energy burst plays during the opening');
+  assert.equal(h.calls.select, undefined);
+  assert.deepEqual(saved, { stage: 'destroyed', sessionId: 'session-1' });
+  const restored = harness({ destruction: { moment: 'opening' }, journal });
+  await restored.controller.initialize();
+  assert.equal(restored.controller.getState().phase, 'destroyed');
+  assert.equal(restored.calls.drop, undefined, 'a decided destruction is shown, not replayed');
 });

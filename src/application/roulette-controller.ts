@@ -30,6 +30,11 @@ export interface ControllerDependencies {
   readonly random: RandomSource;
   /** Must return a unique, nonempty id for each new opening. */
   readonly createSessionId: () => string;
+  /**
+   * Server-decided fate of this chest: when it does not survive (on the impact after the fall or
+   * while opening), the session shows the destruction instead of a roulette and gives no reward.
+   */
+  readonly destruction?: { readonly moment: 'impact' | 'opening' };
 }
 
 export interface ControllerSettings {
@@ -111,6 +116,13 @@ export class RouletteController implements RouletteSession {
     });
     if (checkpoint && this.getState().phase === 'ready') {
       this.sessionId = checkpoint.sessionId;
+      if (checkpoint.stage === 'destroyed') {
+        // Already decided and shown: restore the outcome, never replay it as a new roll.
+        this.dependencies.chest.hide();
+        this.dependencies.ownership?.destroy?.(checkpoint.sessionId);
+        this.publish({ phase: 'destroyed', sessionId: checkpoint.sessionId });
+        return;
+      }
       this.selectedPrize = checkpoint.stage === 'chest' ? checkpoint.prize : checkpoint.selection.prize;
       if (checkpoint.stage === 'chest') await this.startOpening(false);
       else {
@@ -131,7 +143,7 @@ export class RouletteController implements RouletteSession {
   }
 
   async closePrize(): Promise<void> {
-    if (this.state.phase !== 'prize-visible') return;
+    if (this.state.phase !== 'prize-visible' && this.state.phase !== 'destroyed') return;
     await this.reset();
   }
 
@@ -187,9 +199,18 @@ export class RouletteController implements RouletteSession {
         this.publish({ phase: 'dropping', sessionId });
         await this.invoke(operation, () => this.dependencies.chest.drop(operation.abort.signal));
         if (!this.isCurrent(operation)) return;
+        // Destroyed on landing: nothing is left to open.
+        if (this.dependencies.destruction?.moment === 'impact') return;
         this.publish({ phase: 'opening', sessionId });
         await this.invoke(operation, () => this.dependencies.chest.open(operation.abort.signal));
       };
+      if (this.dependencies.destruction) {
+        await presentation();
+        if (!this.isCurrent(operation)) return;
+        this.dependencies.ownership?.destroy?.(sessionId);
+        this.publish({ phase: 'destroyed', sessionId });
+        return;
+      }
       const prizeTask = this.selectedPrize ? Promise.resolve(this.selectedPrize)
         : this.invoke(operation, () => this.dependencies.prize.select(sessionId, operation.abort.signal))
           .then(item => {
@@ -297,7 +318,8 @@ export class RouletteController implements RouletteSession {
     const state = this.state;
     if (!this.sessionId || !this.dependencies.journal || state.phase === 'failed' && state.failure.recovery === 'reset') return;
     let checkpoint: SessionCheckpoint;
-    if ('selection' in state) checkpoint = { stage: state.phase === 'prize-visible' ? 'prize' : 'roulette',
+    if (state.phase === 'destroyed') checkpoint = { stage: 'destroyed', sessionId: this.sessionId };
+    else if ('selection' in state) checkpoint = { stage: state.phase === 'prize-visible' ? 'prize' : 'roulette',
       sessionId: this.sessionId, selection: state.selection, plan: state.plan };
     else checkpoint = { stage: 'chest', sessionId: this.sessionId,
       ...(this.selectedPrize ? { prize: this.selectedPrize } : {}) };

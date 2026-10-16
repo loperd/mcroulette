@@ -1,6 +1,6 @@
 import { ChestIndicators } from './ChestIndicators.tsx';
 import { CASES } from '../../../config/cases.ts';
-import type { CaseInstance } from '../../../domain/case-instance.ts';
+import { isConsumed, type CaseInstance } from '../../../domain/case-instance.ts';
 import type { CSSProperties, Ref } from 'react';
 import type { Item } from '../../../domain/item.ts';
 import { CONTENT_EXIT_SECONDS } from '../../outbound/browser/scene-timing.ts';
@@ -31,7 +31,7 @@ export function IntroScene({ items, phase, actionRef, onOpen, recentFind, openLa
       <div className="case-atmosphere" aria-hidden="true"><span /><span /><span /><span /><span /><span /></div>
       <header className="case-brand"><span className="case-brand__mark" aria-hidden="true">◇</span>
         <span>{casePresentation.brand}</span>{navigation
-          ? <button className="case-brand__section case-brand__back" type="button" onClick={() => navigation.go({ screen: inspectedCase?.status === 'opened' ? 'archive' : 'inventory' })}>{inspectedCase?.status === 'opened' ? '← Архив' : '← Инвентарь'}</button>
+          ? <button className="case-brand__section case-brand__back" type="button" onClick={() => navigation.go({ screen: inspectedCase && isConsumed(inspectedCase) ? 'archive' : 'inventory' })}>{inspectedCase && isConsumed(inspectedCase) ? '← Архив' : '← Инвентарь'}</button>
           : <span className="case-brand__section">Сундуки</span>}
       </header>
       <div className="case-heading"><p className="eyebrow">{casePresentation.collection}</p>

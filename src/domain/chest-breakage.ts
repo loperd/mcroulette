@@ -20,9 +20,13 @@ export type BreakPattern = typeof BREAK_PATTERNS[number];
 export interface BrokenPart { readonly part: string; readonly severity: number; readonly detached: boolean; readonly pattern: BreakPattern }
 export const BREAK_MOMENTS = ['impact', 'opening'] as const;
 export type BreakMoment = typeof BREAK_MOMENTS[number];
-export interface ChestBreakage { readonly seed: number; readonly moment: BreakMoment; readonly parts: readonly BrokenPart[] }
+export interface ChestBreakage {
+  readonly seed: number; readonly moment: BreakMoment; readonly parts: readonly BrokenPart[];
+  /** The chest did not survive: no roulette, no reward, just the message. A lost lid alone is not destruction. */
+  readonly destroyed: boolean;
+}
 
-export const NO_BREAKAGE: ChestBreakage = Object.freeze({ seed: 0, moment: 'opening', parts: Object.freeze([]) });
+export const NO_BREAKAGE: ChestBreakage = Object.freeze({ seed: 0, moment: 'opening', parts: Object.freeze([]), destroyed: false });
 
 const fail = (message: string): never => { throw new DomainError('INVALID_BREAKAGE', message); };
 
@@ -42,5 +46,8 @@ export function copyChestBreakage(value: unknown, profile: ChestModificationProf
     return Object.freeze({ part: p.part as string, severity: p.severity as number, detached: p.detached as boolean, pattern });
   });
   if (new Set(parts.map(item => item.part)).size !== parts.length) fail('Each part may break only once.');
-  return Object.freeze({ seed: v.seed as number, moment: v.moment as BreakMoment, parts: Object.freeze(parts) });
+  if (v.destroyed !== undefined && typeof v.destroyed !== 'boolean') fail('Breakage destroyed must be a boolean.');
+  const destroyed = v.destroyed === true;
+  if (destroyed && !parts.some(item => item.detached)) fail('A destroyed chest must lose at least one part.');
+  return Object.freeze({ seed: v.seed as number, moment: v.moment as BreakMoment, parts: Object.freeze(parts), destroyed });
 }

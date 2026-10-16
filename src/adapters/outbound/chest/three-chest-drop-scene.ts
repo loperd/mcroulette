@@ -16,7 +16,7 @@ import { disposeObject } from './dispose-object.ts';
 import { createRapierPhysicsWorld } from './rapier-physics-world.ts';
 import type { PhysicsWorldPort } from './physics-world-port.ts';
 import { ChestFractureEffects } from './chest-fracture-effects.ts';
-import { ChestBreakageEffects } from './chest-breakage-effects.ts';
+import { BURST_AT, ChestBreakageEffects } from './chest-breakage-effects.ts';
 import { NO_BREAKAGE, type ChestBreakage } from '../../../domain/chest-breakage.ts';
 import { ChestImpactEffects } from './chest-impact-effects.ts';
 import { ChestOpeningEffects } from './chest-opening-effects.ts';
@@ -312,7 +312,10 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
           // After the pose: the energy build-up swells and shakes the chest on top of it.
           this.breakageEffects?.update(delta, elapsed / (clipDuration + 0.3));
           this.render();
-          if (pending.size === 0 && progress === 1 && elapsed >= clipDuration + 0.3) {
+          // A destroyed chest has nothing left to open: end shortly after the burst settles.
+          const wrecked = this.breakage.destroyed && this.breakageEffects?.broken === true
+            && elapsed >= BURST_AT * (clipDuration + 0.3) + 1.8;
+          if (wrecked || pending.size === 0 && progress === 1 && elapsed >= clipDuration + 0.3) {
             complete = true;
             cleanup();
             resolve();
