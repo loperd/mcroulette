@@ -111,7 +111,7 @@ function renderRoute() {
   if (!definition) {
     if (route.screen === 'inventory' || route.screen === 'archive' || route.screen === 'catalog') previews ??= new ChestPreviewRenderer(document, baseUrl);
     root.render(<StrictMode><SoundControl preference={soundPreference} />{route.screen === 'inventory' || route.screen === 'archive'
-      ? <InventoryScreen key={route.screen} mode={route.screen} inventory={inventory} cases={CASES} navigation={navigation} storage={storage} renderer={previews!} onAddDemo={() => inventory.addDemoCase(CASES[0])} />
+      ? <InventoryScreen key={route.screen} mode={route.screen} inventory={inventory} cases={CASES} navigation={navigation} storage={storage} renderer={previews!} />
       : route.screen === 'catalog'
       ? <CaseDirectory instances={inventory.getState()} cases={CASES} navigation={navigation} storage={storage} renderer={previews!} />
       : <main className="case-directory"><div className="feedback"><h1>Сундук не найден</h1><p>Возможно, ссылка устарела.</p>
