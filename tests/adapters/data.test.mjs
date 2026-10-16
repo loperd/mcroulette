@@ -3,6 +3,7 @@ import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { FixtureCatalogGateway } from '../../src/adapters/outbound/data/fixture-catalog-gateway.ts';
 import { FixturePrizeGateway } from '../../src/adapters/outbound/data/fixture-prize-gateway.ts';
+import { ApiPrizeGateway } from '../../src/adapters/outbound/data/api-prize-gateway.ts';
 import { decodeCatalog, decodeItem } from '../../src/adapters/outbound/data/item-dto.ts';
 import { normalizeBaseUrl, resolvePublicAsset } from '../../src/adapters/outbound/data/asset-url.ts';
 import { buildStrip, ensureTarget } from '../../src/domain/strip.ts';
@@ -161,6 +162,20 @@ test('each prize selection makes a fresh no-store request, including the same se
   assert.equal(calls.length,3);
   assert.ok(calls.every(call => call.url === 'https://example.test/game/selected_prize.json'));
   assert.ok(calls.every(call => call.init.cache === 'no-store'));
+});
+
+test('the API roll is a same-origin POST carrying the opening session id', async () => {
+  const calls = [];
+  const gateway = new ApiPrizeGateway(base, 'api/v1/cases/ender/roll', async (url, init) => { calls.push({ url, init }); return response(selected); });
+  const prize = await gateway.select('session-a', signal());
+  assert.equal(prize.id, '14');
+  assert.equal(calls[0].url, 'https://example.test/game/api/v1/cases/ender/roll');
+  assert.equal(calls[0].init.method, 'POST');
+  assert.equal(calls[0].init.credentials, 'same-origin');
+  assert.equal(calls[0].init.cache, 'no-store');
+  assert.deepEqual(JSON.parse(calls[0].init.body), { sessionId: 'session-a' });
+  const failing = new ApiPrizeGateway(base, 'api/v1/cases/ender/roll', async () => ({ ok: false, status: 401, json: async () => ({}) }));
+  await assert.rejects(failing.select('session-b', signal()), error => error.code === 'HTTP_ERROR');
 });
 
 test('canceling a prize response body settles immediately instead of producing a result', async () => {

@@ -10,10 +10,14 @@ export async function requestJson(
   signal: AbortSignal,
   fetcher: FetchJson,
   cache: RequestCache = 'default',
+  /** A JSON body makes it a POST (same-origin cookies included: the API knows the player by session). */
+  body?: unknown,
 ): Promise<unknown> {
   signal.throwIfAborted();
-  const response = await waitFor(fetcher(url,
-    { signal, cache, headers: { Accept: 'application/json' } }), signal);
+  const response = await waitFor(fetcher(url, body === undefined
+    ? { signal, cache, headers: { Accept: 'application/json' } }
+    : { signal, cache, method: 'POST', credentials: 'same-origin', body: JSON.stringify(body),
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' } }), signal);
   signal.throwIfAborted();
   if (!response.ok) {
     throw new DataError('HTTP_ERROR', `The data request failed with HTTP ${response.status}.`);
