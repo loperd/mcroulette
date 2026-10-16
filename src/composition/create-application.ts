@@ -13,6 +13,7 @@ import type { RandomSource } from '../domain/random-source.ts';
 import { browserRandom, createBrowserSessionId } from '../adapters/outbound/browser/identity.ts';
 import { FixtureCatalogGateway } from '../adapters/outbound/data/fixture-catalog-gateway.ts';
 import { FixturePrizeGateway } from '../adapters/outbound/data/fixture-prize-gateway.ts';
+import { ApiPrizeGateway } from '../adapters/outbound/data/api-prize-gateway.ts';
 import type { FetchJson } from '../adapters/outbound/data/request-json.ts';
 
 interface ApplicationOptions {
@@ -54,7 +55,10 @@ export function createApplication(options: ApplicationOptions): Application {
     ownership: options.ownership,
     destruction: options.destruction,
     catalog: gateway,
-    prize: new FixturePrizeGateway(options.baseUrl, options.fetcher, options.prizePath),
+    // API paths are rolled by the server; anything else is a static fixture (tests, previews).
+    prize: options.prizePath?.startsWith('api/')
+      ? new ApiPrizeGateway(options.baseUrl, options.prizePath, options.fetcher)
+      : new FixturePrizeGateway(options.baseUrl, options.fetcher, options.prizePath),
     ...options.presentation,
     random: options.random ?? browserRandom,
     createSessionId: options.createSessionId ?? createBrowserSessionId,
