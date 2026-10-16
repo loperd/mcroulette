@@ -54,7 +54,8 @@ for (const [row, scenario] of scenarios.entries()) {
   for (const [column, time] of times.entries()) {
     const assets = await loadChestAssets(new URL('/', location.href), new AbortController().signal, ENDER_CASE.model, appearance);
     const scene = new Scene(); scene.add(assets.visual, new HemisphereLight(0xffffff, 0x435846, 2));
-    const light = new DirectionalLight(0xffffff, 3); light.position.set(3, 6, -4); light.castShadow = true; scene.add(light);
+    const light = new DirectionalLight(0xffffff, 3); light.position.set(3, 6, -4); light.castShadow = true;
+    light.shadow.bias = -0.0005; light.shadow.normalBias = 0.02; scene.add(light);
     const floor = new Mesh(new PlaneGeometry(20, 20), new ShadowMaterial({ opacity: .3 })); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
     // Resting pose like the game: chest base on the floor.
     assets.visual.updateMatrixWorld(true);

@@ -211,6 +211,9 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
       light.shadow.camera.left = -5; light.shadow.camera.right = 5;
       light.shadow.camera.top = 5; light.shadow.camera.bottom = -5;
       light.shadow.camera.near = 0.1; light.shadow.camera.far = 20;
+      // Without a bias every lit face catches its own shadow (shadow acne): fine diagonal stripes
+      // that get obvious as the chest moves towards the camera. normalBias handles grazing angles.
+      light.shadow.bias = -0.0005; light.shadow.normalBias = 0.02;
       scene.add(light);
       const floor = new Mesh(new PlaneGeometry(20, 20), new ShadowMaterial({ opacity: 0.25 }));
       this.floor = floor;

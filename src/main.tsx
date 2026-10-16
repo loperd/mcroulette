@@ -150,6 +150,8 @@ function renderRoute() {
   if (runtime && runtime.identity !== identity) { const previous = runtime; runtime = undefined; previous.dispose(); }
   let fresh = false;
   if (definition && !runtime) { runtime = createCaseRuntime(definition, instance); fresh = true; }
+  // Dev-only handle for inspecting the live scene from the browser console.
+  if (import.meta.env.DEV) (window as unknown as { __caseRuntime?: unknown }).__caseRuntime = runtime;
   if (!definition) {
     if (route.screen === 'inventory' || route.screen === 'archive' || route.screen === 'catalog') previews ??= new ChestPreviewRenderer(document, baseUrl);
     root.render(<StrictMode><SoundControl preference={soundPreference} />{route.screen === 'inventory' || route.screen === 'archive'
