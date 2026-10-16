@@ -45,6 +45,11 @@ interface Body {
   readonly object: Object3D; readonly offset: Matrix4; readonly body: RigidBody; delay: number; readonly launch: () => void;
   readonly mass: number; speed: number;
 }
+interface Swing {
+  readonly object: Object3D; readonly pivot: Vector3; readonly axis: Vector3;
+  readonly basePosition: Vector3; readonly baseRotation: Quaternion;
+  angle: number; velocity: number; readonly stiffness: number; readonly damping: number;
+}
 interface PartSource {
   readonly meshes: Mesh[]; readonly severity: number; readonly detached: boolean; readonly pattern: BreakPattern;
   readonly debris: { style: DebrisStyle; weight: number }[];
@@ -79,6 +84,11 @@ export class ChestBreakageEffects {
   private readonly carrierDetached: boolean;
   /** All parts: the chest's own extent for cores, flashes and the dust, never its growth. */
   private readonly partMeshes: Mesh[];
+  /** Parts that hang from their top edge and swing (latch); loose planes (vines, cobweb) swing too. */
+  private readonly swingMeshes: Mesh[];
+  private swings?: Swing[];
+  /** Kinematic bodies following every part still standing. */
+  private readonly partBodies = new Map<Mesh, RigidBody>();
   /** The carrier (body): the beam rises from its top, obstacles are its walls. */
   private readonly carrierMeshes: Mesh[];
   /** Loose pieces torn off by the beam, with where they came from, to put them back on reset. */
@@ -120,6 +130,7 @@ export class ChestBreakageEffects {
     const parts = new Map(profile.parts.map(part => [part.id, part.nodes]));
     this.carrierMeshes = profile.parts[0] ? meshesOf(chest, profile.parts[0].nodes) : [];
     this.partMeshes = profile.parts.flatMap(part => meshesOf(chest, part.nodes));
+    this.swingMeshes = profile.parts.filter(part => part.swing).flatMap(part => meshesOf(chest, part.nodes));
     const resolved = resolveModifications(appearance, profile);
     for (const item of breakage.parts) {
       const meshes = meshesOf(chest, parts.get(item.part) ?? []);
@@ -197,6 +208,7 @@ export class ChestBreakageEffects {
     }
     const step = Math.min(delta, .05);
     if (this.burst) this.sinceBurst += step;
+    this.animateSwings(step);
     this.animateColumn(step);
     this.animateEnergy(step);
     this.stepPhysics(step);
@@ -219,11 +231,14 @@ export class ChestBreakageEffects {
       object.matrixAutoUpdate = true; matrix.decompose(object.position, object.quaternion, object.scale);
     }
     this.torn.length = 0;
+    for (const swing of this.swings ?? []) { swing.object.position.copy(swing.basePosition); swing.object.quaternion.copy(swing.baseRotation); }
+    this.swings = undefined;
+    this.partBodies.clear();
     for (const geometry of this.geometries) geometry.dispose();
     this.particles.length = this.bodies.length = this.geometries.length = 0;
     for (const material of this.owned) material.dispose();
     this.owned.length = 0;
-    this.physics?.free(); this.physics = undefined; this.accumulator = 0; this.addedObstacles = false;
+    this.physics?.free(); this.physics = undefined; this.accumulator = 0;
   }
 
   dispose(): void {
@@ -257,14 +272,28 @@ export class ChestBreakageEffects {
     return world;
   }
 
-  /** Whatever still stands becomes a static obstacle: a fallen lid lands on the body. */
-  private addObstacles(world: World, gone: Set<Mesh>) {
-    for (const mesh of this.carrierMeshes) {
-      if (gone.has(mesh) || !mesh.visible) continue;
+  /**
+   * Every part still standing is a kinematic body that follows its mesh — the body, a lid swinging
+   * open on its hinge, a latch — so loose pieces lie on them and slide off as they move. Parts that
+   * broke or fell off (hidden) leave the world before the next step.
+   */
+  private syncParts(world: World) {
+    for (const mesh of this.partMeshes) {
+      let body = this.partBodies.get(mesh);
+      if (!isShown(mesh)) { if (body) { world.removeRigidBody(body); this.partBodies.delete(mesh); } continue; }
       mesh.updateWorldMatrix(true, false);
-      const box = ownBox(mesh), centre = box.getCenter(new Vector3()), half = box.getSize(new Vector3()).multiplyScalar(.5);
-      const body = world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(centre.x, centre.y, centre.z));
-      world.createCollider(RAPIER.ColliderDesc.cuboid(half.x, half.y, half.z).setFriction(.8), body);
+      if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+      const local = mesh.geometry.boundingBox!, position = new Vector3(), rotation = new Quaternion(), scale = new Vector3();
+      mesh.matrixWorld.decompose(position, rotation, scale);
+      const centre = local.getCenter(new Vector3()).applyMatrix4(mesh.matrixWorld);
+      if (!body) {
+        const half = local.getSize(new Vector3()).multiply(scale).multiplyScalar(.5);
+        body = world.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(centre.x, centre.y, centre.z).setRotation(rotation));
+        world.createCollider(RAPIER.ColliderDesc.cuboid(Math.abs(half.x), Math.abs(half.y), Math.abs(half.z)).setFriction(.8), body);
+        this.partBodies.set(mesh, body);
+      } else {
+        body.setNextKinematicTranslation(centre); body.setNextKinematicRotation(rotation);
+      }
     }
   }
 
@@ -275,7 +304,6 @@ export class ChestBreakageEffects {
     const gone = new Set<Mesh>([...detached.flatMap(source => source.meshes), ...(this.carrierDetached ? this.riders.flat() : [])]);
     if (!this.reduced && gone.size) {
       const world = this.requirePhysics();
-      this.addObstacles(world, gone); this.addedObstacles = true;
       for (const source of detached) {
         const [base, extra] = CHUNKS[source.pattern];
         for (const mesh of source.meshes) this.fracture(world, mesh, source, moment, base + Math.round(source.severity * extra), core);
@@ -284,6 +312,8 @@ export class ChestBreakageEffects {
       for (const meshes of this.riders) for (const mesh of meshes) this.whole(world, mesh, 'impact', core);
     }
     for (const mesh of gone) mesh.visible = false;
+    // The broken parts' own bodies leave before the next step, or they would shove their fragments.
+    if (this.physics) this.syncParts(this.physics);
   }
 
   /**
@@ -301,29 +331,10 @@ export class ChestBreakageEffects {
     if (carrier.isEmpty()) carrier.copy(this.chestBox());
     const top = carrier.max.y, axis = carrier.getCenter(new Vector3()), radius = Math.max(carrier.max.x - carrier.min.x, carrier.max.z - carrier.min.z) * .75;
     const world = this.requirePhysics();
-    if (!this.addedObstacles) { this.addObstacles(world, new Set()); this.addedObstacles = true; }
+    this.syncParts(world);
     // Tear off loose growth sitting above the body: it becomes a rigid piece of its own.
-    const loose: Mesh[] = [];
-    const collect = (root: Object3D) => root.traverse(object => { if (object instanceof Mesh && object.userData.loose && isShown(object)) loose.push(object); });
-    // On the chest and on parts that already came off (a fallen lid still carries its snow).
-    collect(this.chest);
-    for (const entry of this.bodies) collect(entry.object);
-    for (const mesh of loose) {
-      const position = new Vector3(), rotation = new Quaternion(), scale = new Vector3();
-      mesh.updateWorldMatrix(true, false);
-      mesh.matrixWorld.decompose(position, rotation, scale);
-      if (position.y < top - .02) continue;
-      const parent = mesh.parent!;
-      this.torn.push({ object: mesh, parent, matrix: mesh.matrix.clone() });
-      this.world.attach(mesh);
-      mesh.matrixAutoUpdate = false;
-      const half = { x: Math.max(Math.abs(scale.x) / 2, .004), y: Math.max(Math.abs(scale.y) / 2, .004), z: Math.max(Math.abs(scale.z) / 2, .004) };
-      const plane = mesh.geometry.type === 'PlaneGeometry';
-      if (plane) half.z = .004;
-      this.addBody(world, mesh, new Matrix4().makeScale(scale.x, scale.y, scale.z), position, rotation,
-        RAPIER.ColliderDesc.cuboid(half.x, half.y, half.z), half.x * half.y * half.z * 8 * (plane ? .3 : 1.2), new Vector3(), 'shatter', 'opening', 0);
-      this.bodies[this.bodies.length - 1]!.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
-    }
+    this.tearLoose(world, (_, position) => position.y >= top - .02);
+    this.kick(2.2 * power);
     // Push every rigid piece in the column upwards and outwards.
     for (const entry of this.bodies) {
       const t = entry.body.translation();
@@ -353,7 +364,115 @@ export class ChestBreakageEffects {
     if (visible) this.showColumn(axis, top, radius);
   }
 
-  private addedObstacles = false;
+  /**
+   * The landing jolts the chest: hanging parts (latch, vines, cobweb) swing, and loose growth near
+   * the edges (snow, crystals) slides off and tumbles to the floor as real bodies. What sits in the
+   * middle stays until the beam tears it away.
+   */
+  landed(strength = 1): void {
+    if (this.reduced) return;
+    this.kick(strength);
+    const world = this.requirePhysics();
+    this.syncParts(world);
+    const torn = this.tearLoose(world, (mesh, position) => {
+      if (mesh.geometry.type === 'PlaneGeometry' || !mesh.parent) return false;
+      // Off the edge: how far from the middle of the part it grows on (0 centre, 1 rim).
+      const part = mesh.parent as Mesh;
+      if (!part.geometry?.boundingBox) part.geometry?.computeBoundingBox();
+      const box = part.geometry?.boundingBox ? part.geometry.boundingBox.clone().applyMatrix4(part.matrixWorld) : undefined;
+      if (!box) return false;
+      const centre = box.getCenter(new Vector3()), size = box.getSize(new Vector3());
+      const rim = Math.max(Math.abs(position.x - centre.x) / (size.x / 2), Math.abs(position.z - centre.z) / (size.z / 2));
+      return rim > .62 && this.next() < .45 + strength * .35;
+    });
+    for (const entry of torn) {
+      const t = entry.body.translation(), centre = this.chestBox().getCenter(new Vector3());
+      const out = new Vector3(t.x - centre.x, 0, t.z - centre.z).normalize().multiplyScalar((.4 + this.next() * .7) * strength);
+      const mass = Math.max(entry.body.mass(), 1e-6);
+      entry.body.applyImpulse({ x: out.x * mass, y: (.5 + this.next() * .9) * strength * mass, z: out.z * mass }, true);
+      entry.body.applyTorqueImpulse({ x: (this.next() - .5) * .3 * mass, y: 0, z: (this.next() - .5) * .3 * mass }, true);
+    }
+  }
+
+  /** Jolt the hanging parts: each swing gets a push of its own. */
+  kick(strength = 1): void {
+    if (this.reduced) return;
+    for (const swing of this.ensureSwings()) swing.velocity += (this.next() < .5 ? -1 : 1) * (3 + this.next() * 3) * strength;
+  }
+
+  /** Loose growth (on the chest or on parts that came off) passing `keep` becomes rigid bodies. */
+  private tearLoose(world: World, keep: (mesh: Mesh, position: Vector3) => boolean): Body[] {
+    const loose: Mesh[] = [];
+    const collect = (root: Object3D) => root.traverse(object => { if (object instanceof Mesh && object.userData.loose && isShown(object)) loose.push(object); });
+    collect(this.chest);
+    for (const entry of this.bodies) collect(entry.object);
+    const created: Body[] = [];
+    for (const mesh of loose) {
+      const position = new Vector3(), rotation = new Quaternion(), scale = new Vector3();
+      mesh.updateWorldMatrix(true, false);
+      mesh.matrixWorld.decompose(position, rotation, scale);
+      if (!keep(mesh, position)) continue;
+      this.unswing(mesh);
+      mesh.updateWorldMatrix(true, false);
+      mesh.matrixWorld.decompose(position, rotation, scale);
+      const parent = mesh.parent!;
+      this.torn.push({ object: mesh, parent, matrix: mesh.matrix.clone() });
+      this.world.attach(mesh);
+      mesh.matrixAutoUpdate = false;
+      const half = { x: Math.max(Math.abs(scale.x) / 2, .004), y: Math.max(Math.abs(scale.y) / 2, .004), z: Math.max(Math.abs(scale.z) / 2, .004) };
+      const plane = mesh.geometry.type === 'PlaneGeometry';
+      if (plane) half.z = .004;
+      this.addBody(world, mesh, new Matrix4().makeScale(scale.x, scale.y, scale.z), position, rotation,
+        RAPIER.ColliderDesc.cuboid(half.x, half.y, half.z), half.x * half.y * half.z * 8 * (plane ? .3 : 1.2), new Vector3(), 'shatter', 'opening', 0);
+      const entry = this.bodies[this.bodies.length - 1]!;
+      entry.body.setLinvel({ x: 0, y: 0, z: 0 }, true); entry.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+      created.push(entry);
+    }
+    return created;
+  }
+
+  /** Swings: the latch and loose planes, damped springs around their top edge. */
+  private ensureSwings(): Swing[] {
+    if (this.swings) return this.swings;
+    const candidates = new Set<Mesh>(this.swingMeshes);
+    this.chest.traverse(object => { if (object instanceof Mesh && object.userData.loose && object.geometry.type === 'PlaneGeometry') candidates.add(object); });
+    const worldX = new Vector3(1, 0, 0), parentRotation = new Quaternion();
+    this.swings = [...candidates].filter(object => object.parent).map(object => {
+      if (!object.geometry.boundingBox) object.geometry.computeBoundingBox();
+      const box = object.geometry.boundingBox!, top = new Vector3(box.getCenter(new Vector3()).x, box.max.y, box.getCenter(new Vector3()).z);
+      object.updateMatrix();
+      const pivot = top.applyMatrix4(object.matrix); // in the parent's space
+      // A plane sways along its own face; a latch swings out from the front (the chest faces the camera at -Z).
+      const axis = object.geometry.type === 'PlaneGeometry'
+        ? new Vector3(1, 0, 0).applyQuaternion(object.quaternion)
+        : worldX.clone().applyQuaternion(object.parent!.getWorldQuaternion(parentRotation).invert());
+      return { object, pivot, axis: axis.normalize(), basePosition: object.position.clone(), baseRotation: object.quaternion.clone(), angle: 0, velocity: 0,
+        stiffness: object.geometry.type === 'PlaneGeometry' ? 28 : 70, damping: object.geometry.type === 'PlaneGeometry' ? 2.4 : 5 };
+    });
+    return this.swings;
+  }
+
+  private unswing(object: Object3D) {
+    const index = this.swings?.findIndex(swing => swing.object === object) ?? -1;
+    if (index < 0) return;
+    const swing = this.swings![index]!;
+    object.position.copy(swing.basePosition); object.quaternion.copy(swing.baseRotation);
+    this.swings!.splice(index, 1);
+  }
+
+  private animateSwings(delta: number) {
+    if (!this.swings) return;
+    const turn = new Quaternion();
+    for (const swing of this.swings) {
+      if (!isShown(swing.object) || (swing.angle === 0 && swing.velocity === 0)) continue;
+      swing.velocity += (-swing.stiffness * swing.angle - swing.damping * swing.velocity) * delta;
+      swing.angle = Math.max(-1.2, Math.min(1.2, swing.angle + swing.velocity * delta));
+      if (Math.abs(swing.angle) < 1e-4 && Math.abs(swing.velocity) < 1e-3) swing.angle = swing.velocity = 0;
+      turn.setFromAxisAngle(swing.axis, swing.angle);
+      swing.object.position.copy(swing.basePosition).sub(swing.pivot).applyQuaternion(turn).add(swing.pivot);
+      swing.object.quaternion.copy(turn).multiply(swing.baseRotation);
+    }
+  }
 
   /** The beam itself: an additive column shooting up from the body, then fading. */
   private showColumn(axis: Vector3, top: number, radius: number) {
@@ -477,6 +596,7 @@ export class ChestBreakageEffects {
 
   private stepPhysics(delta: number) {
     if (!this.physics) return;
+    this.syncParts(this.physics);
     let released = 0;
     for (const body of this.bodies) if (body.delay > 0 && (body.delay -= delta) <= 0) { body.launch(); released++; }
     if (released) this.sound.crumble(Math.min(1, released / 3));

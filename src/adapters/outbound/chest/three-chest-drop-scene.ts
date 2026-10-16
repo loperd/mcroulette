@@ -340,6 +340,8 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
         reject(error);
       };
       const abort = () => cancel(signal.reason);
+      // The lid unlatching gives the hanging parts a small knock.
+      this.breakageEffects?.kick(.4);
       this.opening = {
         cancel,
         advance: delta => {
@@ -472,6 +474,8 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
         // Cracks open on landing only when the decided fate breaks the chest there.
         if (this.breakageEffects?.breaksOnImpact) this.fractureEffects?.impact();
         this.breakageEffects?.impact();
+        // Every landing jolts the chest: the latch and vines swing, snow at the edges slides off.
+        this.breakageEffects?.landed(1);
         this.onImpact?.();
       }
     }

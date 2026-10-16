@@ -10,7 +10,11 @@ export type PaletteRole = typeof PALETTE_ROLES[number];
 export const MODIFICATION_KINDS = ['fracture', 'wear', 'glow', 'growth'] as const;
 export type ModificationKind = typeof MODIFICATION_KINDS[number];
 
-export interface ChestPart { readonly id: string; readonly label: string; readonly nodes: readonly string[] }
+export interface ChestPart {
+  readonly id: string; readonly label: string; readonly nodes: readonly string[];
+  /** Hangs from its top edge and swings when the chest is jolted (a latch, a padlock). */
+  readonly swing?: boolean;
+}
 /** replace: set the material colour (neutral textures); tint: blend a light version over a coloured texture. */
 export interface ColorZone {
   readonly role: PaletteRole; readonly mode: 'replace' | 'tint'; readonly strength: number;
@@ -157,7 +161,9 @@ export function copyModificationProfile(value: unknown): ChestModificationProfil
     if (!isRecord(item)) return fail(`parts[${i}] must be an object.`);
     const nodes = names(item.nodes, `parts[${i}].nodes`);
     if (!nodes.length) fail(`parts[${i}] must name at least one node.`);
-    return Object.freeze({ id: id(item.id, `parts[${i}].id`), label: text(item.label, `parts[${i}].label`, 48), nodes });
+    if (item.swing !== undefined && typeof item.swing !== 'boolean') fail(`parts[${i}].swing must be a boolean.`);
+    return Object.freeze({ id: id(item.id, `parts[${i}].id`), label: text(item.label, `parts[${i}].label`, 48), nodes,
+      ...(item.swing ? { swing: true } : {}) });
   });
   if (new Set(parts.map(part => part.id)).size !== parts.length) fail('Part ids must be unique.');
   const partIds = new Set(parts.map(part => part.id));
