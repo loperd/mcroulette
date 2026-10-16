@@ -16,6 +16,8 @@ import { disposeObject } from './dispose-object.ts';
 import { createRapierPhysicsWorld } from './rapier-physics-world.ts';
 import type { PhysicsWorldPort } from './physics-world-port.ts';
 import { ChestFractureEffects } from './chest-fracture-effects.ts';
+import { ChestBreakageEffects } from './chest-breakage-effects.ts';
+import { NO_BREAKAGE, type ChestBreakage } from '../../../domain/chest-breakage.ts';
 import { ChestImpactEffects } from './chest-impact-effects.ts';
 import { ChestOpeningEffects } from './chest-opening-effects.ts';
 import { SPAWN_POSE } from './physics-config.ts';
@@ -54,13 +56,16 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
   private soundMuted = false;
   private impactEffects?: ChestImpactEffects;
   private fractureEffects?: ChestFractureEffects;
+  private breakageEffects?: ChestBreakageEffects;
+  private readonly breakage: ChestBreakage;
   private impactTriggered = false;
   private impactAge = 0;
   private readonly impactCorner = new Vector3();
   private landing?: { advance(delta: number): void; cancel(error: unknown): void };
 
-  constructor(baseUrl: string | URL, document: Document = globalThis.document, modelDefinition: ChestModelDefinition = ENDER_CASE.model, appearance: ChestAppearance = createChestAppearance(), onImpact?: () => void) {
+  constructor(baseUrl: string | URL, document: Document = globalThis.document, modelDefinition: ChestModelDefinition = ENDER_CASE.model, appearance: ChestAppearance = createChestAppearance(), onImpact?: () => void, breakage: ChestBreakage = NO_BREAKAGE) {
     this.baseUrl = normalizeBaseUrl(baseUrl);
+    this.breakage = breakage;
     this.modelDefinition = modelDefinition;
     this.appearance = copyChestAppearance(appearance);
     this.onImpact = onImpact;
@@ -128,6 +133,7 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
       renderer.shadowMap.type = PCFSoftShadowMap;
       renderer.toneMapping = ACESFilmicToneMapping;
       renderer.toneMappingExposure = 1.1;
+      renderer.localClippingEnabled = true; // geometric fracture fragments are clipped copies of the mesh
       renderer.setClearColor(0x000000, 0);
       renderer.domElement.setAttribute('aria-hidden', 'true');
       this.element.appendChild(renderer.domElement);
@@ -159,6 +165,8 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
       this.effects = new ChestOpeningEffects(this.assets.visual, effectColor);
       this.effects.setMuted(this.soundMuted);
       this.impactEffects = new ChestImpactEffects(scene, effectColor);
+      this.breakageEffects = new ChestBreakageEffects(scene, this.assets.visual, this.modelDefinition.modifications,
+        this.assets.appearance, this.breakage, '#' + effectColor.toString(16).padStart(6, '0'), 0);
       this.mixer = new AnimationMixer(this.assets.animationRoot);
       scene.add(new HemisphereLight(0xffffff, 0x435846, 2));
       const light = new DirectionalLight(0xffffff, 3);
@@ -231,6 +239,7 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     this.impactTriggered = false;
     this.impactAge = 0;
     this.fractureEffects?.start(this.view.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    this.breakageEffects?.start(this.view.matchMedia('(prefers-reduced-motion: reduce)').matches);
     this.element.hidden = false;
     await new Promise<void>((resolve, reject) => {
       let elapsed = 0;
@@ -300,6 +309,8 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
           mixer.update(delta);
           this.effects?.update(elapsed / (clipDuration + 0.3), reducedMotion);
           this.fractureEffects?.update(delta, false);
+          // After the pose: the energy build-up swells and shakes the chest on top of it.
+          this.breakageEffects?.update(delta, elapsed / (clipDuration + 0.3));
           this.render();
           if (pending.size === 0 && progress === 1 && elapsed >= clipDuration + 0.3) {
             complete = true;
@@ -351,6 +362,7 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     this.detachAbort = undefined;
     this.mode = 'stopped';
     this.mixer!.stopAllAction();
+    this.breakageEffects?.reset();
     this.floor!.visible = true;
     this.mixer!.setTime(0);
     this.assets!.restore();
@@ -404,11 +416,13 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
           this.view.matchMedia('(prefers-reduced-motion: reduce)').matches);
         this.effects?.impact();
         this.fractureEffects?.impact();
+        this.breakageEffects?.impact();
         this.onImpact?.();
       }
     }
     this.impactEffects?.update(simulated);
     this.fractureEffects?.update(simulated, !this.impactTriggered);
+    this.breakageEffects?.update(simulated);
     if (this.impactTriggered && !this.view.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       this.impactAge += simulated;
       const t = this.impactAge;
@@ -469,6 +483,7 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     this.scheduler?.dispose(); this.scheduler = undefined;
     this.observer?.disconnect(); this.observer = undefined;
     this.fractureEffects?.dispose(); this.fractureEffects = undefined;
+    this.breakageEffects?.dispose(); this.breakageEffects = undefined;
     this.impactEffects?.dispose(); this.impactEffects = undefined;
     this.effects?.dispose(); this.effects = undefined;
     const physics = this.physics, assets = this.assets, scene = this.scene, renderer = this.renderer;
