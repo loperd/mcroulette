@@ -96,6 +96,8 @@ export async function loadChestAssets(baseUrl: URL, signal: AbortSignal, definit
             material.map.magFilter = NearestFilter;
             material.map.minFilter = LinearMipmapLinearFilter;
             material.map.generateMipmaps = true;
+            // Faces seen edge-on smear into stripes without anisotropic filtering (clamped to the GPU max).
+            material.map.anisotropy = 16;
             material.map.needsUpdate = true;
           }
         }

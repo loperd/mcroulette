@@ -123,7 +123,9 @@ export class ChestModificationLayers {
           vertexShader: PROJECTED_VERTEX,
           fragmentShader: PROJECTED_UV + FINISH_GLSL + shaders[definition.kind],
           transparent: true, depthWrite: false, blending: NormalBlending,
-          polygonOffset: true, polygonOffsetFactor: -3 - index, polygonOffsetUnits: -3 - index,
+          // A constant depth nudge, not a slope-scaled one: a slope factor grows huge on faces seen at
+          // a grazing angle and lets the overlays of neighbouring faces bleed through (smeared moss).
+          polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -4 - index * 2,
         });
         this.disposables.push(material);
         this.added.push(overlay(surface, material, 3 + index));
