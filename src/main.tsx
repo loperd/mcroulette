@@ -1,6 +1,8 @@
 import { caseOpenAction } from './application/case-open-action.ts';
 import { parentRoute } from './application/navigation-map.ts';
 import { gameAudio } from './adapters/outbound/browser/game-audio.ts';
+import { ConsoleErrorReporter } from './adapters/outbound/browser/console-error-reporter.ts';
+import { Failsafe } from './adapters/inbound/browser/failsafe.ts';
 import { loadWreck, saveWreck } from './adapters/outbound/browser/wreck-snapshots.ts';
 import { chestEffectColor } from './adapters/outbound/chest/chest-appearance.ts';
 import { StrictMode } from 'react';
@@ -40,6 +42,11 @@ document.documentElement.dataset.homeDesign = theme;
 const baseUrl = normalizeBaseUrl(new URL(import.meta.env.BASE_URL, document.baseURI));
 const storage = new ScreenStorage(() => window.localStorage);
 const navigation = new BrowserRouter(window, storage);
+// Nobody is left hanging: unexpected errors, stuck phases and render loops end in a modal with a
+// way back to the main screen, and are reported (console now, Sentry later).
+const reporter = new ConsoleErrorReporter();
+const failsafe = new Failsafe({ document, reporter, goHome: () => navigation.go({ screen: 'inventory' }, true) });
+failsafe.install();
 const inventory = new DemoInventoryStore(storage);
 inventory.seedDemoStock(CASES);
 let previews: ChestPreviewRenderer | undefined;
@@ -58,6 +65,7 @@ document.addEventListener('click', event => {
 /** Resources belong to the selected case, outside React effects and StrictMode. */
 function createCaseRuntime(definition: CaseDefinition, instance?: CaseInstance) {
   const identity = `${definition.id}:${instance?.id ?? 'browse'}`;
+  failsafe.noteRebuild(identity);
   const routeBase = { caseId: definition.id, ...(instance ? { instanceId: instance.id } : {}) };
   // Server stand-in: this chest's fate. The scene draws it; the session skips the roulette if it is destroyed.
   const breakage = instance ? demoBreakage(instance, definition.model.modifications) : undefined;
@@ -109,7 +117,8 @@ function createCaseRuntime(definition: CaseDefinition, instance?: CaseInstance) 
       gameAudio.destroyed();
     }
   });
-  const unsubscribe = () => { unsubscribeOutcome(); unsubscribeSync(); };
+  const unwatch = failsafe.watch(application.session!, { caseId: definition.id, instanceId: instance?.id ?? null });
+  const unsubscribe = () => { unwatch(); unsubscribeOutcome(); unsubscribeSync(); };
   const unsubscribeSync = application.session!.subscribe(syncRoute);
   return { identity, effectColor, instanceId: instance?.id, definition, scene, sound, roulette, transitions, application, recentFind,
     initialize() { void application.initialize().finally(() => {
