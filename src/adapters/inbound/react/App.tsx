@@ -12,7 +12,7 @@ import { useObservableState } from './use-observable-state.ts';
 import { SoundControl, type SoundPreference } from './SoundControl.tsx';
 import { Button } from './Button.tsx';
 
-export function App({ catalog, session, preview, sceneElement, rouletteElement, transitionElement, backgroundUrl, onRetryInitialization, onOpenGesture, soundPreference, recentFind, onOpenRequest, onPrizeClose, openLabel, availableCaseCount, caseAccent, inspectedCase }: {
+export function App({ captureWreck, catalog, session, preview, sceneElement, rouletteElement, transitionElement, backgroundUrl, onRetryInitialization, onOpenGesture, soundPreference, recentFind, onOpenRequest, onPrizeClose, openLabel, availableCaseCount, caseAccent, inspectedCase }: {
   readonly onOpenRequest?: () => void;
   readonly onPrizeClose?: () => void;
   readonly caseAccent?: string;
@@ -25,6 +25,7 @@ export function App({ catalog, session, preview, sceneElement, rouletteElement, 
   readonly session?: RouletteSession;
   readonly preview?: ChestPreview;
   readonly sceneElement?: HTMLElement;
+  readonly captureWreck?: () => string | undefined;
   readonly rouletteElement?: HTMLElement;
   readonly transitionElement?: HTMLElement;
   readonly onOpenGesture?: () => void;
@@ -60,7 +61,7 @@ export function App({ catalog, session, preview, sceneElement, rouletteElement, 
           </section>
         )}
         {state.phase === 'ready' && (session
-          ? <SessionPanel inspectedCase={inspectedCase} availableCaseCount={availableCaseCount} onOpenRequest={onOpenRequest} onPrizeClose={onPrizeClose} openLabel={openLabel} recentFind={recentFind} session={session} items={state.items} onOpenGesture={onOpenGesture} />
+          ? <SessionPanel captureWreck={captureWreck} inspectedCase={inspectedCase} availableCaseCount={availableCaseCount} onOpenRequest={onOpenRequest} onPrizeClose={onPrizeClose} openLabel={openLabel} recentFind={recentFind} session={session} items={state.items} onOpenGesture={onOpenGesture} />
           : <Catalog items={state.items} />)}
       </div>
     </main>

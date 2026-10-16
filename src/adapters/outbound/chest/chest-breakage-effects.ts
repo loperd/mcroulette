@@ -23,13 +23,26 @@ const JITTER: Record<BreakPattern, number> = { shatter: .3, split: .15, crumble:
 const STONE_DENSITY = 2.4;
 const STEP = 1 / 120;
 
+/** What the breakage needs to be heard; the scene passes the game's audio voice. */
+export interface BreakageSound {
+  strain(charge: number): void;
+  burst(strength: number): void;
+  breakOnImpact(strength: number): void;
+  crumble(level?: number): void;
+  thud(mass: number, speed: number): void;
+}
+const SILENT: BreakageSound = { strain() {}, burst() {}, breakOnImpact() {}, crumble() {}, thud() {} };
+
 /** Light debris that flutters or fades instead of tumbling as a rigid body. */
 interface Particle {
   readonly mesh: Mesh; readonly velocity: Vector3; readonly spin: Vector3; readonly shape: DebrisStyle['shape'];
   readonly size: number; age: number; readonly life: number;
 }
 /** A rigid piece: a solid fracture chunk, a whole fallen part or a heavy chip. */
-interface Body { readonly object: Object3D; readonly offset: Matrix4; readonly body: RigidBody; delay: number; readonly launch: () => void }
+interface Body {
+  readonly object: Object3D; readonly offset: Matrix4; readonly body: RigidBody; delay: number; readonly launch: () => void;
+  readonly mass: number; speed: number;
+}
 interface PartSource {
   readonly meshes: Mesh[]; readonly severity: number; readonly detached: boolean; readonly pattern: BreakPattern;
   readonly debris: { style: DebrisStyle; weight: number }[];
@@ -84,9 +97,11 @@ export class ChestBreakageEffects {
   private charged = false;
   private burst = false;
   private reduced = false;
+  private readonly sound: BreakageSound;
 
   constructor(world: Object3D, chest: Object3D, profile: ChestModificationProfile, appearance: ChestAppearance,
-    breakage: ChestBreakage, accent: string, floorY: number) {
+    breakage: ChestBreakage, accent: string, floorY: number, sound: BreakageSound = SILENT) {
+    this.sound = sound;
     this.world = world; this.chest = chest; this.floorY = floorY;
     this.seed = breakage.seed; this.next = random(breakage.seed);
     this.moment = breakage.moment;
@@ -128,6 +143,7 @@ export class ChestBreakageEffects {
   impact(): void {
     if (!this.breaksOnImpact || this.burst) return;
     this.charged = this.burst = true;
+    this.sound.breakOnImpact(this.strength());
     this.detach('impact');
     for (const source of this.sources) this.chips(source, Math.round(source.severity * 10), 'impact');
     this.dust(8);
@@ -141,15 +157,18 @@ export class ChestBreakageEffects {
     if (this.moment === 'opening' && this.active && !this.burst && progress >= CHARGE_AT) {
       if (!this.charged) { this.charged = true; for (const source of this.sources) this.chips(source, Math.round(source.severity * 5), 'opening'); }
       const charge = Math.min(1, (progress - CHARGE_AT) / (BURST_AT - CHARGE_AT)), strength = this.strength();
-      if (!this.reduced) {
+      // Burst first: fragments are cut from the chest at its real size, not mid-swell.
+      if (progress < BURST_AT && !this.reduced) {
         // The chest strains against the power inside: swelling, then a tremble that grows.
         this.chest.scale.multiplyScalar(1 + charge ** 2 * .05 * strength);
         this.chest.position.x += (this.next() - .5) * charge ** 2 * .035 * strength;
         this.chest.position.z += (this.next() - .5) * charge ** 2 * .035 * strength;
       }
+      if (progress < BURST_AT) this.sound.strain(charge);
       this.glow(charge ** 1.5 * 7 * strength);
       if (progress >= BURST_AT) {
         this.burst = true;
+        this.sound.burst(strength);
         this.detach('opening');
         for (const source of this.sources) this.chips(source, Math.round(source.severity * 10), 'opening');
         if (!this.reduced) { this.shockwave(); this.dust(6); }
@@ -318,17 +337,25 @@ export class ChestBreakageEffects {
       body.applyTorqueImpulse({ x: (r() - .5) * twist, y: (r() - .5) * twist, z: (r() - .5) * twist }, true);
     };
     if (delay <= 0) launch();
-    const entry = { object, offset, body, delay, launch };
+    const entry = { object, offset, body, delay, launch, mass, speed: 0 };
     this.bodies.push(entry);
     this.sync(entry);
   }
 
   private stepPhysics(delta: number) {
     if (!this.physics) return;
-    for (const body of this.bodies) if (body.delay > 0 && (body.delay -= delta) <= 0) body.launch();
+    let released = 0;
+    for (const body of this.bodies) if (body.delay > 0 && (body.delay -= delta) <= 0) { body.launch(); released++; }
+    if (released) this.sound.crumble(Math.min(1, released / 3));
     this.accumulator += delta;
     while (this.accumulator >= STEP) { this.physics.timestep = STEP; this.physics.step(); this.accumulator -= STEP; }
-    for (const body of this.bodies) this.sync(body);
+    for (const body of this.bodies) {
+      this.sync(body);
+      // A sudden loss of speed is a hit (floor, another chunk, the body): that is what we hear.
+      const v = body.body.linvel(), speed = Math.hypot(v.x, v.y, v.z);
+      if (body.speed - speed > .9) this.sound.thud(body.mass, body.speed - speed);
+      body.speed = speed;
+    }
   }
 
   private sync({ object, offset, body }: Body) {

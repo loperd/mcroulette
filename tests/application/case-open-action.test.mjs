@@ -16,7 +16,7 @@ test('selected available copy is preserved; consumed copies cannot be opened aga
   assert.equal(caseOpenAction([make('first', 'available'), own], 'ender', 'bought').target, own);
   const result = caseOpenAction([make('used', 'opened')], 'ender', 'used');
   assert.equal(result.target, undefined); assert.equal(result.availableCount, 0);
-  assert.equal(result.label, 'Вернуться в инвентарь');
+  assert.equal(result.action, 'leave'); assert.equal(result.label, 'Вернуться в инвентарь');
 });
 test('pending openings can be resumed when there are no fresh copies', () => {
   const pending = make('pending', 'opening');
@@ -35,5 +35,6 @@ test('counts and the next chest stay within the inspected variant (its inventory
   assert.equal(inspectingMossy.target.id, 'm2', 'the next chest is another mossy one');
   assert.equal(caseOpenAction(instances, 'ender', 'p2').availableCount, 3);
   const lastMossy = caseOpenAction(instances.filter(item => item.id !== 'm2'), 'ender', 'm1');
-  assert.equal(lastMossy.target.id, 'p1', 'with none of the variant left, any chest of the type');
+  assert.equal(lastMossy.target, undefined, 'another kind of chest is never slipped in');
+  assert.equal(lastMossy.action, 'leave'); assert.equal(lastMossy.label, 'Вернуться в инвентарь');
 });

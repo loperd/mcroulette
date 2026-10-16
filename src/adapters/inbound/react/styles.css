@@ -40,7 +40,6 @@ h1 { margin-top: 8px; font-size: clamp(2rem, 6vw, 3.5rem); line-height: 1.1; let
 .feedback { display: grid; justify-items: center; align-content: center; gap: 16px; min-height: 280px; text-align: center; color: #c2cdd5; }
 .feedback h2 { color: #f1f5f7; font-size: 1.25rem; }
 .feedback--error { border: 1px solid #69443c; border-radius: 12px; background: #2d1e1acf; padding: 32px 20px; }
-.feedback--destroyed { position: relative; z-index: 2; max-width: 440px; margin: 0 auto; border: 1px solid #5a3a33; border-radius: 12px; background: #1a1412d9; padding: 28px 22px; backdrop-filter: blur(3px); }
 .loader { width: 26px; height: 26px; border: 2px solid #3d505e; border-top-color: #99e382; border-radius: 50%; animation: spin 600ms linear infinite; }
 .actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
 .prize { display: grid; justify-items: center; gap: 20px; padding: 40px 20px; text-align: center; }
@@ -257,6 +256,13 @@ h1 { margin-top: 8px; font-size: clamp(2rem, 6vw, 3.5rem); line-height: 1.1; let
 .prize__actions { margin-top: 28px; }
 .prize__actions .btn { min-width: 180px; border: 1px solid #91f0d433; background: #91f0d40a; }
 .prize__actions > p { margin-top: 10px; color: #637c82; font-size: 10px; }
+/* Destruction: the reward screen in the error palette. */
+.prize--destroyed { background: radial-gradient(ellipse at 50% 42%, color-mix(in srgb, var(--prize-color) 13%, #1b1210), #0f0a09f7 70%); }
+.prize--destroyed #prize-title { color: color-mix(in srgb, var(--prize-color) 55%, #f4e9e6); }
+.prize--destroyed .prize__label, .prize--destroyed .prize__actions > p { color: #8c716b; }
+.prize--destroyed .prize__source { color: #a8928d; }
+.prize--destroyed .prize__actions .btn { border-color: color-mix(in srgb, var(--prize-color) 30%, transparent); background: color-mix(in srgb, var(--prize-color) 6%, transparent); }
+.prize__wreck { position: relative; width: min(340px, 62vw); height: min(300px, 32svh); object-fit: contain; filter: drop-shadow(0 18px 24px #0008); animation: prize-arrive 600ms var(--ease-out) both; }
 [data-home-design='gallery'] .prize { background: radial-gradient(ellipse at 50% 42%, #3c3329, #14120ff7 70%); }
 [data-home-design='minimal'] .prize { background: #11191c; }
 [data-home-design='minimal'] .prize__aura { display: none; }

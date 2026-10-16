@@ -6,6 +6,7 @@ import type { SessionState } from '../../../application/session-state.ts';
 import type { RecentFind } from '../../../application/ports/recent-find.ts';
 import { IntroScene } from './IntroScene.tsx';
 import { PrizeScene } from './PrizeScene.tsx';
+import { DestroyedScene } from './DestroyedScene.tsx';
 import { Button } from './Button.tsx';
 import { useObservableState } from './use-observable-state.ts';
 
@@ -17,7 +18,8 @@ const PHASE_LABELS: Record<SessionState['phase'], string> = {
   resetting: 'Готовим новый сундук…', failed: 'Не удалось открыть сундук', disposed: '',
 };
 
-export function SessionPanel({ session, items, onOpenGesture, recentFind, onOpenRequest, onPrizeClose, openLabel, availableCaseCount, inspectedCase }: {
+export function SessionPanel({ session, items, onOpenGesture, recentFind, onOpenRequest, onPrizeClose, openLabel, availableCaseCount, inspectedCase, captureWreck }: {
+  readonly captureWreck?: () => string | undefined;
   readonly onOpenRequest?: () => void;
   readonly onPrizeClose?: () => void;
   readonly openLabel?: string;
@@ -62,21 +64,14 @@ export function SessionPanel({ session, items, onOpenGesture, recentFind, onOpen
     );
   }
   if (state.phase === 'destroyed') {
-    // Shown over the wreckage: the scene stays visible behind the message.
     return (
-      <section className="feedback feedback--destroyed" role="alert">
-        <h2>Сундук не выдержал</h2>
-        <p>Энергия внутри оказалась сильнее — сундук разрушился, и награда сгорела вместе с ним.</p>
-        <div className="actions">
-          <Button ref={actionButton} onClick={() => { if (onPrizeClose) onPrizeClose(); else void session.closePrize(); }}>
-            {onPrizeClose ? 'Вернуться в инвентарь' : 'Продолжить'}</Button>
-        </div>
-      </section>
+      <DestroyedScene availableCaseCount={availableCaseCount} returnLabel={onPrizeClose ? 'К сундуку' : undefined} actionRef={actionButton} captureWreck={captureWreck}
+        onClose={() => { if (onPrizeClose) onPrizeClose(); else void session.closePrize(); }} />
     );
   }
   if (state.phase === 'prize-visible') {
     return (
-      <PrizeScene availableCaseCount={availableCaseCount} returnLabel={onPrizeClose ? 'Вернуться в инвентарь' : undefined} prize={state.selection.prize} actionRef={actionButton} onClose={() => { if (onPrizeClose) onPrizeClose(); else void session.closePrize(); }} />
+      <PrizeScene availableCaseCount={availableCaseCount} returnLabel={onPrizeClose ? 'К сундуку' : undefined} prize={state.selection.prize} actionRef={actionButton} onClose={() => { if (onPrizeClose) onPrizeClose(); else void session.closePrize(); }} />
     );
   }
   return <p className="scene-status" role="status" aria-live="polite">{PHASE_LABELS[state.phase]}</p>;

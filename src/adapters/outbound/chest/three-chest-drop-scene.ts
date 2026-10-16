@@ -2,7 +2,7 @@ import { chestEffectColor } from './chest-appearance.ts';
 import { createChestAppearance, copyChestAppearance, type ChestAppearance } from '../../../domain/chest-appearance.ts';
 import { ENDER_CASE, type ChestModelDefinition } from '../../../config/cases.ts';
 import {
-  ACESFilmicToneMapping, AnimationMixer, LoopOnce, DirectionalLight, HemisphereLight, Mesh, PCFSoftShadowMap,
+  ACESFilmicToneMapping, AnimationMixer, Box3, LoopOnce, DirectionalLight, HemisphereLight, Mesh, PCFSoftShadowMap, type Object3D,
   PerspectiveCamera, PlaneGeometry, Scene, ShadowMaterial, WebGLRenderer, Vector3,
 } from 'three';
 import type { ChestDropPort } from '../../../application/ports/chest-preview.ts';
@@ -17,6 +17,7 @@ import { createRapierPhysicsWorld } from './rapier-physics-world.ts';
 import type { PhysicsWorldPort } from './physics-world-port.ts';
 import { ChestFractureEffects } from './chest-fracture-effects.ts';
 import { BURST_AT, ChestBreakageEffects } from './chest-breakage-effects.ts';
+import { gameAudio } from '../browser/game-audio.ts';
 import { NO_BREAKAGE, type ChestBreakage } from '../../../domain/chest-breakage.ts';
 import { ChestImpactEffects } from './chest-impact-effects.ts';
 import { ChestOpeningEffects } from './chest-opening-effects.ts';
@@ -77,9 +78,43 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     this.element.className = 'chest-canvas';
   }
 
-  setSoundMuted(muted: boolean): void { this.soundMuted = muted; this.effects?.setMuted(muted); }
+  setSoundMuted(muted: boolean): void { this.soundMuted = muted; this.effects?.setMuted(muted); gameAudio.setMuted(muted); }
 
-  unlockAudio(): void { this.effects?.unlock(); }
+  /**
+   * A cropped picture of what is left of the chest (fragments, debris, standing parts), for the
+   * destruction screen. Rendered and read in the same task, so the drawing buffer is still valid.
+   */
+  captureWreck(): string | undefined {
+    const renderer = this.renderer, scene = this.scene, camera = this.camera;
+    if (!renderer || !scene || !camera) return undefined;
+    try {
+      this.floor!.visible = false;
+      renderer.render(scene, camera);
+      this.floor!.visible = true;
+      const canvas = renderer.domElement, box = new Box3();
+      scene.traverse(object => {
+        if (!(object instanceof Mesh) || object === this.floor || !object.visible) return;
+        let shown: Object3D | null = object;
+        while (shown) { if (!shown.visible) return; shown = shown.parent; }
+        box.expandByObject(object);
+      });
+      if (box.isEmpty()) return undefined;
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (const bits of [0, 1, 2, 3, 4, 5, 6, 7]) {
+        const corner = new Vector3(bits & 1 ? box.max.x : box.min.x, bits & 2 ? box.max.y : box.min.y, bits & 4 ? box.max.z : box.min.z).project(camera);
+        const x = (corner.x + 1) / 2 * canvas.width, y = (1 - corner.y) / 2 * canvas.height;
+        x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+      }
+      const pad = Math.max(x1 - x0, y1 - y0) * .08;
+      x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad); x1 = Math.min(canvas.width, x1 + pad); y1 = Math.min(canvas.height, y1 + pad);
+      const width = Math.max(1, Math.round(x1 - x0)), height = Math.max(1, Math.round(y1 - y0));
+      const crop = this.document.createElement('canvas'); crop.width = width; crop.height = height;
+      crop.getContext('2d')?.drawImage(canvas, x0, y0, width, height, 0, 0, width, height);
+      return crop.toDataURL('image/png');
+    } catch { return undefined; }
+  }
+
+  unlockAudio(): void { this.effects?.unlock(); gameAudio.unlock(); }
 
   async stageForDrop(signal: AbortSignal): Promise<void> {
     this.assertPrepared(signal);
@@ -166,7 +201,7 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
       this.effects.setMuted(this.soundMuted);
       this.impactEffects = new ChestImpactEffects(scene, effectColor);
       this.breakageEffects = new ChestBreakageEffects(scene, this.assets.visual, this.modelDefinition.modifications,
-        this.assets.appearance, this.breakage, '#' + effectColor.toString(16).padStart(6, '0'), 0);
+        this.assets.appearance, this.breakage, '#' + effectColor.toString(16).padStart(6, '0'), 0, gameAudio);
       this.mixer = new AnimationMixer(this.assets.animationRoot);
       scene.add(new HemisphereLight(0xffffff, 0x435846, 2));
       const light = new DirectionalLight(0xffffff, 3);
@@ -265,13 +300,17 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     this.scheduler!.stop();
     this.detachAbort?.(); this.detachAbort = undefined;
     this.mode = 'opening';
-    this.effects?.start();
+    // A chest that will be destroyed never opens: no lid swing, no light from inside, only the
+    // energy building up until it bursts.
+    const destroyed = this.breakage.destroyed;
+    if (!destroyed) this.effects?.start();
     this.element.hidden = false;
     const mixer = this.mixer!, assets = this.assets!;
     const clips = assets.animations;
     const actions = clips.map(clip => mixer.clipAction(clip));
     const reducedMotion = this.view.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const clipDuration = Math.max(...clips.map(clip => clip.duration));
+    const breaksWhileOpening = this.breakage.moment === 'opening' && this.breakage.parts.some(part => part.detached);
     const pending = new Set(actions);
     const start = assets.visual.position.clone();
     let elapsed = 0;
@@ -302,18 +341,22 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
           elapsed += delta;
           // Original 25-frame movement expressed in seconds; physics no longer owns the visual pose.
           const progress = Math.min(elapsed / (25 / 60), 1);
-          const eased = 1 - (1 - progress) ** 3;
+          // The opening zoom presents an intact chest; one that will break keeps its real size,
+          // or its fragments would come out larger than the chest ever was.
+          const eased = breaksWhileOpening ? 0 : 1 - (1 - progress) ** 3;
           assets.visual.position.copy(start);
           assets.visual.position.y -= 0.7 * eased;
           assets.visual.scale.setScalar(1 + 0.25 * eased);
-          mixer.update(delta);
-          this.effects?.update(elapsed / (clipDuration + 0.3), reducedMotion);
+          if (!destroyed) {
+            mixer.update(delta);
+            this.effects?.update(elapsed / (clipDuration + 0.3), reducedMotion);
+          }
           this.fractureEffects?.update(delta, false);
           // After the pose: the energy build-up swells and shakes the chest on top of it.
           this.breakageEffects?.update(delta, elapsed / (clipDuration + 0.3));
           this.render();
           // A destroyed chest has nothing left to open: end shortly after the burst settles.
-          const wrecked = this.breakage.destroyed && this.breakageEffects?.broken === true
+          const wrecked = destroyed && this.breakageEffects?.broken === true
             && elapsed >= BURST_AT * (clipDuration + 0.3) + 1.8;
           if (wrecked || pending.size === 0 && progress === 1 && elapsed >= clipDuration + 0.3) {
             complete = true;
@@ -325,7 +368,7 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
       mixer.addEventListener('finished', finished);
       signal.addEventListener('abort', abort, { once: true });
       try {
-        for (const action of actions) {
+        if (!destroyed) for (const action of actions) {
           action.reset().setLoop(LoopOnce, 1);
           action.clampWhenFinished = true;
           action.play();
