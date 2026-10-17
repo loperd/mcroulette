@@ -1,0 +1,72 @@
+# Bootstrap identity for the CI deploy of voxel-vault (as in loncha).
+#
+# Separate from the chart: the chart is deployed BY this account, so it cannot create it
+# (chicken and egg). A cluster admin applies it ONCE on the VPS cluster:
+#
+#   kubectl apply -f deploy/bootstrap/deploy-rbac.yaml
+#   SERVER=https://<public API address>:6443 ./deploy/bootstrap/make-kubeconfig.sh   # → GitHub secret KUBECONFIG_B64
+#
+# Rights are minimal: only namespace voxel-vault and only the API groups the chart uses
+# (checked against templates/). No cluster-scoped rights — CI never uses --create-namespace.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: voxel-vault
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: voxel-vault-deployer
+  namespace: voxel-vault
+---
+# k8s ≥1.24 issues no long-lived tokens by itself. Rotation: delete this Secret, re-apply,
+# regenerate KUBECONFIG_B64.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: voxel-vault-deployer-token
+  namespace: voxel-vault
+  annotations:
+    kubernetes.io/service-account.name: voxel-vault-deployer
+type: kubernetes.io/service-account-token
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: voxel-vault-deployer
+  namespace: voxel-vault
+rules:
+  # Core: config, services, the chart's SA, and secrets (Helm keeps release state there).
+  - apiGroups: [""]
+    resources: [configmaps, services, serviceaccounts, secrets]
+    verbs: [get, list, watch, create, update, patch, delete]
+  # Pods/events read-only: `helm --wait` waits for readiness and reports failures.
+  - apiGroups: [""]
+    resources: [pods, pods/log, events, persistentvolumeclaims]
+    verbs: [get, list, watch]
+  - apiGroups: [apps]
+    resources: [deployments, replicasets, statefulsets]
+    verbs: [get, list, watch, create, update, patch, delete]
+  # The public entrance (templates/ingress.yaml).
+  - apiGroups: [networking.k8s.io]
+    resources: [ingresses]
+    verbs: [get, list, watch, create, update, patch, delete]
+  # Vault Secrets Operator objects of the chart.
+  - apiGroups: [secrets.hashicorp.com]
+    resources: [vaultconnections, vaultauths, vaultstaticsecrets]
+    verbs: [get, list, watch, create, update, patch, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: voxel-vault-deployer
+  namespace: voxel-vault
+subjects:
+  - kind: ServiceAccount
+    name: voxel-vault-deployer
+    namespace: voxel-vault
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: voxel-vault-deployer

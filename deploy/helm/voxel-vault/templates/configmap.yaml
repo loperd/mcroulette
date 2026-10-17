@@ -1,0 +1,11 @@
+{{- /* Non-secret env (values `env:`, UPPERCASE keys) for the API and the bundled Postgres. Secrets: Vault → VSO. */}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "voxel-vault.fullname" . }}-env
+  labels:
+    {{- include "voxel-vault.labels" . | nindent 4 }}
+data:
+  {{- range $key, $val := .Values.env }}
+  {{ $key }}: {{ $val | quote }}
+  {{- end }}

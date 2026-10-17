@@ -1,0 +1,41 @@
+{{- if .Values.ingress.enabled -}}
+{{- /*
+Public entrance of the API (as in loncha): Cloudflare DNS → the cluster's haproxy-ingress. TLS
+terminates at Cloudflare; the frontend Worker proxies /api/* here, so the browser only ever sees the
+frontend origin. The whole host goes to the API.
+*/}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "voxel-vault.fullname" . }}
+  labels:
+    {{- include "voxel-vault.labels" . | nindent 4 }}
+  annotations:
+    ingress.kubernetes.io/ssl-redirect: {{ .Values.ingress.sslRedirect | quote }}
+    {{- if .Values.ingress.hsts }}
+    ingress.kubernetes.io/hsts: "true"
+    ingress.kubernetes.io/hsts-max-age: "31536000"
+    ingress.kubernetes.io/hsts-include-subdomains: "true"
+    {{- end }}
+  {{- with .Values.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+    - host: {{ required "ingress.host is required when ingress.enabled" .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "voxel-vault.fullname" . }}
+                port:
+                  number: {{ .Values.service.port }}
+  {{- if .Values.ingress.tlsSecretName }}
+  tls:
+    - hosts: [{{ .Values.ingress.host | quote }}]
+      secretName: {{ .Values.ingress.tlsSecretName | quote }}
+  {{- end }}
+{{- end }}

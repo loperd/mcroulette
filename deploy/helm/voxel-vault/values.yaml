@@ -1,0 +1,94 @@
+# Base values. Environments layer on top:
+#   values.local.yaml — OrbStack on this Mac: https://vault.loper.me (tunnel), local Vault + VSO
+#   values.prod.yaml  — VPS cluster: https://voxelvault.mono.place, API api-voxelvault.mono.place
+nameOverride: ""
+fullnameOverride: ""
+image:
+  repository: voxel-vault-api
+  tag: local
+  pullPolicy: IfNotPresent
+imagePullSecrets: []             # e.g. [{name: ghcr-pull}] for the private registry
+replicaCount: 1
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+# Configuration = env. Two stores, nothing else (no .env files):
+#   env:     non-secret env, UPPERCASE keys → ConfigMap <fullname>-env (API and bundled Postgres)
+#   secrets: HashiCorp Vault KV → VSO → Secret (below)
+# Everything the browser checks belongs to the frontend origin: passkeys (WEBAUTHN_RP_ID),
+# the Telegram redirect, the session cookie.
+env:
+  HTTP_ADDRESS: ":8080"
+  FRONTEND_URL: "http://localhost:5173/"
+  WEBAUTHN_RP_ID: "localhost"
+  WEBAUTHN_RP_NAME: "Voxel Vault"
+  WEBAUTHN_ORIGINS: "http://localhost:5173"
+  COOKIE_SECURE: "false"
+  DEFAULT_ROLE: "player"
+  # Telegram Login (OIDC): the client id is the bot id, public (it is in the authorization URL).
+  TELEGRAM_CLIENT_ID: "8751479936"
+  TELEGRAM_REDIRECT_URL: ""
+  # Bundled Postgres (postgres.enabled); its password and DATABASE_URL are secrets.
+  POSTGRES_USER: "voxel"
+  POSTGRES_DB: "voxel_vault"
+
+# ── Secrets: Vault Secrets Operator, as in loncha ─────────────────────────────────────────────
+# Keys in the KV (all env):
+#   TELEGRAM_CLIENT_SECRET   Telegram OIDC client secret (empty/absent → Telegram login off)
+#   DATABASE_URL             postgres://… (with the bundled Postgres: its Service, user, password)
+#   POSTGRES_PASSWORD        only with the bundled Postgres
+# PREREQ for vso: the KV, a read policy and a Kubernetes-auth role bound to this chart's
+# ServiceAccount exist BEFORE switching to vso, or VSO overwrites the Secret with nothing.
+secrets:
+  source: existingSecret          # vso | existingSecret
+  existingSecret: voxel-vault-secrets
+  vso:
+    address: "http://vault.vault.svc:8200"
+    authMount: "kubernetes"
+    role: "voxel-vault"
+    mount: "voxel-vault"          # the project's own KV-v2 collection (one per project)
+    path: "local"                 # local / prod
+    refreshAfter: "60s"
+    rolloutRestart: true          # restart the API when the secret changes
+    excludeRaw: true
+
+# Public entrance of the API (haproxy-ingress behind Cloudflare). Off locally (Vite proxies to the Service).
+ingress:
+  enabled: false
+  className: haproxy
+  host: ""
+  sslRedirect: true
+  hsts: true
+  tlsSecretName: ""               # empty = TLS terminates at Cloudflare
+  annotations: {}
+
+# The API image is distroless :nonroot (uid 65532).
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  fsGroup: 65532
+containerSecurityContext:
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+serviceAccount:
+  create: true
+  name: ""
+  # The API never calls the kube-API: no token mounted in its pod.
+  automountServiceAccountToken: false
+
+# Bundled single-node PostgreSQL (infrastructure only; its credentials are env and secrets).
+postgres:
+  enabled: true
+  image: postgres:17-alpine
+  storage: 2Gi
+  storageClassName: ""
+resources: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
