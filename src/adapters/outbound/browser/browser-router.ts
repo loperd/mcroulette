@@ -8,20 +8,22 @@ export function routePath(route: ScreenRoute): string {
   if (route.screen === 'not-found') return '/not-found';
   let base = `/cases/${encodeURIComponent(route.caseId)}`;
   if ('instanceId' in route && route.instanceId) base += `/instances/${encodeURIComponent(route.instanceId)}`;
-  if (route.screen === 'case') return base;
-  if (route.screen === 'item') return `${base}/items/${encodeURIComponent(route.itemId)}`;
-  return `${base}/${route.screen}/${encodeURIComponent(route.sessionId)}`;
+  if (route.screen === 'item') base += `/items/${encodeURIComponent(route.itemId)}`;
+  else if (route.screen === 'opening' || route.screen === 'reward') base += `/${route.screen}/${encodeURIComponent(route.sessionId)}`;
+  return 'returnTo' in route && route.returnTo === 'archive' ? `${base}?from=archive` : base;
 }
 export function parseRoute(path: string): ScreenRoute {
   try {
-    const parts = path.replace(/^#/, '').split('/').filter(Boolean).map(decodeURIComponent);
+    const [pathname, query = ''] = path.replace(/^#/, '').split('?');
+    const fromArchive = new URLSearchParams(query).get('from') === 'archive';
+    const parts = pathname!.split('/').filter(Boolean).map(decodeURIComponent);
     if (parts.length === 0 || parts.length === 1 && parts[0] === 'inventory') return { screen: 'inventory' };
     if (parts.length === 1 && parts[0] === 'archive') return { screen: 'archive' };
     if (parts.length === 1 && parts[0] === 'cases') return { screen: 'catalog' };
     if (parts[0] !== 'cases' || !parts[1] || parts[1].length > 128) return { screen: 'not-found' };
     const owned = parts[2] === 'instances';
     if (owned && (!parts[3] || parts[3].length > 128)) return { screen: 'not-found' };
-    const base = { caseId: parts[1], ...(owned ? { instanceId: parts[3]! } : {}) }, offset = owned ? 4 : 2;
+    const base = { caseId: parts[1], ...(owned ? { instanceId: parts[3]! } : {}), ...(fromArchive ? { returnTo: 'archive' as const } : {}) }, offset = owned ? 4 : 2;
     if (parts.length === offset) return { screen: 'case', ...base };
     if (parts.length !== offset + 2 || !parts[offset + 1] || parts[offset + 1]!.length > 256) return { screen: 'not-found' };
     if (parts[offset] === 'items') return { screen: 'item', ...base, itemId: parts[offset + 1]! };

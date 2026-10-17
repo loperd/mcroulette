@@ -1,14 +1,14 @@
-.case-directory { height: 100svh; overflow: auto; padding: 28px 24px 60px; color: #edf5f1; background: radial-gradient(ellipse at 65% 35%, #183b352e, transparent 60%), #0b1419; }
-.case-directory__content { width: min(1120px, 100%); margin-inline: auto; }
-.case-directory__brand { display: flex; align-items: center; gap: 12px; font-size: 15px; font-weight: 650; }
+.case-directory { height: 100svh; overflow: auto; padding: 24px 24px 60px; color: #edf5f1; background: radial-gradient(ellipse at 65% 35%, #183b352e, transparent 60%), #0b1419; }
+.case-directory__content { width: min(var(--content-max-width, 1180px), 100%); margin-inline: auto; }
+.case-directory__brand { display: flex; align-items: center; gap: 12px; font-size: 16px; font-weight: 650; }
 .case-directory__brand > span { color: #86ead0; font-size: 28px; }
 .case-directory__intro { padding-block: clamp(40px, 8svh, 90px) 38px; }
-.case-directory__intro .eyebrow { color: #86ead0; font-size: 10px; }
+.case-directory__intro .eyebrow { color: #86ead0; font-size: 12px; }
 .case-directory__intro h1 { margin: 16px 0; font-size: clamp(30px, 4.5vw, 54px); font-weight: 550; letter-spacing: -.045em; line-height: 1.1; }
-.case-directory__intro > p:last-child { max-width: 430px; color: #8da9ac; font-size: 13px; line-height: 1.8; }
+.case-directory__intro > p:last-child { max-width: 430px; color: #8da9ac; font-size: 14px; line-height: 1.8; }
 .case-directory__filters { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 28px; padding-bottom: 16px; border-bottom: 1px solid #ffffff0c; }
 .case-directory__filters nav { display: flex; gap: 8px; flex-wrap: wrap; }
-.case-directory__filters button { min-height: 40px; padding: 8px 14px; border: 1px solid transparent; border-radius: 3px; background: transparent; color: #899fa5; cursor: pointer; font-size: 11px; }
+.case-directory__filters button { min-height: 40px; padding: 8px 14px; border: 1px solid transparent; border-radius: 3px; background: transparent; color: #899fa5; cursor: pointer; font-size: 12px; }
 .case-directory__filters button[aria-pressed='true'] { color: #b0ead8; border-color: #86ead02a; background: #86ead009; }
 .case-directory__filters button span { margin-left: 9px; opacity: .5; }
 .case-directory__filters input { width: 210px; min-height: 40px; border: 1px solid #ffffff12; border-radius: 3px; background: #111f25; color: #c9dcd7; padding: 10px 12px; font: inherit; font-size: 12px; }
@@ -18,11 +18,11 @@
 .case-card__art > span { position: absolute; font-size: 260px; line-height: 1; color: #86ead00b; z-index: -1; }
 .case-card__art img { width: 100%; height: 100%; object-fit: contain; padding: 12px; }
 .case-card__info { padding: 20px 22px 22px; border-top: 1px solid #ffffff09; }
-.case-card .eyebrow { font-size: 9px; color: #78aa9b; }
+.case-card .eyebrow { font-size: 12px; color: #78aa9b; }
 .case-card h2 { margin: 10px 0; font-size: 20px; font-weight: 500; letter-spacing: -.025em; }
-.case-card__info > p:not(.eyebrow) { font-size: 11px; color: #819ba1; line-height: 1.7; }
-.case-card__action { display: flex; justify-content: space-between; margin-top: 24px; font-size: 10px; color: #9cd9c6; }
-.case-directory__empty { color: #8da9ac; padding: 40px 0; font-size: 13px; }
+.case-card__info > p:not(.eyebrow) { font-size: 12px; color: #819ba1; line-height: 1.7; }
+.case-card__action { display: flex; justify-content: space-between; margin-top: 24px; font-size: 12px; color: #9cd9c6; }
+.case-directory__empty { color: #8da9ac; padding: 40px 0; font-size: 14px; }
 .case-card:focus-visible, .case-directory__filters button:focus-visible, .case-directory__filters input:focus-visible { outline: none; border-color: #86ead080; box-shadow: 0 0 18px #86ead012; }
 .case-brand__back { pointer-events: auto; background: transparent; border-top: 0; border-right: 0; border-bottom: 0; font: inherit; cursor: pointer; min-height: 36px; }
 .case-brand__back:focus-visible { outline: none; color: #b4f2df; text-shadow: 0 0 12px #86ead070; }

@@ -4,7 +4,6 @@ import { gameAudio } from './adapters/outbound/browser/game-audio.ts';
 import { ConsoleErrorReporter } from './adapters/outbound/browser/console-error-reporter.ts';
 import { Failsafe } from './adapters/inbound/browser/failsafe.ts';
 import { loadWreck, saveWreck } from './adapters/outbound/browser/wreck-snapshots.ts';
-import { chestEffectColor } from './adapters/outbound/chest/chest-appearance.ts';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './adapters/inbound/react/App.tsx';
@@ -18,11 +17,12 @@ import { DemoInventoryStore } from './adapters/outbound/browser/demo-inventory-s
 import { ChestPreviewRenderer } from './adapters/outbound/chest/chest-preview-renderer.ts';
 import { withBreakageDamage } from './domain/chest-appearance.ts';
 import { demoBreakage } from './adapters/outbound/browser/demo-breakage.ts';
-import { nextOwnedCase, type CaseInstance } from './domain/case-instance.ts';
+import { isConsumed, nextOwnedCase, type CaseInstance } from './domain/case-instance.ts';
 import { CaseDirectory } from './adapters/inbound/react/CaseDirectory.tsx';
 import { CasePresentationContext } from './adapters/inbound/react/case-presentation.ts';
 import { NavigationContext } from './adapters/inbound/react/NavigationContext.tsx';
 import { SoundControl } from './adapters/inbound/react/SoundControl.tsx';
+import { GlobalSearch } from './adapters/inbound/react/GlobalSearch.tsx';
 import { createApplication } from './composition/create-application.ts';
 import { CASES, type CaseDefinition } from './config/cases.ts';
 import { ThreeChestDropScene } from './adapters/outbound/chest/three-chest-drop-scene.ts';
@@ -68,10 +68,10 @@ document.addEventListener('click', event => {
 }, true);
 
 /** Resources belong to the selected case, outside React effects and StrictMode. */
-function createCaseRuntime(definition: CaseDefinition, instance?: CaseInstance) {
-  const identity = `${definition.id}:${instance?.id ?? 'browse'}`;
+function createCaseRuntime(definition: CaseDefinition, instance?: CaseInstance, returnTo?: 'archive') {
+  const identity = `${definition.id}:${instance?.id ?? 'browse'}:${returnTo ?? 'normal'}`;
   failsafe.noteRebuild(identity);
-  const routeBase = { caseId: definition.id, ...(instance ? { instanceId: instance.id } : {}) };
+  const routeBase = { caseId: definition.id, ...(instance ? { instanceId: instance.id } : {}), ...(returnTo ? { returnTo } : {}) };
   // Server stand-in: this chest's fate. The scene draws it; the session skips the roulette if it is destroyed.
   const breakage = instance ? demoBreakage(instance, definition.model.modifications) : undefined;
   const scene = new ThreeChestDropScene(baseUrl, document, definition.model, instance?.appearance ?? definition.appearance, () => {
@@ -82,11 +82,11 @@ function createCaseRuntime(definition: CaseDefinition, instance?: CaseInstance) 
     if (breakage?.moment !== 'impact' || !breakage.parts.length) return;
     const damaged = withBreakageDamage(current.appearance, definition.model.modifications, breakage.parts);
     if (damaged !== current.appearance) inventory.updateAppearance(instance.id, damaged);
-  }, breakage);
+  }, breakage, Number.parseInt(definition.presentation.theme.accent.slice(1), 16));
   const sound = new ClickSound(resolvePublicAsset('audio/click.wav', baseUrl));
   sound.setMuted(soundPreference.isMuted()); scene.setSoundMuted(soundPreference.isMuted());
   const roulette = new CanvasRoulette(document, { sound, theme });
-  const effectColor = '#' + chestEffectColor(instance?.appearance ?? definition.appearance).toString(16).padStart(6, '0');
+  const effectColor = definition.presentation.theme.accent;
   const transitions = new GameTransitions(browserFrameEnvironment(window, document), roulette.element);
   transitions.element.style.background = `radial-gradient(ellipse, #ffffff, ${effectColor})`;
   const journal = instance ? new BrowserSessionJournal(storage, identity) : undefined;
@@ -196,30 +196,37 @@ function renderRoute() {
   const instance = requestedInstance ? inventory.getState().find(item => item.id === requestedInstance) : undefined;
   const definition = 'caseId' in route && (!requestedInstance || instance?.caseId === route.caseId)
     ? CASES.find(item => item.id === route.caseId) : undefined;
-  const identity = definition ? `${definition.id}:${instance?.id ?? 'browse'}` : undefined;
+  // Must match createCaseRuntime's identity exactly, or every render rebuilds the runtime.
+  const returnTo = 'returnTo' in route ? route.returnTo : undefined;
+  const identity = definition ? `${definition.id}:${instance?.id ?? 'browse'}:${returnTo ?? 'normal'}` : undefined;
   if (route.screen !== 'inventory' && route.screen !== 'archive' && route.screen !== 'catalog') { previews?.dispose(); previews = undefined; }
   if (runtime && runtime.identity !== identity) { const previous = runtime; runtime = undefined; previous.dispose(); }
   let fresh = false;
-  if (definition && !runtime) { runtime = createCaseRuntime(definition, instance); fresh = true; }
+  if (definition && !runtime) { runtime = createCaseRuntime(definition, instance, 'returnTo' in route ? route.returnTo : undefined); fresh = true; }
   // Dev-only handle for inspecting the live scene from the browser console.
   if (import.meta.env.DEV) (window as unknown as { __caseRuntime?: unknown }).__caseRuntime = runtime;
   if (!definition) {
     if (route.screen === 'inventory' || route.screen === 'archive' || route.screen === 'catalog') previews ??= new ChestPreviewRenderer(document, baseUrl);
-    root.render(<StrictMode><SoundControl preference={soundPreference} />{route.screen === 'inventory' || route.screen === 'archive'
-      ? <InventoryScreen key={route.screen} mode={route.screen} inventory={inventory} cases={CASES} navigation={navigation} storage={storage} renderer={previews!} />
+    root.render(<StrictMode><>{route.screen === 'inventory' || route.screen === 'archive'
+      ? <InventoryScreen key={route.screen} mode={route.screen} inventory={inventory} cases={CASES} navigation={navigation} storage={storage} renderer={previews!} soundPreference={soundPreference} />
       : route.screen === 'catalog'
-      ? <CaseDirectory instances={inventory.getState()} cases={CASES} navigation={navigation} storage={storage} renderer={previews!} />
-      : <main className="case-directory"><div className="feedback"><h1>Сундук не найден</h1><p>Возможно, ссылка устарела.</p>
-        <button className="btn btn-transparent" onClick={() => navigation.go({ screen: 'inventory' }, true)}>К сундукам</button></div></main>}</StrictMode>);
+      ? <CaseDirectory instances={inventory.getState()} cases={CASES} navigation={navigation} storage={storage} renderer={previews!} soundPreference={soundPreference} />
+      : <><SoundControl preference={soundPreference} /><main className="page-shell case-directory"><div className="feedback"><h1>Сундук не найден</h1><p>Возможно, ссылка устарела.</p>
+        <button className="btn btn-transparent" onClick={() => navigation.go({ screen: 'inventory' }, true)}>К сундукам</button></div></main></>}
+      <GlobalSearch navigation={navigation} cases={CASES} inventory={inventory} baseUrl={baseUrl} /></></StrictMode>);
     return;
   }
   const current = runtime!;
-  const action = caseOpenAction(inventory.getState(), definition.id, current.instanceId);
+  const archiveView = 'returnTo' in route && route.returnTo === 'archive';
+  const action = archiveView
+    ? { action: 'leave' as const, target: undefined, label: 'Вернуться в архив', availableCount: 0 }
+    : caseOpenAction(inventory.getState(), definition.id, current.instanceId);
   const state = current.application.session!.getState();
   if (!fresh && route.screen === 'case' && state.phase === 'prize-visible') void current.application.session!.closePrize();
   root.render(<StrictMode><NavigationContext.Provider value={{ navigation, storage }}>
+    <GlobalSearch navigation={navigation} cases={CASES} inventory={inventory} baseUrl={baseUrl} />
     <CasePresentationContext.Provider value={definition.presentation}>
-      <App captureWreck={() => { const state = current.application.session!.getState(); return 'sessionId' in state ? loadWreck(state.sessionId) : undefined; }} inspectedCase={instance} caseAccent={current.effectColor} availableCaseCount={action.availableCount}
+      <App captureWreck={() => { const state = current.application.session!.getState(); return 'sessionId' in state ? loadWreck(state.sessionId) : undefined; }} inspectedCase={instance} casePalette={definition.presentation.theme} availableCaseCount={action.availableCount} archiveCount={inventory.getState().filter(isConsumed).length} archiveView={archiveView}
         openLabel={action.label}
         onOpenRequest={() => {
           const { target, action: offer } = caseOpenAction(inventory.getState(), definition.id, current.instanceId);
@@ -233,7 +240,7 @@ function renderRoute() {
         recentFind={current.recentFind} soundPreference={soundPreference} catalog={current.application.catalog}
         session={current.application.session} sceneElement={current.scene.element} rouletteElement={current.roulette.element}
         onOpenGesture={() => { current.sound.unlock(); current.scene.unlockAudio(); }} transitionElement={current.transitions.element}
-        onRetryInitialization={current.application.initialize} backgroundUrl={resolvePublicAsset('images/minecraft-bg.png', baseUrl)} />
+        onRetryInitialization={current.application.initialize} backgroundUrl={resolvePublicAsset(definition.presentation.backgroundPath, baseUrl)} />
     </CasePresentationContext.Provider>
   </NavigationContext.Provider></StrictMode>);
   if (fresh) current.initialize();
