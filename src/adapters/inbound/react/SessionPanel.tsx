@@ -10,6 +10,7 @@ import { DestroyedScene } from './DestroyedScene.tsx';
 import { Button } from './Button.tsx';
 import { ErrorNotice } from './ErrorNotice.tsx';
 import { useObservableState } from './use-observable-state.ts';
+import { SoundControl, type SoundPreference } from './SoundControl.tsx';
 
 const PHASE_LABELS: Record<SessionState['phase'], string> = {
   idle: 'Готовим сундук…', loading: 'Готовим сундук…', ready: 'Сундук готов',
@@ -19,12 +20,15 @@ const PHASE_LABELS: Record<SessionState['phase'], string> = {
   resetting: 'Готовим новый сундук…', failed: 'Не удалось открыть сундук', disposed: '',
 };
 
-export function SessionPanel({ session, items, onOpenGesture, recentFind, onOpenRequest, onPrizeClose, openLabel, availableCaseCount, inspectedCase, captureWreck }: {
+export function SessionPanel({ session, items, onOpenGesture, recentFind, onOpenRequest, onPrizeClose, openLabel, availableCaseCount, archiveCount, archiveView, inspectedCase, captureWreck, soundPreference }: {
+  readonly soundPreference?: SoundPreference;
   readonly captureWreck?: () => string | undefined;
   readonly onOpenRequest?: () => void;
   readonly onPrizeClose?: () => void;
   readonly openLabel?: string;
   readonly availableCaseCount?: number;
+  readonly archiveCount?: number;
+  readonly archiveView?: boolean;
   readonly inspectedCase?: CaseInstance;
   readonly recentFind?: RecentFind;
   readonly session: RouletteSession;
@@ -45,13 +49,13 @@ export function SessionPanel({ session, items, onOpenGesture, recentFind, onOpen
   if (state.phase === 'disposed') return null;
   if (state.phase === 'ready' || state.phase === 'clearing' || state.phase === 'resetting') {
     return (
-      <IntroScene inspectedCase={inspectedCase} availableCaseCount={availableCaseCount} openLabel={openLabel} recentFind={recentFind} items={items} phase={state.phase} actionRef={actionButton}
+      <IntroScene soundPreference={soundPreference} inspectedCase={inspectedCase} availableCaseCount={availableCaseCount} archiveCount={archiveCount} archiveView={archiveView} openLabel={openLabel} recentFind={recentFind} items={items} phase={state.phase} actionRef={actionButton}
         onOpen={() => { onOpenGesture?.(); if (onOpenRequest) onOpenRequest(); else void session.openChest(); }} />
     );
   }
   if (state.phase === 'failed') {
     return (
-      <ErrorNotice title="Не удалось подготовить сундук" actions={<>
+      <><SoundControlIfPresent preference={soundPreference} /><ErrorNotice title="Не удалось подготовить сундук" actions={<>
         <Button onClick={() => { void session.retry(); }}>Повторить</Button>
         {state.failure.recovery !== 'initialize' && (
           <Button variant="transparent"
@@ -59,19 +63,23 @@ export function SessionPanel({ session, items, onOpenGesture, recentFind, onOpen
         )}
       </>}>
         <p>Сундук и награды на месте — попробуйте ещё раз.</p>
-      </ErrorNotice>
+      </ErrorNotice></>
     );
   }
   if (state.phase === 'destroyed') {
     return (
-      <DestroyedScene availableCaseCount={availableCaseCount} returnLabel={onPrizeClose ? 'К сундуку' : undefined} actionRef={actionButton} captureWreck={captureWreck}
-        onClose={() => { if (onPrizeClose) onPrizeClose(); else void session.closePrize(); }} />
+      <><SoundControlIfPresent preference={soundPreference} /><DestroyedScene availableCaseCount={availableCaseCount} returnLabel={onPrizeClose ? 'К сундуку' : undefined} actionRef={actionButton} captureWreck={captureWreck}
+        onClose={() => { if (onPrizeClose) onPrizeClose(); else void session.closePrize(); }} /></>
     );
   }
   if (state.phase === 'prize-visible') {
     return (
-      <PrizeScene availableCaseCount={availableCaseCount} returnLabel={onPrizeClose ? 'К сундуку' : undefined} prize={state.selection.prize} actionRef={actionButton} onClose={() => { if (onPrizeClose) onPrizeClose(); else void session.closePrize(); }} />
+      <><SoundControlIfPresent preference={soundPreference} /><PrizeScene availableCaseCount={availableCaseCount} returnLabel={onPrizeClose ? 'К сундуку' : undefined} prize={state.selection.prize} actionRef={actionButton} onClose={() => { if (onPrizeClose) onPrizeClose(); else void session.closePrize(); }} /></>
     );
   }
-  return <p className="scene-status" role="status" aria-live="polite">{PHASE_LABELS[state.phase]}</p>;
+  return <><SoundControlIfPresent preference={soundPreference} /><p className="scene-status" role="status" aria-live="polite">{PHASE_LABELS[state.phase]}</p></>;
+}
+
+function SoundControlIfPresent({ preference }: { readonly preference?: SoundPreference }) {
+  return preference ? <SoundControl preference={preference} /> : null;
 }

@@ -1,4 +1,3 @@
-import { chestEffectColor } from './chest-appearance.ts';
 import { ACESFilmicToneMapping, DirectionalLight, HemisphereLight, PerspectiveCamera, Scene, WebGLRenderer } from 'three';
 import type { CaseDefinition } from '../../../config/cases.ts';
 import { chestAppearanceKey, copyChestAppearance, type ChestAppearance } from '../../../domain/chest-appearance.ts';
@@ -44,7 +43,8 @@ export class ChestPreviewRenderer {
     this.cache.clear(); this.renderer?.dispose(); this.renderer?.forceContextLoss(); this.renderer = undefined;
   }
   private readonly drawAsset: DrawPreview = async (definition, appearance, signal) => {
-    const assets = await loadChestAssets(this.baseUrl, signal, definition.model, appearance);
+    const effectColor = Number.parseInt(definition.presentation.theme.accent.slice(1), 16);
+    const assets = await loadChestAssets(this.baseUrl, signal, definition.model, appearance, effectColor);
     let fractures: ChestFractureEffects | undefined;
     try {
       signal.throwIfAborted();
@@ -55,7 +55,7 @@ export class ChestPreviewRenderer {
       }
       const scene = new Scene(); scene.add(assets.visual, new HemisphereLight(0xffffff, 0x394858, 2.5));
       const key = new DirectionalLight(0xffffff, 3.5); key.position.set(-3, 5, -4); scene.add(key);
-      fractures = new ChestFractureEffects(assets.visual, chestEffectColor(appearance), appearance, definition.model.modifications);
+      fractures = new ChestFractureEffects(assets.visual, effectColor, appearance, definition.model.modifications);
       const camera = new PerspectiveCamera(36, 640 / 520, 0.1, 30);
       camera.position.set(-3, 2, -4.5); camera.lookAt(0, 0.05, 0);
       this.renderer.render(scene, camera);

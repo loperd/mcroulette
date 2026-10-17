@@ -1,7 +1,6 @@
 import { ChestIndicators } from './ChestIndicators.tsx';
 import { CASES } from '../../../config/cases.ts';
 import type { CaseInstance } from '../../../domain/case-instance.ts';
-import { parentRoute } from '../../../application/navigation-map.ts';
 import type { CSSProperties, Ref } from 'react';
 import type { Item } from '../../../domain/item.ts';
 import { CONTENT_EXIT_SECONDS } from '../../outbound/browser/scene-timing.ts';
@@ -11,10 +10,15 @@ import { useCasePresentation } from './case-presentation.ts';
 import type { RecentFind } from '../../../application/ports/recent-find.ts';
 import { CaseHighlight, RecentFindHighlight } from './CaseHighlight.tsx';
 import { Button } from './Button.tsx';
+import { ScreenHeader } from './ScreenHeader.tsx';
+import type { SoundPreference } from './SoundControl.tsx';
 
-export function IntroScene({ items, phase, actionRef, onOpen, recentFind, openLabel = 'Открыть сундук', availableCaseCount, inspectedCase }: {
+export function IntroScene({ items, phase, actionRef, onOpen, recentFind, openLabel = 'Открыть сундук', availableCaseCount, archiveCount, archiveView = false, inspectedCase, soundPreference }: {
+  readonly soundPreference?: SoundPreference;
   readonly openLabel?: string;
   readonly availableCaseCount?: number;
+  readonly archiveCount?: number;
+  readonly archiveView?: boolean;
   readonly inspectedCase?: CaseInstance;
   readonly recentFind?: RecentFind;
   readonly items: readonly Item[];
@@ -30,11 +34,7 @@ export function IntroScene({ items, phase, actionRef, onOpen, recentFind, openLa
     style={{ '--content-exit-duration': `${CONTENT_EXIT_SECONDS}s` } as CSSProperties}>
     <div className="intro-scene__top">
       <div className="case-atmosphere" aria-hidden="true"><span /><span /><span /><span /><span /><span /></div>
-      <header className="case-brand"><span className="case-brand__mark" aria-hidden="true">◇</span>
-        <span>{casePresentation.brand}</span>{navigation
-          ? <button className="case-brand__section case-brand__back" type="button" onClick={() => navigation.go(parentRoute(navigation.getState()) ?? { screen: 'inventory' })}>← Инвентарь</button>
-          : <span className="case-brand__section">Сундуки</span>}
-      </header>
+      <ScreenHeader navigation={navigation} active={archiveView ? 'archive' : 'inventory'} archiveCount={archiveCount} soundPreference={soundPreference} />
       <div className="case-heading"><p className="eyebrow">{casePresentation.collection}</p>
         <h1>{casePresentation.title}</h1>
         <p className="intro-scene__description">{casePresentation.description}</p>
@@ -45,11 +45,11 @@ export function IntroScene({ items, phase, actionRef, onOpen, recentFind, openLa
     </div>
     <div className="intro-scene__bottom" inert={phase !== 'ready'}>
       <div className="case-open-bar">
-        <div className="case-open-bar__copy"><span className="eyebrow">{availableCaseCount === undefined ? 'Что скрывается внутри?' : 'Твоя коллекция'}</span>
+        {!archiveView && <div className="case-open-bar__copy"><span className="eyebrow">{availableCaseCount === undefined ? 'Что скрывается внутри?' : 'Твоя коллекция'}</span>
           {availableCaseCount === undefined ? <p>Один сундук. Твоя следующая находка.</p>
             : <p className="case-owned-count"><strong>{availableCaseCount}</strong><span>{availableCaseCount > 0 ? 'можно открыть сейчас' : 'нет доступных для открытия'}</span></p>}
-          {inspectedCase && inspectedProfile && <ChestIndicators appearance={inspectedCase.appearance} profile={inspectedProfile} status={inspectedCase.status} />}
-        </div>
+          {inspectedCase && inspectedProfile && <ChestIndicators appearance={inspectedCase.appearance} profile={inspectedProfile} status={inspectedCase.status} showCondition={false} showFeatures={false} />}
+        </div>}
         <div className="actions">
           <Button ref={actionRef} disabled={phase !== 'ready'} onClick={onOpen}>{openLabel}</Button>
         </div>

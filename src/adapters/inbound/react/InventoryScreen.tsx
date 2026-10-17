@@ -10,8 +10,11 @@ import type { ScreenStorage } from '../../outbound/browser/screen-storage.ts';
 import type { ChestPreviewRenderer } from '../../outbound/chest/chest-preview-renderer.ts';
 import { useObservableState } from './use-observable-state.ts';
 import { ChestThumbnail } from './ChestThumbnail.tsx';
+import { ScreenHeader } from './ScreenHeader.tsx';
+import type { SoundPreference } from './SoundControl.tsx';
 
-export function InventoryScreen({ inventory, cases, navigation, storage, renderer, mode = 'inventory' }: {
+export function InventoryScreen({ inventory, cases, navigation, storage, renderer, soundPreference, mode = 'inventory' }: {
+  readonly soundPreference?: SoundPreference;
   readonly mode?: 'inventory' | 'archive';
   readonly inventory: PlayerInventory; readonly cases: readonly CaseDefinition[]; readonly navigation: Navigation;
   readonly storage: ScreenStorage; readonly renderer: Pick<ChestPreviewRenderer, 'render'>;
@@ -19,36 +22,28 @@ export function InventoryScreen({ inventory, cases, navigation, storage, rendere
   const instances = useObservableState(inventory);
   const saved = useRef(storage.read(mode === 'archive' ? 'screen:archive' : 'screen:inventory', value => {
     const v = value && typeof value === 'object' ? value as Record<string, unknown> : {};
-    return { query: typeof v.query === 'string' ? v.query.slice(0, 100) : '',
-      rarity: typeof v.rarity === 'string' && ['common','uncommon','rare','epic','legendary'].includes(v.rarity) ? v.rarity : 'all',
+    return { rarity: typeof v.rarity === 'string' && ['common','uncommon','rare','epic','legendary'].includes(v.rarity) ? v.rarity : 'all',
       density: v.density === 'compact' ? 'compact' : 'comfortable',
       filter: ['all', 'available', 'opened'].includes(String(v.filter)) ? String(v.filter) : 'all',
       scroll: typeof v.scroll === 'number' && v.scroll >= 0 && v.scroll < 1_000_000 ? v.scroll : 0 };
   }));
-  const [query, setQuery] = useState(saved.current?.query ?? '');
   const [rarity, setRarity] = useState<string>(saved.current?.rarity ?? 'all');
   const [density, setDensity] = useState(saved.current?.density ?? 'comfortable');
   const page = useRef<HTMLElement>(null);
   useEffect(() => { if (page.current) page.current.scrollTop = saved.current?.scroll ?? 0; }, []);
   useEffect(() => {
     const element = page.current!;
-    const save = () => storage.write(mode === 'archive' ? 'screen:archive' : 'screen:inventory', { query, rarity, density, scroll: element.scrollTop });
+    const save = () => storage.write(mode === 'archive' ? 'screen:archive' : 'screen:inventory', { rarity, density, scroll: element.scrollTop });
     save(); element.addEventListener('scroll', save, { passive: true });
     return () => { save(); element.removeEventListener('scroll', save); };
-  }, [storage, query, rarity, density, mode]);
+  }, [storage, rarity, density, mode]);
   const available = instances.filter(item => item.status === 'available');
   const screenInstances = instances.filter(item => mode === 'archive' ? isConsumed(item) : !isConsumed(item));
-  const visible = screenInstances.filter(item => (!rarity || rarity === 'all' || cases.find(def => def.id === item.caseId)?.rarity === rarity)
-    && `${cases.find(def => def.id === item.caseId)?.presentation.title ?? ''} ${item.id}`.toLowerCase().includes(query.toLowerCase().trim()));
-  const groups = groupInventory(visible);
+  const visible = screenInstances.filter(item => !rarity || rarity === 'all' || cases.find(def => def.id === item.caseId)?.rarity === rarity);
+  const groups = mode === 'archive' ? visible.map(instance => ({ key: instance.id, instances: [instance], representative: instance })) : groupInventory(visible);
   const rarities = [...new Set(cases.map(definition => definition.rarity))] as CaseRarity[];
-  return <main className={`inventory inventory--${density} inventory--${mode}`} ref={page}><div className="inventory__content">
-    <header className="inventory__header"><span className="inventory__brand"><span aria-hidden="true">◇</span> Voxel Vault</span>
-      <nav aria-label="Разделы">{mode === 'archive' ? <button type="button" onClick={() => navigation.go({ screen: 'inventory' })}>Инвентарь</button> : <span aria-current="page">Инвентарь</span>}
-        {mode !== 'archive' && <button type="button" onClick={() => navigation.go({ screen: 'archive' })}>Архив <span>{instances.filter(isConsumed).length}</span></button>}
-        {mode === 'archive' && <span aria-current="page">Архив</span>}
-        <button type="button" onClick={() => navigation.go({ screen: 'catalog' })}>Все кейсы</button></nav>
-    </header>
+  return <main className={`page-shell inventory inventory--${density} inventory--${mode}`} ref={page}><div className="inventory__content page-container">
+    <ScreenHeader navigation={navigation} active={mode} archiveCount={instances.filter(isConsumed).length} soundPreference={soundPreference} />
     <div className="inventory__intro"><div><p className="eyebrow">{mode === 'archive' ? 'Открытия и награды' : 'Твои находки. Твои истории.'}</p><h1>{mode === 'archive' ? 'Архив' : 'Инвентарь'} <span>{mode === 'archive' ? screenInstances.length : available.length}</span></h1>
       <p>{mode === 'archive' ? 'Открытые сундуки и найденные в них предметы.' : 'Сундуки собраны по типу, окраске, повреждениям и состоянию.'}</p></div>
     </div>
@@ -56,7 +51,7 @@ export function InventoryScreen({ inventory, cases, navigation, storage, rendere
       <button type="button" aria-pressed={rarity === 'all'} onClick={() => setRarity('all')}>Все классы</button>
       {rarities.map(value => <button type="button" key={value} className={`case-rarity case-rarity--${value}`} aria-pressed={rarity === value} onClick={() => setRarity(value)}>{CASE_RARITY_LABELS[value]}<span>{screenInstances.filter(instance => cases.find(def => def.id === instance.caseId)?.rarity === value).length}</span></button>)}
     </nav>
-    <div className="inventory__toolbar"><div className="inventory__tools"><button type="button" className="inventory__density" aria-pressed={density === 'compact'} onClick={() => setDensity(density === 'compact' ? 'comfortable' : 'compact')}>{density === 'compact' ? 'Крупные карточки' : 'Компактный вид'}</button><label><span className="visually-hidden">Поиск по инвентарю</span><input type="search" placeholder="Найти сундук…" value={query} onChange={event => setQuery(event.target.value)} /></label></div></div>
+    <div className="inventory__toolbar"><div className="inventory__tools"><button type="button" className="inventory__density" aria-pressed={density === 'compact'} onClick={() => setDensity(density === 'compact' ? 'comfortable' : 'compact')}>{density === 'compact' ? 'Крупные карточки' : 'Компактный вид'}</button></div></div>
     <section className="inventory__grid" aria-label="Мои сундуки">
       {groups.map(group => {
         const instance = group.representative;
@@ -66,21 +61,26 @@ export function InventoryScreen({ inventory, cases, navigation, storage, rendere
         const condition = damageLevel(Math.max(0, ...partConditions(instance.appearance, profile).map(item => item.value)));
 
         return <article className={`inventory-card inventory-card--${instance.status}`} key={group.key}
-          style={{ '--chest-color': instance.appearance.palette.panel, '--chest-accent': instance.appearance.palette.accent } as CSSProperties}>
+          style={{ '--chest-color': instance.appearance.palette.panel, '--chest-accent': instance.appearance.palette.accent,
+            '--case-accent': definition.presentation.theme.accent, '--case-accent-highlight': definition.presentation.theme.highlight,
+            '--case-accent-deep': definition.presentation.theme.deep, '--case-accent-glow': definition.presentation.theme.glow } as CSSProperties}>
           <div className="inventory-card__top"><span><i className={`case-rarity-mark case-rarity-mark--${definition.rarity}`} />{definition.presentation.collection} <small className={`case-rarity-label case-rarity-label--${definition.rarity}`}>{CASE_RARITY_LABELS[definition.rarity]}</small></span><span className="inventory-card__quantity">{group.instances.length} <small>шт.</small></span></div>
           <button type="button" className="inventory-card__inspect" aria-label={`Осмотреть ${definition.presentation.title}, ${condition.label}, ${group.instances.length} шт.`}
-            onClick={() => navigation.go({ screen: 'case', caseId: instance.caseId, instanceId: instance.id })}>
+            onClick={() => navigation.go({ screen: 'case', caseId: instance.caseId, instanceId: instance.id, ...(mode === 'archive' ? { returnTo: 'archive' as const } : {}) })}>
             <ChestThumbnail renderer={renderer} definition={definition} appearance={instance.appearance} />
           </button>
-          <div className="inventory-card__info"><span className="inventory-card__condition"><i style={{ background: instance.appearance.palette.panel }} />{condition.label}</span>
+          <div className="inventory-card__info">
             <h2>{definition.presentation.title}</h2>
-            <ChestIndicators appearance={instance.appearance} profile={profile} grouped />
+            <ChestIndicators appearance={instance.appearance} profile={profile} grouped status={instance.status} showParts={false} />
             <div className="inventory-card__footer"><span>{instance.status === 'opening' ? 'Открывается' : instance.status === 'opened' ? 'Открыт' : instance.status === 'destroyed' ? 'Разрушен' : 'Готов к открытию'}</span><span aria-hidden="true">↗</span></div>
             {instance.reward && <p className="inventory-card__reward">{group.instances.length === 1 ? `Найдено: ${instance.reward.title}` : `Наград получено: ${group.instances.length}`}</p>}
+            {mode === 'archive' && (instance.openedAt
+              ? <time className="inventory-card__opened-at" dateTime={instance.openedAt}>{new Intl.DateTimeFormat('ru-RU', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(instance.openedAt))}</time>
+              : <p className="inventory-card__opened-at">Дата открытия не сохранена</p>)}
           </div>
         </article>;
       })}
     </section>
-    {visible.length === 0 && <div className="inventory__empty"><span aria-hidden="true">◇</span><h2>{visible.length === 0 && query ? 'Ничего не найдено' : mode === 'archive' ? 'Архив пока пуст' : (rarity !== 'all' ? `В классе ${CASE_RARITY_LABELS[rarity as CaseRarity]} пока пусто` : 'Здесь начнётся твоя коллекция')}</h2><p>{mode === 'archive' ? 'Открытые сундуки и награды будут храниться здесь.' : 'Кейсы, которые ты найдёшь или приобретёшь, появятся здесь.'}</p></div>}
+    {visible.length === 0 && <div className="inventory__empty"><span aria-hidden="true">◇</span><h2>{mode === 'archive' ? 'Архив пока пуст' : (rarity !== 'all' ? `В классе ${CASE_RARITY_LABELS[rarity as CaseRarity]} пока пусто` : 'Здесь начнётся твоя коллекция')}</h2><p>{mode === 'archive' ? 'Открытые сундуки и награды будут храниться здесь.' : 'Кейсы, которые ты найдёшь или приобретёшь, появятся здесь.'}</p></div>}
   </div></main>;
 }

@@ -1,33 +1,46 @@
-/* Ported from master:src/styles/main.styl; shared by all screen scenes. */
+/* Shared button language: vivid emerald, restrained lighting, and the same type scale as the UI. */
 .btn {
-  color: #fff;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 11px 18px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: #f1fff8;
   cursor: pointer;
   background: transparent;
-  font-family: Manrope, sans-serif;
-  box-shadow: 5px 5px 50px 5px rgba(0, 0, 0, 0.5);
-  text-shadow: 2px 2px 3px rgba(0, 0, 0, 0.5);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 750;
+  line-height: 1.2;
+  letter-spacing: 0.045em;
   text-transform: uppercase;
   text-align: center;
-  display: inline-block;
-  border-radius: 3px;
-  font-size: 1.06rem;
-  padding: 10px 20px;
-  font-weight: 800;
-  border: none;
-  min-height: 44px;
+  transition: transform 140ms ease, color 140ms ease, background-color 140ms ease, border-color 140ms ease, box-shadow 160ms ease, filter 140ms ease;
 }
-.btn-transparent { background: transparent; transition: background-color 0.3s ease-in-out; }
-.btn-green { position: relative; color: #fff; background: #23fa0a; background-image: linear-gradient(0.96turn, #226c1e, #099715, #3dd720); }
-.btn-green::after { content: ''; position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity 0.2s ease-in-out; box-shadow: 0 0 40px 1px #23fa0a; }
-.btn:focus-visible { outline: none; }
-.btn-green:focus-visible:not(:disabled)::after { opacity: 0.65; }
-.btn-transparent:focus-visible { background-color: #86ead012; box-shadow: inset 0 0 18px #86ead016, 0 0 18px #86ead020; color: #b4f2df; }
-@media (forced-colors: active) { .btn:focus-visible { outline: 2px solid Highlight; outline-offset: -2px; } }
+.btn-green {
+  color: #f2fff9;
+  border-color: #9ee86b;
+  background: linear-gradient(180deg, #b8f68c 0%, #79df52 7%, #4fc43c 42%, #2d9d37 74%, #20762f 100%);
+  box-shadow: inset 0 1px 0 #efffbd, inset 0 -2px 0 #185b2da8, 0 4px 0 #15552b, 0 8px 22px #020a08a0, 0 0 24px #59d94745;
+  text-shadow: 0 2px 2px #145329b3;
+}
+.btn-transparent {
+  color: #c6d9d0;
+  border-color: #b9d9d322;
+  background: linear-gradient(180deg, #ffffff0a, #ffffff04);
+  box-shadow: inset 0 1px 0 #ffffff0d;
+  text-shadow: none;
+}
+.btn:focus-visible { outline: 2px solid #8ce8bb; outline-offset: 3px; }
 .btn:disabled { opacity: 0.5; cursor: default; }
 @media (hover: hover) and (pointer: fine) {
-  .btn-transparent:hover:not(:disabled) { background-color: rgba(255, 255, 255, 0.1); }
-  .btn-green:hover:not(:disabled)::after { opacity: 0.5; }
+  .btn-green:hover:not(:disabled) { transform: translateY(-1px); filter: saturate(1.08) brightness(1.06); box-shadow: inset 0 1px 0 #f5ffd1, inset 0 -2px 0 #185b2da8, 0 5px 0 #15552b, 0 11px 26px #020a08b3, 0 0 30px #6ae64f70; }
+  .btn-transparent:hover:not(:disabled) { color: #e3f6eb; border-color: #8ce8bb4d; background: linear-gradient(180deg, #8ce8bb18, #8ce8bb0a); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .btn-transparent, .btn-green::after { transition: none; }
+  .btn { transition: none; }
 }
+@media (forced-colors: active) { .btn:focus-visible { outline: 2px solid Highlight; outline-offset: 2px; } }

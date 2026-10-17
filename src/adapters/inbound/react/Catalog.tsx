@@ -8,8 +8,9 @@ export function Catalog({ items }: { readonly items: readonly Item[] }) {
   const caseId = 'caseId' in route ? route.caseId : 'ender';
   const [localSelected, setLocalSelected] = useState<Item | null>(null);
   const selected = navigation ? route.screen === 'item' ? items.find(item => item.id === route.itemId) ?? null : null : localSelected;
+  const returnContext = 'returnTo' in route && route.returnTo ? { returnTo: route.returnTo } : {};
   const setSelected = (item: Item | null, replace = false) => {
-    if (navigation) navigation.go(item ? { screen: 'item', caseId, ...('instanceId' in route ? { instanceId: route.instanceId } : {}), itemId: item.id } : { screen: 'case', caseId, ...('instanceId' in route ? { instanceId: route.instanceId } : {}) }, replace);
+    if (navigation) navigation.go(item ? { screen: 'item', caseId, ...('instanceId' in route ? { instanceId: route.instanceId } : {}), ...returnContext, itemId: item.id } : { screen: 'case', caseId, ...('instanceId' in route ? { instanceId: route.instanceId } : {}), ...returnContext }, replace);
     else setLocalSelected(item);
   };
   const element = useRef<HTMLElement>(null);

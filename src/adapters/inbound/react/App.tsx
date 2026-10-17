@@ -1,4 +1,5 @@
 import type { CaseInstance } from '../../../domain/case-instance.ts';
+import type { CaseVisualTheme } from '../../../config/cases.ts';
 import type { CSSProperties } from 'react';
 import type { ItemCatalog } from '../../../application/ports/item-catalog.ts';
 import type { ChestPreview } from '../../../application/ports/chest-preview.ts';
@@ -9,16 +10,18 @@ import { ChestPreviewPanel } from './ChestPreviewPanel.tsx';
 import { SessionPanel } from './SessionPanel.tsx';
 import { GameViewport } from './GameViewport.tsx';
 import { useObservableState } from './use-observable-state.ts';
-import { SoundControl, type SoundPreference } from './SoundControl.tsx';
+import type { SoundPreference } from './SoundControl.tsx';
 import { Button } from './Button.tsx';
 import { ErrorNotice } from './ErrorNotice.tsx';
 
-export function App({ captureWreck, catalog, session, preview, sceneElement, rouletteElement, transitionElement, backgroundUrl, onRetryInitialization, onOpenGesture, soundPreference, recentFind, onOpenRequest, onPrizeClose, openLabel, availableCaseCount, caseAccent, inspectedCase }: {
+export function App({ captureWreck, catalog, session, preview, sceneElement, rouletteElement, transitionElement, backgroundUrl, onRetryInitialization, onOpenGesture, soundPreference, recentFind, onOpenRequest, onPrizeClose, openLabel, availableCaseCount, archiveCount, archiveView, casePalette, inspectedCase }: {
   readonly onOpenRequest?: () => void;
   readonly onPrizeClose?: () => void;
-  readonly caseAccent?: string;
+  readonly casePalette?: CaseVisualTheme;
   readonly openLabel?: string;
   readonly availableCaseCount?: number;
+  readonly archiveCount?: number;
+  readonly archiveView?: boolean;
   readonly inspectedCase?: CaseInstance;
   readonly recentFind?: RecentFind;
   readonly soundPreference?: SoundPreference;
@@ -36,10 +39,10 @@ export function App({ captureWreck, catalog, session, preview, sceneElement, rou
   const state = useObservableState(catalog);
   if (state.phase === 'disposed') return null;
   return (
-    <main className={session ? 'app app--game' : 'app'} style={{ ...(caseAccent ? { '--case-accent': caseAccent, '--case-effect': caseAccent } : {}), ...(backgroundUrl ? { backgroundImage:
-      `radial-gradient(circle at 50% 35%, rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0.55)), url("${backgroundUrl}")` } : {}) } as CSSProperties}>
-      {soundPreference && <SoundControl preference={soundPreference} />}
-      <div className="app__content">
+    <main className={`page-shell app${session ? ' app--game' : ''}`} style={{ ...(casePalette ? { '--case-accent': casePalette.accent, '--case-accent-highlight': casePalette.highlight,
+      '--case-accent-deep': casePalette.deep, '--case-accent-glow': casePalette.glow, '--case-effect': casePalette.accent } : {}), ...(backgroundUrl ? { '--case-world-image': `url("${backgroundUrl}")`, backgroundImage:
+      `linear-gradient(180deg, rgba(5, 12, 13, 0.42), rgba(5, 12, 13, 0.3) 42%, rgba(5, 12, 13, 0.68)), url("${backgroundUrl}")` } : {}) } as CSSProperties}>
+      <div className="app__content page-container">
         {!session && <header className="app__header">
           <p className="eyebrow">Minecraft</p>
           <h1>Voxel Vault</h1>
@@ -60,7 +63,7 @@ export function App({ captureWreck, catalog, session, preview, sceneElement, rou
           </ErrorNotice>
         )}
         {state.phase === 'ready' && (session
-          ? <SessionPanel captureWreck={captureWreck} inspectedCase={inspectedCase} availableCaseCount={availableCaseCount} onOpenRequest={onOpenRequest} onPrizeClose={onPrizeClose} openLabel={openLabel} recentFind={recentFind} session={session} items={state.items} onOpenGesture={onOpenGesture} />
+          ? <SessionPanel soundPreference={soundPreference} captureWreck={captureWreck} inspectedCase={inspectedCase} availableCaseCount={availableCaseCount} archiveCount={archiveCount} archiveView={archiveView} onOpenRequest={onOpenRequest} onPrizeClose={onPrizeClose} openLabel={openLabel} recentFind={recentFind} session={session} items={state.items} onOpenGesture={onOpenGesture} />
           : <Catalog items={state.items} />)}
       </div>
     </main>
