@@ -1,0 +1,21 @@
+# OrbStack on this Mac. Frontend: https://vault.loper.me — a Cloudflare tunnel to Vite on :5173,
+# which proxies /api to this chart's Service. Telegram rejects localhost, hence the tunnel.
+#   TELEGRAM_CLIENT_SECRET=… ./deploy/bootstrap/vault-local.sh   # once: Vault (dev) + VSO + KV/policy/role
+#   helm upgrade --install voxel-vault ./deploy/helm/voxel-vault -f ./deploy/helm/voxel-vault/values.local.yaml \
+#     --kube-context orbstack --namespace voxel-vault --create-namespace
+env:
+  FRONTEND_URL: "https://vault.loper.me/"
+  WEBAUTHN_RP_ID: "vault.loper.me"
+  WEBAUTHN_ORIGINS: "https://vault.loper.me"
+  COOKIE_SECURE: "true"
+  # BotFather: trusted origin https://vault.loper.me, this redirect URI.
+  TELEGRAM_REDIRECT_URL: "https://vault.loper.me/api/v1/auth/telegram/callback"
+
+# Local Vault (dev mode, in-cluster, ns vault) through VSO: the project's KV-v2 collection voxel-vault/, path local.
+secrets:
+  source: vso
+  vso:
+    address: "http://vault.vault.svc:8200"
+    role: "voxel-vault-local"
+    mount: "voxel-vault"
+    path: "local"

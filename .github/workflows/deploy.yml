@@ -1,0 +1,87 @@
+# Production: the Go API to the VPS cluster (Helm, values.prod.yaml), the frontend to Cloudflare
+# (Worker + static assets). Same shape as loncha's pipeline: tests gate, per-SHA image tags.
+#
+# Repository secrets (Settings → Secrets and variables → Actions):
+#   KUBECONFIG_B64         deploy/bootstrap/make-kubeconfig.sh output (SA voxel-vault-deployer)
+#   CLOUDFLARE_API_TOKEN   Workers Scripts:Edit + Workers Routes/Custom Domains on mono.place
+#   CLOUDFLARE_ACCOUNT_ID
+# Prerequisites on the cluster (once): deploy/bootstrap/README.md — Vault collection, role, pull secret.
+name: deploy
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run test:ui
+      - run: npm run test:physics
+      - uses: actions/setup-go@v5
+        with: { go-version-file: server/go.mod, cache-dependency-path: server/go.sum }
+      - run: go vet ./... && go test ./...
+        working-directory: server
+      - uses: azure/setup-helm@v4
+      - run: helm lint deploy/helm/voxel-vault -f deploy/helm/voxel-vault/values.prod.yaml
+
+  api:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/loperd/mcroulette-api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with: { registry: ghcr.io, username: "${{ github.actor }}", password: "${{ secrets.GITHUB_TOKEN }}" }
+      - uses: docker/build-push-action@v6
+        with:
+          context: server
+          push: true
+          tags: ${{ env.IMAGE }}:${{ github.sha }}
+      - uses: azure/setup-helm@v4
+      - name: helm upgrade
+        env:
+          KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
+        run: |
+          umask 077
+          printf '%s' "$KUBECONFIG_B64" | base64 -d > "$RUNNER_TEMP/kubeconfig"
+          KUBECONFIG="$RUNNER_TEMP/kubeconfig" helm upgrade --install voxel-vault deploy/helm/voxel-vault \
+            -n voxel-vault -f deploy/helm/voxel-vault/values.prod.yaml \
+            --set image.repository="$IMAGE" --set image.tag="$GITHUB_SHA" \
+            --wait --atomic --timeout 5m
+          rm -f "$RUNNER_TEMP/kubeconfig"
+
+  frontend:
+    # After the API: a new frontend never calls an API that is not deployed yet.
+    needs: api
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npm run build
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4.20.0"
+          command: deploy

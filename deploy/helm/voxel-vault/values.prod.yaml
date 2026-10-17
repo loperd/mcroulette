@@ -1,0 +1,34 @@
+# Production on the VPS cluster (not deployed yet).
+#   helm upgrade --install voxel-vault ./deploy/helm/voxel-vault -f ./deploy/helm/voxel-vault/values.prod.yaml
+#
+# Frontend: https://voxelvault.mono.place      — Cloudflare (static build); /api/* goes to the API,
+#                                                 so the browser sees one origin (session cookie, passkeys).
+# API:      https://api-voxelvault.mono.place  — this chart, on the VPS cluster.
+# CI sets image.tag to the commit SHA (immutable; rollback = previous SHA).
+image:
+  repository: ghcr.io/loperd/mcroulette-api
+  pullPolicy: IfNotPresent
+imagePullSecrets:
+  - name: ghcr-pull                # read:packages token, created once (deploy/bootstrap/README.md)
+
+ingress:
+  enabled: true
+  host: api-voxelvault.mono.place
+
+env:
+  FRONTEND_URL: "https://voxelvault.mono.place/"
+  WEBAUTHN_RP_ID: "voxelvault.mono.place"
+  WEBAUTHN_ORIGINS: "https://voxelvault.mono.place"
+  COOKIE_SECURE: "true"
+  # BotFather: trusted origin https://voxelvault.mono.place, this redirect URI.
+  TELEGRAM_REDIRECT_URL: "https://voxelvault.mono.place/api/v1/auth/telegram/callback"
+
+# KV-v2 collection voxel-vault/, path prod, must hold every key BEFORE the upgrade (TELEGRAM_CLIENT_SECRET,
+# DATABASE_URL, POSTGRES_PASSWORD with the bundled database); role voxel-vault-prod bound to the SA.
+secrets:
+  source: vso
+  vso:
+    address: "http://vault.vault.svc:8200"
+    role: "voxel-vault-prod"
+    mount: "voxel-vault"
+    path: "prod"

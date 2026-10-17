@@ -1,0 +1,53 @@
+{{- if eq .Values.secrets.source "vso" }}
+{{- /*
+Vault Secrets Operator (VSO), as in loncha. Syncs KV-v2 {{ .Values.secrets.vso.mount }}/{{ .Values.secrets.vso.path }}
+into the Secret secrets.existingSecret, which the API reads through envFrom.
+PREREQ (once, with a Vault admin token — deploy/bootstrap/vault-local.sh does it locally): the KV
+holds every key, a read policy exists and a Kubernetes-auth role is bound to this chart's
+ServiceAccount. VSO OVERWRITES the Secret with the KV contents: fill the KV before switching to vso.
+*/}}
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultConnection
+metadata:
+  name: vault
+  labels:
+    {{- include "voxel-vault.labels" . | nindent 4 }}
+spec:
+  address: {{ .Values.secrets.vso.address | quote }}
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultAuth
+metadata:
+  name: {{ include "voxel-vault.fullname" . }}
+  labels:
+    {{- include "voxel-vault.labels" . | nindent 4 }}
+spec:
+  vaultConnectionRef: vault
+  method: kubernetes
+  mount: {{ .Values.secrets.vso.authMount | quote }}
+  kubernetes:
+    role: {{ .Values.secrets.vso.role | quote }}
+    serviceAccount: {{ include "voxel-vault.serviceAccountName" . }}
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: {{ include "voxel-vault.fullname" . }}
+  labels:
+    {{- include "voxel-vault.labels" . | nindent 4 }}
+spec:
+  type: kv-v2
+  mount: {{ .Values.secrets.vso.mount | quote }}
+  path: {{ .Values.secrets.vso.path | quote }}
+  vaultAuthRef: {{ include "voxel-vault.fullname" . }}
+  refreshAfter: {{ .Values.secrets.vso.refreshAfter | quote }}
+  destination:
+    name: {{ include "voxel-vault.secretName" . | quote }}
+    create: true
+    excludeRaw: {{ .Values.secrets.vso.excludeRaw }}
+  {{- if .Values.secrets.vso.rolloutRestart }}
+  rolloutRestartTargets:
+    - kind: Deployment
+      name: {{ include "voxel-vault.fullname" . }}
+  {{- end }}
+{{- end }}
