@@ -1,0 +1,3 @@
+p, player, /api/v1/me, GET
+p, player, /api/v1/cases/:caseID/roll, POST
+p, player, /api/v1/inventory, GET
