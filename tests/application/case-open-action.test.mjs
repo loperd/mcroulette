@@ -9,7 +9,7 @@ test('inspecting a used case offers opening another owned copy of the same type'
   const result = caseOpenAction([make('used', 'opened'), make('other', 'available', 'other'), available], 'ender', 'used');
   assert.equal(result.target, available);
   assert.equal(result.availableCount, 1);
-  assert.equal(result.label, 'Открыть следующий сундук');
+  assert.equal(result.label, 'Открыть сундук', 'no «следующий»: the same label whichever chest of the stack opens');
 });
 test('selected available copy is preserved; consumed copies cannot be opened again', () => {
   const own = make('bought', 'available');

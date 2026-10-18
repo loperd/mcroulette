@@ -17,7 +17,7 @@ export function caseOpenAction(instances: readonly CaseInstance[], caseId: strin
     : instances.filter(item => item.caseId === caseId && variantKey(item) === variant);
   const target = inspected && !isConsumed(inspected) ? inspected : nextOwnedCase(sameVariant, caseId);
   const action: CaseAction = !target ? 'leave' : target.status === 'opening' ? 'continue' : 'open';
-  const label = action === 'leave' ? 'Вернуться в инвентарь' : action === 'continue' ? 'Продолжить открытие'
-    : inspected && isConsumed(inspected) ? 'Открыть следующий сундук' : 'Открыть сундук';
+  // One label for opening, whichever chest of the stack it takes: «Открыть сундук» while any is left.
+  const label = action === 'leave' ? 'Вернуться в инвентарь' : action === 'continue' ? 'Продолжить открытие' : 'Открыть сундук';
   return { target, action, label, availableCount: sameVariant.filter(item => item.status === 'available').length };
 }

@@ -348,8 +348,8 @@ h1 { margin-top: 8px; font-size: clamp(2rem, 6vw, 3.5rem); line-height: 1.1; let
    outline, no slab, no halo. Without relative colours it stays the brand emerald (.btn-green). */
 @supports (color: oklch(from red l c h)) {
   .case-open-bar .btn-green {
-    --cta: oklch(from var(--case-accent) clamp(.56, l, .66) max(c, .09) h);
-    --cta-deep: oklch(from var(--case-accent) clamp(.40, calc(l - .2), .5) max(c, .085) h);
+    --cta: oklch(from var(--case-accent) clamp(.54, l, .64) max(c, .14) h);
+    --cta-deep: oklch(from var(--case-accent) clamp(.40, calc(l - .18), .48) max(c, .13) h);
     color: #fff;
     border-color: transparent;
     background: linear-gradient(180deg, var(--cta) 0%, var(--cta-deep) 100%);
@@ -501,6 +501,12 @@ h1 { margin-top: 8px; font-size: clamp(2rem, 6vw, 3.5rem); line-height: 1.1; let
 .app { position: relative; isolation: isolate; min-height: 100svh; padding-inline: var(--page-gutter); }
 .case-world { position: absolute; z-index: 0; inset: 0; overflow: hidden; pointer-events: none; }
 .case-world__canvas { display: block; opacity: .88; }
+/* Focus never paints a light outline. Focus from a click or moved by the app (the reward screen
+   focuses its action) shows nothing; keyboard focus shows a ring in the case colour. Overriding
+   colours on :focus made a focused button inherit the light text colour as its border. */
+button:focus:not(:focus-visible), [role='button']:focus:not(:focus-visible) { outline: none; }
+.btn:focus-visible { outline: 2px solid color-mix(in srgb, var(--case-accent, #86ead0) 75%, transparent); outline-offset: 3px; }
+@media (forced-colors: active) { .btn:focus-visible { outline: 2px solid Highlight; } }
 .app__content { position: relative; z-index: 1; }
 .app__content, .inventory__content, .case-directory__content {
   width: min(var(--content-max-width), 100%);
