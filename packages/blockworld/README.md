@@ -28,6 +28,11 @@ Extras layered over the vanilla look, never replacing it:
 - **Wind and waves**: the mesher marks how free each vertex is to move (`sway`). Plant tops are fully
   free, leaves a little, and so are liquid surfaces. The view's materials move them on the GPU from
   one shared clock and the stage's wind, so grass bends with the gusts and water rolls and glints.
+- **Atmosphere** (`Stage.sun`, `Stage.flicker`): a halo around the sun in the sky, and fog that glows
+  towards the sun. Leaves and grass light up when the sun is behind them. Water reflects the horizon
+  at grazing angles and glitters where its ripples catch the sun. Torchlight flickers: the mesher
+  marks each vertex's share of block light (`glow`), so only that share moves, and each torch keeps
+  its own beat. A lightning flash outshines the sun for a moment.
 
 ## Performance
 

@@ -20,6 +20,8 @@ export interface MeshArrays {
   readonly indices: Uint32Array;
   /** Per vertex: how free it is to move in the wind (plant tops, leaves) or wave (water tops), 0..1. */
   readonly sway: Float32Array;
+  /** Per vertex: the share of its light that comes from glowing blocks (torches flicker it), 0..1. */
+  readonly glow: Float32Array;
 }
 
 export interface WorldMesh {
@@ -79,10 +81,12 @@ export const FACES: readonly Face[] = [
 ];
 
 const AO_LEVELS = [.5, .65, .82, 1];
+/** A torch's own vertices: the stick stays, the flame end flickers. */
+const FLAME = [0, 0, 1, 1];
 
 class Builder {
-  positions: number[] = []; uvs: number[] = []; colors: number[] = []; indices: number[] = []; sway: number[] = [];
-  quad(points: readonly (readonly [number, number, number])[], uv: readonly [number, number, number, number], colors: readonly (readonly [number, number, number])[], flip = false, sub?: readonly [number, number, number, number], sway: readonly number[] = [0, 0, 0, 0]): void {
+  positions: number[] = []; uvs: number[] = []; colors: number[] = []; indices: number[] = []; sway: number[] = []; glow: number[] = [];
+  quad(points: readonly (readonly [number, number, number])[], uv: readonly [number, number, number, number], colors: readonly (readonly [number, number, number])[], flip = false, sub?: readonly [number, number, number, number], sway: readonly number[] = [0, 0, 0, 0], glow: readonly number[] = [0, 0, 0, 0]): void {
     const start = this.positions.length / 3;
     const [u0, v0, u1, v1] = uv, du = u1 - u0, dv = v1 - v0;
     // Optional sub-rectangle of the tile (fractions), for small models like the torch.
@@ -92,13 +96,13 @@ class Builder {
       this.positions.push(p[0], p[1], p[2]);
       this.uvs.push(u0 + du * corners[i]![0], v0 + dv * corners[i]![1]);
       this.colors.push(colors[i]![0], colors[i]![1], colors[i]![2]);
-      this.sway.push(sway[i]!);
+      this.sway.push(sway[i]!); this.glow.push(glow[i]!);
     });
     if (flip) this.indices.push(start + 1, start + 2, start + 3, start + 1, start + 3, start);
     else this.indices.push(start, start + 1, start + 2, start, start + 2, start + 3);
   }
   arrays(): MeshArrays {
-    return { positions: new Float32Array(this.positions), uvs: new Float32Array(this.uvs), colors: new Float32Array(this.colors), indices: new Uint32Array(this.indices), sway: new Float32Array(this.sway) };
+    return { positions: new Float32Array(this.positions), uvs: new Float32Array(this.uvs), colors: new Float32Array(this.colors), indices: new Uint32Array(this.indices), sway: new Float32Array(this.sway), glow: new Float32Array(this.glow) };
   }
 }
 
@@ -138,6 +142,12 @@ export function meshWorld(world: BlockWorld, registry: BlockRegistry, options: M
     return [Math.min(1, Math.max(minimum, sky[0] * bs + glow[0] * bg)), Math.min(1, Math.max(minimum, sky[1] * bs + glow[1] * bg)), Math.min(1, Math.max(minimum, sky[2] * bs + glow[2] * bg))];
   };
 
+  /** How much of a light mix is block light, so the shader can flicker just that part. */
+  const glowShare = (s: number, g: number): number => {
+    const bg = brightness(g), bs = brightness(s) * (sky[0] + sky[1] + sky[2]) / 3;
+    return bg <= 0 ? 0 : bg / (bg + bs);
+  };
+
   for (let z = 0; z < world.sz; z++) for (let y = 0; y < world.sy; y++) for (let x = 0; x < world.sx; x++) {
     const block = blockAt(x, y, z);
     if (!block) continue;
@@ -147,9 +157,9 @@ export function meshWorld(world: BlockWorld, registry: BlockRegistry, options: M
       const c = withSun(light(world.skyAt(x, y, z), world.glowAt(x, y, z)), world.skyAt(x, y, z), Math.max(.55, sunDir[1]), x + .5, y + .6, z + .5), cs = [c, c, c, c];
       const uv = options.uv(block.textures.side);
       // Rooted at the bottom, free at the top.
-      const free = [0, 0, 1, 1];
-      plants.quad([at(.15, 0, .15), at(.85, 0, .85), at(.85, 1, .85), at(.15, 1, .15)], uv, cs, false, undefined, free);
-      plants.quad([at(.15, 0, .85), at(.85, 0, .15), at(.85, 1, .15), at(.15, 1, .85)], uv, cs, false, undefined, free);
+      const free = [0, 0, 1, 1], g = glowShare(world.skyAt(x, y, z), world.glowAt(x, y, z)), gs = [g, g, g, g];
+      plants.quad([at(.15, 0, .15), at(.85, 0, .85), at(.85, 1, .85), at(.15, 1, .15)], uv, cs, false, undefined, free, gs);
+      plants.quad([at(.15, 0, .85), at(.85, 0, .15), at(.85, 1, .15), at(.15, 1, .85)], uv, cs, false, undefined, free, gs);
       continue;
     }
     if (block.model === 'torch') {
@@ -157,11 +167,11 @@ export function meshWorld(world: BlockWorld, registry: BlockRegistry, options: M
       const a = 7 / 16, b = 9 / 16, h = 12 / 16;
       // Sides show the stick and its flame (tile columns 7–8, rows 4–15); the top shows the flame.
       const side: [number, number, number, number] = [7 / 16, 0, 9 / 16, h];
-      plants.quad([at(b, 0, b), at(b, 0, a), at(b, h, a), at(b, h, b)], uv, ls, false, side);
-      plants.quad([at(a, 0, a), at(a, 0, b), at(a, h, b), at(a, h, a)], uv, ls, false, side);
-      plants.quad([at(a, 0, b), at(b, 0, b), at(b, h, b), at(a, h, b)], uv, ls, false, side);
-      plants.quad([at(b, 0, a), at(a, 0, a), at(a, h, a), at(b, h, a)], uv, ls, false, side);
-      plants.quad([at(a, h, b), at(b, h, b), at(b, h, a), at(a, h, a)], uv, ls, false, [7 / 16, 10 / 16, 9 / 16, 12 / 16]);
+      plants.quad([at(b, 0, b), at(b, 0, a), at(b, h, a), at(b, h, b)], uv, ls, false, side, undefined, FLAME);
+      plants.quad([at(a, 0, a), at(a, 0, b), at(a, h, b), at(a, h, a)], uv, ls, false, side, undefined, FLAME);
+      plants.quad([at(a, 0, b), at(b, 0, b), at(b, h, b), at(a, h, b)], uv, ls, false, side, undefined, FLAME);
+      plants.quad([at(b, 0, a), at(a, 0, a), at(a, h, a), at(b, h, a)], uv, ls, false, side, undefined, FLAME);
+      plants.quad([at(a, h, b), at(b, h, b), at(b, h, a), at(a, h, a)], uv, ls, false, [7 / 16, 10 / 16, 9 / 16, 12 / 16], undefined, [1, 1, 1, 1]);
       continue;
     }
 
@@ -178,7 +188,7 @@ export function meshWorld(world: BlockWorld, registry: BlockRegistry, options: M
       // The open side of the face, and the two axes along it.
       const ax = x + nx, ay = y + ny, az = z + nz;
       const tangents = ([[1, 0, 0], [0, 1, 0], [0, 0, 1]] as const).filter(t => t[0] * nx + t[1] * ny + t[2] * nz === 0);
-      const colors: [number, number, number][] = [], aos: number[] = [], sway: number[] = [];
+      const colors: [number, number, number][] = [], aos: number[] = [], sway: number[] = [], glows: number[] = [];
       const points = face.corners.map(([cx, cy, cz]) => {
         const corner = [cx, cy, cz] as const;
         const steps = tangents.map(t => (corner[t.indexOf(1)]! === 0 ? -1 : 1));
@@ -204,6 +214,7 @@ export function meshWorld(world: BlockWorld, registry: BlockRegistry, options: M
           vertex = withSun(vertex, skySum / count, facing, x + cx + nx * .02, y + cy + ny * .02, z + cz + nz * .02);
         }
         colors.push(vertex);
+        glows.push(block.light > 0 ? 1 : glowShare(skySum / count, glowSum / count));
         const surface = block.model === 'liquid' && cy === 1 && blockAt(x, y + 1, z)?.id !== block.id;
         const top = surface ? 14 / 16 : cy;
         // Leaves rustle a little as a whole; a liquid's surface waves.
@@ -212,7 +223,7 @@ export function meshWorld(world: BlockWorld, registry: BlockRegistry, options: M
       });
       const target = block.model === 'liquid' ? liquid : opaque;
       // Split the quad along the brighter diagonal, so occlusion does not streak.
-      target.quad(points, uv, colors, aos[0]! + aos[2]! < aos[1]! + aos[3]!, undefined, sway);
+      target.quad(points, uv, colors, aos[0]! + aos[2]! < aos[1]! + aos[3]!, undefined, sway, glows);
     }
   }
   return { opaque: opaque.arrays(), plants: plants.arrays(), liquid: liquid.arrays() };

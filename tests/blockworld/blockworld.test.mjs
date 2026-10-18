@@ -120,3 +120,15 @@ test('wind and waves: plant tops and leaves are free to move, roots and stone ar
   assert.ok([...mesh.opaque.sway].some(v => v > 0 && v < 1), 'leaves rustle a little');
   assert.ok([...mesh.liquid.sway].some(v => v === 1), 'the water surface waves');
 });
+
+test('torchlight is marked for flicker: the flame fully, ground near it partly, ground in the open not at all', () => {
+  const world = new BlockWorld(24, 4, 3);
+  world.fill(0, 0, 0, 23, 0, 2, blocks.id('stone'));
+  world.set(2, 1, 1, blocks.id('torch'));
+  computeLight(world, blocks);
+  const mesh = meshWorld(world, blocks, { uv });
+  assert.ok([...mesh.plants.glow].some(v => v === 1), 'the flame');
+  const ground = x => [...mesh.opaque.glow].find((_, i) => mesh.opaque.positions[i * 3] === x && mesh.opaque.positions[i * 3 + 1] === 1 && mesh.opaque.positions[i * 3 + 2] === 1);
+  assert.ok(ground(3) > 0 && ground(3) < 1, 'next to the torch, mixed with the sky');
+  assert.equal(ground(22), 0, 'out of its reach');
+});

@@ -129,7 +129,8 @@ function build(seed: number): Stage<ChestHandles> {
   sun.position.set(-300, 70, -560); sun.lookAt(0, 20, 0);
   root.add(sun);
   return {
-    root, living: [clouds(root, rand), storm(root), sheep(root, rand), fireflies(root, rand)], calm: .1,
+    root, living: [clouds(root, rand), storm(root), sheep(root, rand), fireflies(root, rand), leaves(root, rand)], calm: .1,
+    sun: { direction: [-300, 70, -560], color: '#ffb36e', scatter: .85 },
     sky: { top: '#2a3a78', horizon: '#f2a46e', bottom: '#3a3050' },
     fog: { color: '#d99a7e', near: 70, far: 330 },
     camera: { position: [0, GROUND + 7, 38], target: [0, GROUND + 3, -30], fov: 60 },
@@ -151,18 +152,31 @@ function farRanges(seed: number, uv: (tile: string) => readonly [number, number,
   return group;
 }
 
+/** A cloud block at sunset: lit from below and the side by the low sun, so pink, never grey. */
+function cloudBox(): BoxGeometry {
+  const box = new BoxGeometry(1, 1, 1), colors: number[] = [];
+  // +x, -x, +y, -y, +z, -z: the sunward side (-x, -z) warmest, the underside rosy.
+  for (const hex of ['#f4c9c4', '#ffe0c8', '#fff0e6', '#eab3b8', '#f1c3c3', '#ffdcc6']) {
+    const c = raw(hex);
+    for (let v = 0; v < 4; v++) colors.push(c.r, c.g, c.b);
+  }
+  box.setAttribute('color', new BufferAttribute(new Float32Array(colors), 3));
+  return box;
+}
+
 /** The game's clouds: flat white slabs at one height, drifting on. */
 function clouds(root: Group, rand: () => number): Living<ChestHandles> {
-  const count = 18, mesh = new InstancedMesh(new BoxGeometry(1, 1, 1), new MeshBasicMaterial({ color: raw('#fbe3dc'), transparent: true, opacity: .85 }), count);
-  const bank = Array.from({ length: count }, () => ({ x: (rand() - .5) * 400, z: -60 - rand() * 300, w: 16 + Math.floor(rand() * 4) * 8, d: 12 + Math.floor(rand() * 3) * 8 }));
+  // Fancy clouds: 4 blocks thick, shaded like blocks — lit tops, darker undersides — high and far.
+  const count = 22, mesh = new InstancedMesh(cloudBox(), new MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: .8, fog: false }), count);
+  const bank = Array.from({ length: count }, () => ({ x: (rand() - .5) * 600, z: -140 - rand() * 380, w: 24 + Math.floor(rand() * 5) * 12, d: 16 + Math.floor(rand() * 4) * 12 }));
   const dummy = new Object3D();
   root.add(mesh);
   return {
     update(context, dt) {
       bank.forEach((cloud, i) => {
         cloud.x += (1.5 + context.wind * 6) * dt;
-        if (cloud.x > 220) cloud.x = -220; if (cloud.x < -220) cloud.x = 220;
-        dummy.position.set(cloud.x, 62, cloud.z); dummy.scale.set(cloud.w, 4, cloud.d); dummy.updateMatrix();
+        if (cloud.x > 300) cloud.x = -300; if (cloud.x < -300) cloud.x = 300;
+        dummy.position.set(cloud.x, 108, cloud.z); dummy.scale.set(cloud.w, 4, cloud.d); dummy.updateMatrix();
         mesh.setMatrixAt(i, dummy.matrix);
       });
       mesh.instanceMatrix.needsUpdate = true;
@@ -276,6 +290,33 @@ function fireflies(root: Group, rand: () => number): Living<ChestHandles> {
         colors[i * 3] = .85 * blink; colors[i * 3 + 1] = 1 * blink; colors[i * 3 + 2] = .35 * blink;
       });
       geometry.attributes.position!.needsUpdate = true; geometry.attributes.color!.needsUpdate = true;
+    },
+  };
+}
+
+/** Leaves coming off the oaks on the slopes, drifting down and away with the wind. */
+function leaves(root: Group, rand: () => number): Living<ChestHandles> {
+  const count = 48, positions = new Float32Array(count * 3);
+  const spawn = (leaf: { x: number; y: number; z: number; fall: number; phase: number }, anywhere: boolean) => {
+    const side = rand() < .5 ? -1 : 1;
+    leaf.x = side * (13 + rand() * 18); leaf.z = -46 + rand() * 56;
+    leaf.y = GROUND + (anywhere ? 1 + rand() * 9 : 8 + rand() * 3);
+    leaf.fall = .5 + rand() * .5; leaf.phase = rand() * 10;
+  };
+  const fall = Array.from({ length: count }, () => { const leaf = { x: 0, y: 0, z: 0, fall: 0, phase: 0 }; spawn(leaf, true); return leaf; });
+  const geometry = new BufferGeometry();
+  geometry.setAttribute('position', new BufferAttribute(positions, 3));
+  root.add(new Points(geometry, new PointsMaterial({ size: .2, color: raw('#5f7f2c'), transparent: true, opacity: .9 })));
+  return {
+    update(context, dt) {
+      fall.forEach((leaf, i) => {
+        leaf.y -= leaf.fall * dt;
+        leaf.x += (context.wind * 2.4 + Math.sin(context.time * 1.8 + leaf.phase) * .6) * dt;
+        if (leaf.y < GROUND + 1) spawn(leaf, false);
+        positions[i * 3] = leaf.x + Math.sin(context.time * 2.6 + leaf.phase) * .3;
+        positions[i * 3 + 1] = leaf.y; positions[i * 3 + 2] = leaf.z;
+      });
+      geometry.attributes.position!.needsUpdate = true;
     },
   };
 }
