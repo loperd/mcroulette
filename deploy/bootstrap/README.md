@@ -20,7 +20,8 @@ kubectl --context <vps> apply -f deploy/bootstrap/deploy-rbac.yaml
 KUBE_CONTEXT=<vps> ./deploy/bootstrap/vault-prod.sh
 KUBE_CONTEXT=<vps> ./deploy/bootstrap/ghcr-pull-secret.sh
 SERVER=https://<public API>:6443 ./deploy/bootstrap/make-kubeconfig.sh   # → GitHub secret KUBECONFIG_B64
-# push to master → .github/workflows/deploy.yml: tests → API image + helm → frontend Worker
+# release: git tag 0.3.0 && git push origin 0.3.0 → .github/workflows/deploy.yml: tests → API image + helm → frontend Worker
+# (pushes to master and pull requests only run the checks)
 ```
 
 Secrets never go through command arguments, values files or git: scripts read them from the

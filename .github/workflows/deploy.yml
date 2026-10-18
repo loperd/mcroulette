@@ -1,5 +1,7 @@
-# Production: the Go API to the VPS cluster (Helm, values.prod.yaml), the frontend to Cloudflare
-# (Worker + static assets). Same shape as loncha's pipeline: tests gate, per-SHA image tags.
+# Checks on every push to master and every pull request; a RELEASE deploys. A release is a semver
+# tag without a prefix, as the repository's earlier tags (git tag 0.3.0 && git push origin 0.3.0): the Go API to the VPS cluster (Helm,
+# values.prod.yaml), then the frontend to Cloudflare (Worker + static assets). The image is tagged
+# with the release, so a rollback is re-running the previous tag's workflow.
 #
 # Repository secrets (Settings → Secrets and variables → Actions):
 #   KUBECONFIG_B64         deploy/bootstrap/make-kubeconfig.sh output (SA voxel-vault-deployer)
@@ -11,11 +13,13 @@ name: deploy
 on:
   push:
     branches: [master]
-  workflow_dispatch:
+    tags: ["[0-9]+.[0-9]+.[0-9]+"]
+  pull_request:
 
 concurrency:
-  group: production
-  cancel-in-progress: false
+  # Releases queue up one after another; checks of a branch replace their older run.
+  group: ${{ startsWith(github.ref, 'refs/tags/') && 'production' || github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 permissions:
   contents: read
@@ -41,6 +45,7 @@ jobs:
 
   api:
     needs: test
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -55,7 +60,7 @@ jobs:
         with:
           context: server
           push: true
-          tags: ${{ env.IMAGE }}:${{ github.sha }}
+          tags: ${{ env.IMAGE }}:${{ github.ref_name }}
       - uses: azure/setup-helm@v4
       - name: helm upgrade
         env:
@@ -65,13 +70,14 @@ jobs:
           printf '%s' "$KUBECONFIG_B64" | base64 -d > "$RUNNER_TEMP/kubeconfig"
           KUBECONFIG="$RUNNER_TEMP/kubeconfig" helm upgrade --install voxel-vault deploy/helm/voxel-vault \
             -n voxel-vault -f deploy/helm/voxel-vault/values.prod.yaml \
-            --set image.repository="$IMAGE" --set image.tag="$GITHUB_SHA" \
+            --set image.repository="$IMAGE" --set image.tag="$GITHUB_REF_NAME" \
             --wait --atomic --timeout 5m
           rm -f "$RUNNER_TEMP/kubeconfig"
 
   frontend:
     # After the API: a new frontend never calls an API that is not deployed yet.
     needs: api
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
