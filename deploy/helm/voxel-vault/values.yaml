@@ -48,8 +48,8 @@ secrets:
     address: "http://vault.vault.svc:8200"
     authMount: "kubernetes"
     role: "voxel-vault"
-    mount: "voxel-vault"          # the project's own KV-v2 collection (one per project)
-    path: "local"                 # local / prod
+    mount: "secret"               # the shared KV-v2 mount, as loncha
+    path: "local/voxel-vault"     # <env>/<app>: local/voxel-vault, prod/voxel-vault
     refreshAfter: "60s"
     rolloutRestart: true          # restart the API when the secret changes
     excludeRaw: true

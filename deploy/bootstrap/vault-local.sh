@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Local Vault for OrbStack, set up like loncha's production one: Vault + Vault Secrets Operator,
-# the project's own KV-v2 collection voxel-vault/ (secrets at voxel-vault/local), a read policy and
-# a Kubernetes-auth role bound to the chart's
+# KV-v2 secret/local/voxel-vault, a read policy and a Kubernetes-auth role bound to the chart's
 # ServiceAccount. Then the chart (values.local.yaml, secrets.source=vso) gets its Secret from VSO.
 # Secrets live only here (Vault); non-secret configuration is `env:` in values*.yaml.
 #
@@ -17,8 +16,8 @@ RELEASE=${RELEASE:-voxel-vault}
 FULLNAME=${FULLNAME:-$RELEASE-voxel-vault}               # the chart's fullname
 SERVICE_ACCOUNT=${SERVICE_ACCOUNT:-$FULLNAME}
 ROLE=voxel-vault-local
-MOUNT=${VAULT_MOUNT:-voxel-vault}                          # the project's own KV-v2 collection
-KV_PATH=local
+MOUNT=${VAULT_MOUNT:-secret}                               # the shared KV-v2 mount, as loncha
+KV_PATH=local/voxel-vault
 
 # The Telegram secret: from the environment, or from the macOS Keychain (so it never has to be
 # typed on a command line). Store it once with:
@@ -37,7 +36,7 @@ if helm status vault --kube-context "$CONTEXT" -n vault >/dev/null 2>&1; then
     | python3 -c 'import json,sys; v=json.load(sys.stdin) or {}; print(str(((v.get("server") or {}).get("dev") or {}).get("enabled", False)).lower())')
   if [ "$dev" != "true" ]; then
     echo "✗ A Vault release already exists in ns vault and it is not dev mode — not touching it." >&2
-    echo "  Create the collection $MOUNT/, the policy, the role $ROLE and $MOUNT/$KV_PATH on that Vault with an admin token instead." >&2
+    echo "  Create the policy, the role $ROLE and $MOUNT/$KV_PATH on that Vault with an admin token instead." >&2
     exit 1
   fi
 fi
@@ -53,8 +52,8 @@ echo "→ Kubernetes auth"
 vault auth list -format=json | grep -q '"kubernetes/"' || vault auth enable kubernetes
 vault write auth/kubernetes/config kubernetes_host="https://kubernetes.default.svc" >/dev/null
 
-echo "→ KV-v2 collection $MOUNT/"
-vault secrets list -format=json | grep -q "\"$MOUNT/\"" || vault secrets enable -path="$MOUNT" -version=2 kv
+echo "→ KV-v2 mount $MOUNT/"
+vault secrets list -format=json | grep -q "\"$MOUNT/\"" || vault secrets enable -path="$MOUNT" -version=2 kv   # dev mode has it already
 
 echo "→ Read policy and role $ROLE (SA $APP_NS/$SERVICE_ACCOUNT)"
 vault policy write "$ROLE" - <<POLICY

@@ -7,7 +7,7 @@ The Go API and (optionally) a single-node PostgreSQL. Same layout as loncha.
 | What | Where | Reaches the pod as |
 |---|---|---|
 | Non-secret config | `env:` in `values*.yaml`, UPPERCASE keys | ConfigMap `<fullname>-env` → `envFrom` |
-| Secrets | HashiCorp Vault, the project's KV-v2 collection `voxel-vault/` (`local`, `prod`) | Vault Secrets Operator → Secret `voxel-vault-secrets` → `envFrom` |
+| Secrets | HashiCorp Vault KV-v2 `secret/<env>/voxel-vault` (`secret/local/voxel-vault`, `secret/prod/voxel-vault`) | Vault Secrets Operator → Secret `voxel-vault-secrets` → `envFrom` |
 
 Values files layer on `values.yaml`:
 

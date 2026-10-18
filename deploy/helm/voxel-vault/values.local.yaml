@@ -11,11 +11,11 @@ env:
   # BotFather: trusted origin https://vault.loper.me, this redirect URI.
   TELEGRAM_REDIRECT_URL: "https://vault.loper.me/api/v1/auth/telegram/callback"
 
-# Local Vault (dev mode, in-cluster, ns vault) through VSO: the project's KV-v2 collection voxel-vault/, path local.
+# Local Vault (dev mode, in-cluster, ns vault) through VSO: KV-v2 secret/local/voxel-vault.
 secrets:
   source: vso
   vso:
     address: "http://vault.vault.svc:8200"
     role: "voxel-vault-local"
-    mount: "voxel-vault"
-    path: "local"
+    mount: "secret"
+    path: "local/voxel-vault"

@@ -23,12 +23,12 @@ env:
   # BotFather: trusted origin https://voxelvault.mono.place, this redirect URI.
   TELEGRAM_REDIRECT_URL: "https://voxelvault.mono.place/api/v1/auth/telegram/callback"
 
-# KV-v2 collection voxel-vault/, path prod, must hold every key BEFORE the upgrade (TELEGRAM_CLIENT_SECRET,
+# KV-v2 secret/prod/voxel-vault must hold every key BEFORE the upgrade (TELEGRAM_CLIENT_SECRET,
 # DATABASE_URL, POSTGRES_PASSWORD with the bundled database); role voxel-vault-prod bound to the SA.
 secrets:
   source: vso
   vso:
     address: "http://vault.vault.svc:8200"
     role: "voxel-vault-prod"
-    mount: "voxel-vault"
-    path: "prod"
+    mount: "secret"
+    path: "prod/voxel-vault"

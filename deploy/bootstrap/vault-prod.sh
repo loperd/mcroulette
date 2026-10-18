@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
 # One-time production secrets on the VPS cluster's existing Vault (the one loncha uses).
-# Never installs or reconfigures Vault: only this project's KV-v2 collection voxel-vault/, the
-# read policy and Kubernetes-auth role voxel-vault-prod, and the secret env at voxel-vault/prod.
+# Never installs or reconfigures Vault: only the read policy and Kubernetes-auth role
+# voxel-vault-prod, and the secret env at secret/prod/voxel-vault (the shared KV-v2 mount, as loncha).
 #
 #   KUBE_CONTEXT=<vps> ./deploy/bootstrap/vault-prod.sh
 #
 # Inputs, never as command arguments:
 #   Vault admin token     VAULT_TOKEN, or the Keychain item "vault-admin-vps"
 #   Telegram secret       TELEGRAM_CLIENT_SECRET, or the Keychain item "voxel-vault-telegram"
-# The Postgres password is kept if voxel-vault/prod already has one, generated otherwise.
+# The Postgres password is kept if secret/prod/voxel-vault already has one, generated otherwise.
 set -euo pipefail
 
 CONTEXT=${KUBE_CONTEXT:?set KUBE_CONTEXT to the VPS cluster context}
 APP_NS=voxel-vault
 FULLNAME=voxel-vault-voxel-vault
-MOUNT=voxel-vault KV_PATH=prod ROLE=voxel-vault-prod
+MOUNT=secret KV_PATH=prod/voxel-vault ROLE=voxel-vault-prod
 
 keychain() { security find-generic-password -a "$USER" -s "$1" -w 2>/dev/null || true; }
 VAULT_TOKEN=${VAULT_TOKEN:-$(keychain vault-admin-vps)}
@@ -28,9 +28,6 @@ vault() { { printf '%s\n' "$VAULT_TOKEN"; cat; } | kubectl --context "$CONTEXT" 
   sh -c 'read -r VAULT_TOKEN; export VAULT_TOKEN VAULT_ADDR=${VAULT_ADDR:-http://127.0.0.1:8200}; exec vault "$@"' vault "$@"; }
 
 vault status </dev/null | grep -q 'Sealed.*false' || { echo "✗ Vault on $CONTEXT is sealed or unreachable" >&2; exit 1; }
-
-echo "→ KV-v2 collection $MOUNT/"
-vault secrets list -format=json </dev/null | grep -q "\"$MOUNT/\"" || vault secrets enable -path="$MOUNT" -version=2 kv </dev/null
 
 echo "→ policy and role $ROLE (SA $APP_NS/$FULLNAME)"
 printf 'path "%s/data/%s" { capabilities = ["read"] }\n' "$MOUNT" "$KV_PATH" | vault policy write "$ROLE" -
