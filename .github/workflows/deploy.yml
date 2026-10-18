@@ -40,7 +40,10 @@ jobs:
         with: { go-version-file: server/go.mod, cache-dependency-path: server/go.sum }
       - run: go vet ./... && go test ./...
         working-directory: server
+      # Helm 3, as loncha (alpine/helm:3.18.3): Helm 4's server-side apply rejects fields the
+      # cluster's older VSO CRDs do not declare (VaultStaticSecret.spec.destination.excludeRaw).
       - uses: azure/setup-helm@v4
+        with: { version: v3.18.3 }
       - run: helm lint deploy/helm/voxel-vault -f deploy/helm/voxel-vault/values.prod.yaml
 
   api:
@@ -61,7 +64,10 @@ jobs:
           context: server
           push: true
           tags: ${{ env.IMAGE }}:${{ github.ref_name }}
+      # Helm 3, as loncha (alpine/helm:3.18.3): Helm 4's server-side apply rejects fields the
+      # cluster's older VSO CRDs do not declare (VaultStaticSecret.spec.destination.excludeRaw).
       - uses: azure/setup-helm@v4
+        with: { version: v3.18.3 }
       - name: helm upgrade
         env:
           KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
