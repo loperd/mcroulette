@@ -201,8 +201,21 @@ func (s *Server) writeRolledItem(w http.ResponseWriter, r *http.Request, id stri
 	writeJSON(w, http.StatusOK, toItemDTO(item))
 }
 
+// privilegeArt picks the character art of an item by what it is: the frontend serves these
+// pictures (public/images/privileges); items without a match keep the generated SVG.
+var privilegeArt = map[string]string{
+	"sword": "adventurer", "cloak": "adventurer", "scale": "adventurer",
+	"compass": "ranger", "map": "ranger", "lantern": "ranger", "eye": "ranger",
+	"pickaxe": "master", "crystal": "master",
+	"crown": "knight", "heart": "knight", "egg": "knight",
+}
+
 func toItemDTO(item store.LootItem) itemDTO {
-	return itemDTO{ID: item.ID, Title: item.Title, Image: "/api/v1/items/" + item.ID + "/image.svg", Type: item.Rarity, Chance: item.Weight}
+	image := "/api/v1/items/" + item.ID + "/image.svg"
+	if art, ok := privilegeArt[item.Glyph]; ok {
+		image = "images/privileges/" + art + ".webp"
+	}
+	return itemDTO{ID: item.ID, Title: item.Title, Image: image, Type: item.Rarity, Chance: item.Weight}
 }
 
 func weightedItem(items []store.LootItem) (store.LootItem, error) {
