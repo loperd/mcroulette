@@ -11,7 +11,7 @@ import { CanvasRoulette } from '../../src/adapters/outbound/browser/canvas-roule
 import { canvasFactory } from '../canvas-harness.mjs';
 import { GameTransitions } from '../../src/adapters/outbound/browser/game-transitions.ts';
 
-const build=pathToFileURL(resolve(process.env.MCROULETTE_UI_BUILD ?? '.test-build')+'/');
+const build=pathToFileURL(resolve(process.env.MCROULETTE_UI_BUILD ?? '.test-build/src')+'/');
 const require=createRequire(new URL('package.json',build));
 const {Window}=await import(pathToFileURL(require.resolve('happy-dom')));
 const {act,createElement,StrictMode}=require('react');

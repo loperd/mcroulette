@@ -3,7 +3,7 @@
   "compilerOptions": {
     "noEmit": false,
     "rewriteRelativeImportExtensions": true,
-    "rootDir": "./src",
+    "rootDir": ".",
     "outDir": "./.test-build",
     "types": [
       "react",

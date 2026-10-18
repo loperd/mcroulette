@@ -11,7 +11,7 @@ import { constantRandom, deferred, item, legacyCatalog } from '../helpers.mjs';
 import { frameEnvironment } from '../frame-environment.mjs';
 import { canvasFactory } from '../canvas-harness.mjs';
 
-const build = pathToFileURL(resolve(process.env.MCROULETTE_UI_BUILD ?? '.test-build') + '/');
+const build = pathToFileURL(resolve(process.env.MCROULETTE_UI_BUILD ?? '.test-build/src') + '/');
 const require = createRequire(new URL('package.json', build));
 const { Window } = await import(pathToFileURL(require.resolve('happy-dom')));
 

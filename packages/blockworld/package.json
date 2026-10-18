@@ -1,0 +1,9 @@
+{
+  "name": "@voxel-vault/blockworld",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Minecraft-style block world rendering on three.js: block registry, light propagation, a vanilla-look mesher (face shading, smooth lighting, ambient occlusion), a procedural 16×16 atlas, and a budgeted view.",
+  "exports": { ".": "./src/index.ts" },
+  "peerDependencies": { "three": "~0.186.1" }
+}

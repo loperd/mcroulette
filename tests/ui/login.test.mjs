@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const build = pathToFileURL(resolve(process.env.MCROULETTE_UI_BUILD ?? '.test-build') + '/');
+const build = pathToFileURL(resolve(process.env.MCROULETTE_UI_BUILD ?? '.test-build/src') + '/');
 const require = createRequire(new URL('package.json', build));
 const { Window } = await import(pathToFileURL(require.resolve('happy-dom')));
 // react-dom decides once, at load, whether `input` events exist: load it with a DOM in place.

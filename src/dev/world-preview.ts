@@ -1,12 +1,13 @@
-import { VoxelWorld, type VoxelWorldScene } from '../adapters/outbound/worlds/voxel-world.ts';
-import { OVERWORLD_3D } from '../adapters/outbound/worlds/overworld-3d.ts';
+import { BlockView, type StageBuilder } from '../../packages/blockworld/src/index.ts';
+import type { ChestHandles } from '../application/ports/chest-handles.ts';
+import { OVERWORLD_BLOCKS } from '../adapters/outbound/worlds/overworld-blocks.ts';
 
 /**
  * Development sheet for the 3D worlds: each row a world, each column a moment (seconds).
  * ?worlds=overworld&times=0,6,14. Result: window.worldSheet (JPEG data URL). Handles pulled by
  * the world are logged above each frame.
  */
-const SCENES: Record<string, VoxelWorldScene> = { overworld: OVERWORLD_3D };
+const SCENES: Record<string, StageBuilder<ChestHandles>> = { overworld: OVERWORLD_BLOCKS };
 const params = new URLSearchParams(location.search);
 const times = (params.get('times') ?? '0,6,24').split(',').map(Number);
 const ids = (params.get('worlds') ?? Object.keys(SCENES).join(',')).split(',').filter(id => id in SCENES);
@@ -22,7 +23,7 @@ for (const [row, id] of ids.entries()) {
     host.style.cssText = `position:fixed;left:-4000px;top:0;width:${frameW}px;height:${frameH}px`;
     document.body.append(host);
     const started = performance.now();
-    const world = new VoxelWorld(host, SCENES[id]!, { seed: 11 });
+    const world = new BlockView(host, SCENES[id]!, { seed: 11 });
     timings.push(`${id} build+mount ${(performance.now() - started).toFixed(0)}ms`);
     const pulled: string[] = [];
     world.hold({ gust: (s, side) => pulled.push(`gust ${s.toFixed(2)} ${side}`), tremor: (s, t) => pulled.push(`tremor ${s.toFixed(2)} ${t}s`), light: (c, i) => pulled.push(`light ${c} ${i.toFixed(2)}`) });

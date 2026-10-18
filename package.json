@@ -14,7 +14,7 @@
     "preview": "vite preview",
     "preview:canvas": "node scripts/canvas-preview.mjs",
     "blender": "node scripts/blender/client.mjs",
-    "test": "node --test tests/domain/*.test.mjs tests/application/*.test.mjs tests/adapters/*.test.mjs tests/composition/*.test.mjs",
+    "test": "node --test tests/domain/*.test.mjs tests/application/*.test.mjs tests/adapters/*.test.mjs tests/composition/*.test.mjs tests/blockworld/*.test.mjs",
     "typecheck:core": "tsc -p tsconfig.domain.json && tsc -p tsconfig.core.json && tsc -p tsconfig.adapters.json",
     "test:ui": "tsc -p tsconfig.ui-tests.json && node --test tests/ui/*.test.mjs",
     "test:all": "npm test && npm run test:ui && npm run test:physics",

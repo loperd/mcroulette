@@ -2,8 +2,8 @@ import { useEffect, useRef, type CSSProperties } from 'react';
 import type { ChestHandles } from '../../../application/ports/chest-handles.ts';
 import type { WorldId } from '../../../config/cases.ts';
 import { PixelWorld } from '../../outbound/worlds/pixel-world.ts';
-import { VoxelWorld } from '../../outbound/worlds/voxel-world.ts';
-import { VOXEL_WORLDS, WORLD_SCENES } from '../../outbound/worlds/index.ts';
+import { BlockView } from '../../../../packages/blockworld/src/index.ts';
+import { BLOCK_WORLDS, WORLD_SCENES } from '../../outbound/worlds/index.ts';
 
 const HOST: CSSProperties = { position: 'fixed', inset: 0, zIndex: -1, pointerEvents: 'none', overflow: 'hidden' };
 // The same shade the still case picture had: the interface stays readable over a living world.
@@ -16,14 +16,14 @@ const SHADE: CSSProperties = { position: 'absolute', inset: 0,
  */
 export function PixelWorldBackground({ world, chest }: { readonly world: WorldId; readonly chest?: ChestHandles }) {
   const host = useRef<HTMLDivElement>(null);
-  const instance = useRef<PixelWorld | VoxelWorld | undefined>(undefined);
+  const instance = useRef<PixelWorld | BlockView<ChestHandles> | undefined>(undefined);
   useEffect(() => {
     const element = host.current;
     if (!element) return;
-    let created: PixelWorld | VoxelWorld | undefined;
+    let created: PixelWorld | BlockView<ChestHandles> | undefined;
     try {
-      const voxel = VOXEL_WORLDS[world];
-      created = voxel ? new VoxelWorld(element, voxel) : new PixelWorld(element, WORLD_SCENES[world]);
+      const blocks = BLOCK_WORLDS[world];
+      created = blocks ? new BlockView(element, blocks) : new PixelWorld(element, WORLD_SCENES[world]);
     } catch (error) { console.warn('The world is unavailable; the case picture stays.', error); return; }
     instance.current = created;
     return () => { created?.dispose(); instance.current = undefined; };
