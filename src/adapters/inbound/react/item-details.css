@@ -25,7 +25,7 @@
 .item-details__quote cite { display: block; margin-top: 8px; color: #758e95; font-size: 12px; font-style: normal; }
 .item-details__source { color: #68838b; font-size: 12px; line-height: 1.5; }
 .item-details__footer { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid #ffffff0c; padding: 16px 24px; background: #0c161b88; }
-.item-details__footer .btn { min-height: 44px; border: 1px solid #ffffff18; font-size: 12px; }
+.item-details__footer .btn { min-height: 44px; font-size: 12px; }
 .item-details__browse { display: flex; align-items: center; gap: 14px; font-size: 12px; font-variant-numeric: tabular-nums; color: #c6d8d4; }
 .item-details__browse > span > span { color: #657c83; }
 .item-details__browse button { width: 44px; height: 44px; padding: 0; border: 1px solid #ffffff14; border-radius: 3px; background: #ffffff03; color: #b9d1ca; cursor: pointer; transition: background-color 140ms ease, border-color 140ms ease; }

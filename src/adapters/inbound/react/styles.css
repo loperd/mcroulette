@@ -303,14 +303,13 @@ h1 { margin-top: 8px; font-size: clamp(2rem, 6vw, 3.5rem); line-height: 1.1; let
 .prize #prize-title { color: #f0f4ef; font-size: clamp(30px, 5vw, 48px); letter-spacing: -.035em; margin: 6px 0 10px; font-weight: 600; }
 .prize__source { color: #93a6aa; font-size: 12px; }
 .prize__actions { margin-top: 28px; }
-.prize__actions .btn { min-width: 180px; border: 1px solid #91f0d433; background: #91f0d40a; }
+.prize__actions .btn { min-width: 180px; }
 .prize__actions > p { margin-top: 10px; color: #637c82; font-size: 12px; }
 /* Destruction: the reward screen in the error palette. */
 .prize--destroyed { background: radial-gradient(ellipse at 50% 42%, color-mix(in srgb, var(--prize-color) 13%, #1b1210), #0f0a09f7 70%); }
 .prize--destroyed #prize-title { color: color-mix(in srgb, var(--prize-color) 55%, #f4e9e6); }
 .prize--destroyed .prize__label, .prize--destroyed .prize__actions > p { color: #8c716b; }
 .prize--destroyed .prize__source { color: #a8928d; }
-.prize--destroyed .prize__actions .btn { border-color: color-mix(in srgb, var(--prize-color) 30%, transparent); background: color-mix(in srgb, var(--prize-color) 6%, transparent); }
 .prize__wreck { position: relative; width: min(340px, 62vw); height: min(300px, 32svh); object-fit: contain; filter: drop-shadow(0 18px 24px #0008); animation: prize-arrive 600ms var(--ease-out) both; }
 [data-home-design='gallery'] .prize { background: radial-gradient(ellipse at 50% 42%, #3c3329, #14120ff7 70%); }
 [data-home-design='minimal'] .prize { background: #11191c; }
@@ -342,24 +341,7 @@ h1 { margin-top: 8px; font-size: clamp(2rem, 6vw, 3.5rem); line-height: 1.1; let
 .case-featured__rarity--primary { color: #c69aef; }
 .case-featured__rarity--legendary { color: #e0c68e; }
 @media (forced-colors: active) { .case-featured__inspect:focus-visible { outline: 2px solid Highlight; } }
-/* The opening action wears the case's own hue, never its dullness: the case colour can be almost
-   grey (common: #9aa9a0), so its chroma is raised to a clear minimum and its lightness capped for
-   white text. Sage for the traveler, blue for the End, violet for the dragon. One gradient, no
-   outline, no slab, no halo. Without relative colours it stays the brand emerald (.btn-green). */
-@supports (color: oklch(from red l c h)) {
-  .case-open-bar .btn-green {
-    --cta: oklch(from var(--case-accent) clamp(.54, l, .64) max(c, .14) h);
-    --cta-deep: oklch(from var(--case-accent) clamp(.40, calc(l - .18), .48) max(c, .13) h);
-    color: #fff;
-    border-color: transparent;
-    background: linear-gradient(180deg, var(--cta) 0%, var(--cta-deep) 100%);
-    box-shadow: 0 10px 24px -10px oklch(from var(--cta-deep) .18 c h);
-    text-shadow: 0 1px 2px oklch(from var(--cta-deep) .25 c h / .6);
-  }
-  @media (hover: hover) and (pointer: fine) {
-    .case-open-bar .btn-green:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.08); box-shadow: 0 14px 28px -10px oklch(from var(--cta-deep) .18 c h); }
-  }
-}
+/* The opening action is the shared button (legacy-buttons.css): case hue, bright, solid. */
 
 /* Ownership stays visible beside the action in every case-screen layout. */
 .case-open-bar__copy:has(.case-owned-count) { display: block; }

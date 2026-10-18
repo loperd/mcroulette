@@ -21,7 +21,6 @@
 .error-notice__text p { margin: 0; }
 .error-notice__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 14px; }
 .error-notice__actions .btn { min-width: 160px; }
-.error-notice__actions .btn-transparent { border: 1px solid #e3665a33; background: #e3665a0a; }
 .error-notice--compact .error-notice__panel { padding: 24px 20px 20px; }
 .error-notice--compact .error-notice__mark { width: 30px; height: 30px; font-size: 14px; }
 @keyframes error-notice-in { from { opacity: 0; transform: translateY(8px) scale(.985); } to { opacity: 1; transform: none; } }
