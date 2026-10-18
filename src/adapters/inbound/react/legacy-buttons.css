@@ -22,9 +22,10 @@
 }
 .btn-green {
   color: #f2fff9;
-  border-color: #9ee86b;
-  background: linear-gradient(180deg, #b8f68c 0%, #79df52 7%, #4fc43c 42%, #2d9d37 74%, #20762f 100%);
-  box-shadow: inset 0 1px 0 #efffbd, inset 0 -2px 0 #185b2da8, 0 4px 0 #15552b, 0 8px 22px #020a08a0, 0 0 24px #59d94745;
+  /* No light outline: the edge is darker than the fill, the top sheen a soft tint. */
+  border-color: #1d6a2c;
+  background: linear-gradient(180deg, #8fe46a 0%, #79df52 7%, #4fc43c 42%, #2d9d37 74%, #20762f 100%);
+  box-shadow: inset 0 1px 0 #d8ff9e40, inset 0 -2px 0 #185b2da8, 0 4px 0 #15552b, 0 8px 22px #020a08a0, 0 0 24px #59d94745;
   text-shadow: 0 2px 2px #145329b3;
 }
 .btn-transparent {
@@ -37,7 +38,7 @@
 .btn:focus-visible { outline: 2px solid #8ce8bb; outline-offset: 3px; }
 .btn:disabled { opacity: 0.5; cursor: default; }
 @media (hover: hover) and (pointer: fine) {
-  .btn-green:hover:not(:disabled) { transform: translateY(-1px); filter: saturate(1.08) brightness(1.06); box-shadow: inset 0 1px 0 #f5ffd1, inset 0 -2px 0 #185b2da8, 0 5px 0 #15552b, 0 11px 26px #020a08b3, 0 0 30px #6ae64f70; }
+  .btn-green:hover:not(:disabled) { transform: translateY(-1px); filter: saturate(1.08) brightness(1.06); box-shadow: inset 0 1px 0 #e6ffb855, inset 0 -2px 0 #185b2da8, 0 5px 0 #15552b, 0 11px 26px #020a08b3, 0 0 30px #6ae64f70; }
   .btn-transparent:hover:not(:disabled) { color: #e3f6eb; border-color: #8ce8bb4d; background: linear-gradient(180deg, #8ce8bb18, #8ce8bb0a); }
 }
 @media (prefers-reduced-motion: reduce) {
