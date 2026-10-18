@@ -342,22 +342,24 @@ h1 { margin-top: 8px; font-size: clamp(2rem, 6vw, 3.5rem); line-height: 1.1; let
 .case-featured__rarity--primary { color: #c69aef; }
 .case-featured__rarity--legendary { color: #e0c68e; }
 @media (forced-colors: active) { .case-featured__inspect:focus-visible { outline: 2px solid Highlight; } }
-/* The opening action wears the case's colour: one clean gradient from its tone to a deeper one
-   (white text stays readable even on the grey common case), no outline, no slab, no halo — a
-   glow in a pale case colour reads as an outline, so only a soft dark shadow. */
-.case-open-bar .btn-green {
-  color: #fff;
-  border-color: transparent;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--case-accent) 85%, var(--case-accent-deep)) 0%, color-mix(in srgb, var(--case-accent) 62%, var(--case-accent-deep)) 55%, color-mix(in srgb, var(--case-accent) 40%, var(--case-accent-deep)) 100%);
-  box-shadow: 0 10px 24px -10px color-mix(in srgb, var(--case-accent-deep) 85%, #000);
-  text-shadow: 0 1px 2px color-mix(in srgb, var(--case-accent-deep) 75%, transparent);
-  transition: transform 120ms ease, box-shadow 160ms ease, filter 140ms ease;
+/* The opening action wears the case's own hue, never its dullness: the case colour can be almost
+   grey (common: #9aa9a0), so its chroma is raised to a clear minimum and its lightness capped for
+   white text. Sage for the traveler, blue for the End, violet for the dragon. One gradient, no
+   outline, no slab, no halo. Without relative colours it stays the brand emerald (.btn-green). */
+@supports (color: oklch(from red l c h)) {
+  .case-open-bar .btn-green {
+    --cta: oklch(from var(--case-accent) clamp(.56, l, .66) max(c, .09) h);
+    --cta-deep: oklch(from var(--case-accent) clamp(.40, calc(l - .2), .5) max(c, .085) h);
+    color: #fff;
+    border-color: transparent;
+    background: linear-gradient(180deg, var(--cta) 0%, var(--cta-deep) 100%);
+    box-shadow: 0 10px 24px -10px oklch(from var(--cta-deep) .18 c h);
+    text-shadow: 0 1px 2px oklch(from var(--cta-deep) .25 c h / .6);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .case-open-bar .btn-green:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.08); box-shadow: 0 14px 28px -10px oklch(from var(--cta-deep) .18 c h); }
+  }
 }
-.case-open-bar .btn-green:active:not(:disabled) { transform: translateY(1px); filter: brightness(.96); box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--case-accent-deep) 85%, #000); }
-@media (hover: hover) and (pointer: fine) {
-  .case-open-bar .btn-green:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.08); box-shadow: 0 14px 28px -10px color-mix(in srgb, var(--case-accent-deep) 85%, #000); }
-}
-@media (prefers-reduced-motion: reduce) { .case-open-bar .btn-green { transition: none; } }
 
 /* Ownership stays visible beside the action in every case-screen layout. */
 .case-open-bar__copy:has(.case-owned-count) { display: block; }
