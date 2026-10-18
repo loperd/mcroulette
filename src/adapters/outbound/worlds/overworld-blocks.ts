@@ -1,4 +1,6 @@
-import { BoxGeometry, BufferAttribute, BufferGeometry, Group, InstancedMesh, Line, LineBasicMaterial, MeshBasicMaterial, Object3D, PlaneGeometry, Mesh } from 'three';
+import {
+  AdditiveBlending, BoxGeometry, BufferAttribute, BufferGeometry, Group, InstancedMesh, Line, LineBasicMaterial, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry, Points, PointsMaterial,
+} from 'three';
 import {
   BlockRegistry, BlockWorld, blockAtlas, computeLight, meshWorld, raw, worldMeshes, type Living, type Stage, type StageBuilder,
 } from '../../../../packages/blockworld/src/index.ts';
@@ -34,6 +36,8 @@ const id = (name: string) => BLOCKS.id(name);
 const SX = 112, SY = 40, SZ = 150, OX = -56, OZ = -110, GROUND = 10;
 /** The sky light at dusk: warm on the lit side of the world, as the game tints it at sunset. */
 const DUSK: [number, number, number] = [1, .78, .64];
+/** The low evening sun (from where its square hangs, a little higher so shadows stay readable). */
+const SUN = { direction: [-.41, .5, -.76], color: [1, .8, .58], strength: .42, reach: 48 } as const;
 
 function noise(x: number, z: number, seed: number): number {
   const s = (v: number) => { const h = Math.sin(v) * 43758.5453; return h - Math.floor(h); };
@@ -118,14 +122,14 @@ function build(seed: number): Stage<ChestHandles> {
   computeLight(world, BLOCKS);
   const { texture, uv } = blockAtlas();
   const root = new Group();
-  root.add(...worldMeshes(meshWorld(world, BLOCKS, { uv, sky: DUSK, minimum: .06 }), texture));
+  root.add(...worldMeshes(meshWorld(world, BLOCKS, { uv, sky: DUSK, minimum: .06, sun: SUN }), texture));
   root.add(farRanges(seed, uv, texture));
   // The square sun of the game, low and warm.
   const sun = new Mesh(new PlaneGeometry(60, 60), new MeshBasicMaterial({ color: raw('#ffe7a6'), fog: false }));
   sun.position.set(-300, 70, -560); sun.lookAt(0, 20, 0);
   root.add(sun);
   return {
-    root, living: [clouds(root, rand), storm(root)], calm: .1,
+    root, living: [clouds(root, rand), storm(root), sheep(root, rand), fireflies(root, rand)], calm: .1,
     sky: { top: '#2a3a78', horizon: '#f2a46e', bottom: '#3a3050' },
     fog: { color: '#d99a7e', near: 70, far: 330 },
     camera: { position: [0, GROUND + 7, 38], target: [0, GROUND + 3, -30], fov: 60 },
@@ -182,6 +186,96 @@ function storm(root: Group): Living<ChestHandles> {
       while (y > 20) { points.push(x, y, z); x += (context.rand() - .5) * 14; y -= 6 + context.rand() * 8; }
       geometry.setAttribute('position', new BufferAttribute(new Float32Array(points), 3));
       shown = .25; context.flash('#d9e2ff', 1); context.host?.light('#dce6ff', .9, .35); thunder = 1 + context.rand() * 1.2;
+    },
+  };
+}
+
+/**
+ * A box shaded the way the game shades blocks — top 1, north/south .8, east/west .6, bottom .5 —
+ * and tinted by the evening light, so mobs sit in the world instead of glowing on it.
+ */
+function shadedBox(w: number, h: number, d: number, hex: string, light = .86): BoxGeometry {
+  const box = new BoxGeometry(w, h, d), base = raw(hex), colors: number[] = [];
+  // BoxGeometry faces in order: +x, -x, +y, -y, +z, -z; four vertices each.
+  for (const shade of [.6, .6, 1, .5, .8, .8]) for (let v = 0; v < 4; v++) colors.push(base.r * shade * light * DUSK[0], base.g * shade * light * DUSK[1], base.b * shade * light * DUSK[2]);
+  box.setAttribute('color', new BufferAttribute(new Float32Array(colors), 3));
+  return box;
+}
+
+/** Sheep, sized by the game's model (1/16 a pixel): they wander the meadow, stop, graze. */
+function sheep(root: Group, rand: () => number): Living<ChestHandles> {
+  const px = 1 / 16, material = new MeshBasicMaterial({ vertexColors: true });
+  const wool = shadedBox(10 * px, 9 * px, 15 * px, '#e9e4dc'), headWool = shadedBox(7 * px, 7 * px, 7 * px, '#e9e4dc');
+  const face = shadedBox(6 * px, 6 * px, 2 * px, '#c9a991'), leg = shadedBox(4 * px, 12 * px, 4 * px, '#c9a991');
+  leg.translate(0, -6 * px, 0);
+  const flock = Array.from({ length: 4 }, (_, i) => {
+    const body = new Group(), head = new Group(), legs: Mesh[] = [];
+    body.add(new Mesh(wool, material).translateY(16 * px));
+    head.add(new Mesh(headWool, material), new Mesh(face, material).translateZ(4 * px).translateY(-.5 * px));
+    head.position.set(0, 19 * px, 9 * px); body.add(head);
+    for (const [lx, lz] of [[-3, -5], [3, -5], [-3, 5], [3, 5]] as const) { const m = new Mesh(leg, material); m.position.set(lx * px, 12 * px, lz * px); legs.push(m); body.add(m); }
+    const x = (i % 2 ? 1 : -1) * (6 + rand() * 5), z = 12 - rand() * 18;
+    body.position.set(x, GROUND + 1, z); body.rotation.y = rand() * Math.PI * 2;
+    root.add(body);
+    return { body, head, legs, target: { x, z }, rest: rand() * 4, graze: 0, step: rand() * 10 };
+  });
+  return {
+    update(context, dt) {
+      for (const one of flock) {
+        const { body } = one, dx = one.target.x - body.position.x, dz = one.target.z - body.position.z, far = Math.hypot(dx, dz);
+        let walking = false;
+        if (one.rest > 0) {
+          one.rest -= dt;
+          if (one.rest <= 0) {
+            // A new spot nearby on its side of the meadow, clear of the chest in the middle.
+            const side = Math.sign(body.position.x) || 1, x = Math.abs(body.position.x) + (context.rand() - .5) * 8;
+            one.target = { x: side * Math.max(5, Math.min(11, x)), z: Math.max(-10, Math.min(14, body.position.z + (context.rand() - .5) * 10)) };
+          }
+        } else if (far < .1) {
+          one.rest = 2 + context.rand() * 6; one.graze = context.rand() < .6 ? one.rest : 0;
+        } else {
+          walking = true;
+          const turn = Math.atan2(dx, dz) - body.rotation.y, wrapped = Math.atan2(Math.sin(turn), Math.cos(turn));
+          body.rotation.y += Math.max(-dt * 3, Math.min(dt * 3, wrapped));
+          if (Math.abs(wrapped) < .6) { const speed = Math.min(far, dt * .9); body.position.x += Math.sin(body.rotation.y) * speed; body.position.z += Math.cos(body.rotation.y) * speed; }
+        }
+        one.graze = Math.max(0, one.graze - dt);
+        if (walking) one.step += dt * 7;
+        const swing = walking ? Math.sin(one.step) * .55 : 0;
+        one.legs.forEach((legMesh, i) => { legMesh.rotation.x = (i === 0 || i === 3 ? swing : -swing); });
+        // Head down to the grass while grazing, chewing a little.
+        const down = one.graze > 0 ? .9 + Math.sin(context.time * 9) * .08 : Math.sin(context.time * .6 + one.step) * .06;
+        one.head.rotation.x += (down - one.head.rotation.x) * Math.min(1, dt * 4);
+        one.head.position.y = (19 - one.head.rotation.x * 8) * px;
+      }
+    },
+  };
+}
+
+/** Fireflies over the meadow's edges at dusk: slow drifting sparks that blink. */
+function fireflies(root: Group, rand: () => number): Living<ChestHandles> {
+  const count = 36, positions = new Float32Array(count * 3), colors = new Float32Array(count * 3);
+  const flies = Array.from({ length: count }, () => {
+    const side = rand() < .5 ? -1 : 1;
+    return { x: side * (8 + rand() * 14), y: GROUND + 1.5 + rand() * 3, z: -24 + rand() * 40, phase: rand() * 10, speed: .4 + rand() * .5 };
+  });
+  const geometry = new BufferGeometry();
+  geometry.setAttribute('position', new BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new BufferAttribute(colors, 3));
+  const points = new Points(geometry, new PointsMaterial({ size: .26, vertexColors: true, transparent: true, blending: AdditiveBlending, depthWrite: false, fog: false }));
+  root.add(points);
+  return {
+    update(context) {
+      const t = context.time;
+      flies.forEach((fly, i) => {
+        const a = t * fly.speed + fly.phase;
+        positions[i * 3] = fly.x + Math.sin(a) * 1.6 + Math.sin(a * 2.3) * .4;
+        positions[i * 3 + 1] = fly.y + Math.sin(a * 1.7) * .5;
+        positions[i * 3 + 2] = fly.z + Math.cos(a * .8) * 1.6;
+        const blink = Math.max(0, Math.sin(t * 1.3 + fly.phase * 3)) ** 3;
+        colors[i * 3] = .85 * blink; colors[i * 3 + 1] = 1 * blink; colors[i * 3 + 2] = .35 * blink;
+      });
+      geometry.attributes.position!.needsUpdate = true; geometry.attributes.color!.needsUpdate = true;
     },
   };
 }

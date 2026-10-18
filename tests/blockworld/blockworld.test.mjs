@@ -89,3 +89,34 @@ test('crosses are two planes, torches five faces lit at full, water a separate p
   assert.ok(quads(mesh.liquid) >= 1);
   assert.ok(Math.max(...mesh.liquid.positions.filter((_, i) => i % 3 === 1)) < 2, 'the water surface sits below the top of its cell');
 });
+
+test('the baked sun: ground behind a pillar lies in its shadow, open ground facing the sun warms up', () => {
+  const world = new BlockWorld(16, 8, 5);
+  world.fill(0, 0, 0, 15, 0, 4, blocks.id('stone'));
+  world.fill(8, 1, 2, 8, 6, 2, blocks.id('stone')); // a pillar; the sun is beyond it, up and to +x
+  computeLight(world, blocks);
+  const sun = { direction: [1, 1, 0], color: [1, .8, .6], strength: .4 };
+  const red = (mesh, x, z) => {
+    const { positions, colors } = mesh.opaque;
+    for (let i = 0; i < positions.length / 3; i++) if (positions[i * 3] === x && positions[i * 3 + 1] === 1 && positions[i * 3 + 2] === z) return colors[i * 3];
+    throw new Error(`no vertex at ${x},1,${z}`);
+  };
+  const vanilla = meshWorld(world, blocks, { uv }), lit = meshWorld(world, blocks, { uv, sun });
+  assert.ok(red(lit, 6, 2) < red(vanilla, 6, 2), 'in the pillar\'s shadow: darker than vanilla');
+  assert.ok(red(lit, 13, 2) > red(lit, 6, 2) * 1.3, 'in the sun: clearly brighter than the shadow');
+});
+
+test('wind and waves: plant tops and leaves are free to move, roots and stone are not, water tops wave', () => {
+  const world = new BlockWorld(5, 4, 3);
+  world.set(0, 0, 1, blocks.id('stone')); world.set(0, 1, 1, blocks.id('poppy'));
+  world.set(2, 1, 1, blocks.id('leaves')); world.set(4, 0, 1, blocks.id('water'));
+  computeLight(world, blocks);
+  const mesh = meshWorld(world, blocks, { uv });
+  const swayAt = (arrays, y) => [...arrays.sway].filter((_, i) => arrays.positions[i * 3 + 1] === y);
+  assert.deepEqual([...new Set(swayAt(mesh.plants, 1))], [0], 'roots stay');
+  assert.deepEqual([...new Set(swayAt(mesh.plants, 2))], [1], 'tops move');
+  const stone = [...mesh.opaque.sway].filter((_, i) => mesh.opaque.positions[i * 3] <= 1);
+  assert.ok(stone.every(v => v === 0), 'stone is still');
+  assert.ok([...mesh.opaque.sway].some(v => v > 0 && v < 1), 'leaves rustle a little');
+  assert.ok([...mesh.liquid.sway].some(v => v === 1), 'the water surface waves');
+});

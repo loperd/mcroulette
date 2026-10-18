@@ -17,6 +17,18 @@ are built with it; the library knows nothing about chests or cases.
   follow it. Colours reach the screen as computed: no colour management, no tone mapping.
 - **Passes.** Opaque (with alpha test for leaves), plants (both sides), liquids (blended).
 
+## On top of the rules
+
+Extras layered over the vanilla look, never replacing it:
+
+- **Sun** (`meshWorld(..., { sun })`): shadows like a shader pack, but baked. The sun never moves, so
+  each vertex casts one ray towards it through the grid while the world is meshed. Faces that face
+  the sun warm up; anything behind a block or leaf lies in shadow. It only applies where sky light
+  reaches, so there is no sun in caves, and it costs nothing per frame.
+- **Wind and waves**: the mesher marks how free each vertex is to move (`sway`). Plant tops are fully
+  free, leaves a little, and so are liquid surfaces. The view's materials move them on the GPU from
+  one shared clock and the stage's wind, so grass bends with the gusts and water rolls and glints.
+
 ## Performance
 
 The world is meshed once and cached per stage; the mesher returns plain typed arrays (testable in

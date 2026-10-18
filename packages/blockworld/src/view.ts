@@ -39,11 +39,52 @@ export interface Stage<H> {
 
 export interface StageBuilder<H> { readonly id: string; build(seed: number): Stage<H> }
 
+/**
+ * The world's clock and wind as seen by the shaders. One set for the page: every view advances it,
+ * and the materials read it on the GPU — moving grass and water costs no work on the CPU.
+ */
+const motion = { time: { value: 0 }, wind: { value: 0 } };
+
+/**
+ * The motion layer over the vanilla look: vertices marked free by the mesher sway in the wind
+ * (plant tops, leaves), and a liquid's surface rolls in slow waves and glints with the sky's light.
+ */
+function moving(material: MeshBasicMaterial, kind: 'sway' | 'wave'): MeshBasicMaterial {
+  material.onBeforeCompile = shader => {
+    shader.uniforms.time = motion.time; shader.uniforms.wind = motion.wind;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>
+attribute float sway;
+uniform float time;
+uniform float wind;
+varying vec3 vPlace;`)
+      .replace('#include <begin_vertex>', kind === 'sway' ? `#include <begin_vertex>
+float phase = position.x * .63 + position.z * .41;
+float push = sin(time * 1.7 + phase) * .055 + sin(time * 3.1 + phase * 2.3) * .02 + wind * .14;
+transformed.x += sway * push;
+transformed.z += sway * (cos(time * 1.3 + phase * 1.4) * .04 + wind * .05);
+vPlace = position;` : `#include <begin_vertex>
+transformed.y += sway * (sin(time * 1.2 + position.x * .8 + position.z * .3) * .045 + sin(time * 1.9 - position.z * 1.1) * .025 - .03);
+vPlace = position;`);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>
+uniform float time;
+varying vec3 vPlace;`)
+      .replace('#include <fog_fragment>', kind === 'wave' ? `float ripple = sin(vPlace.x * 1.7 + time * 1.4) * sin(vPlace.z * 1.3 - time * 1.1) + sin((vPlace.x + vPlace.z) * .9 - time * .8) * .5;
+float glint = pow(max(0., ripple * .66), 6.);
+gl_FragColor.rgb = gl_FragColor.rgb * (.92 + .1 * ripple) + vec3(1., .86, .66) * glint * .45;
+gl_FragColor.a = min(1., gl_FragColor.a + glint * .3);
+#include <fog_fragment>` : '#include <fog_fragment>');
+  };
+  material.customProgramCacheKey = () => `blockworld-${kind}`;
+  return material;
+}
+
 /** The three materials of a meshed world, sharing one atlas. */
 export function worldMeshes(mesh: WorldMesh, atlas: Texture): Mesh[] {
-  const opaque = new Mesh(geometry(mesh.opaque), new MeshBasicMaterial({ map: atlas, vertexColors: true, alphaTest: .5 }));
-  const plants = new Mesh(geometry(mesh.plants), new MeshBasicMaterial({ map: atlas, vertexColors: true, alphaTest: .5, side: DoubleSide }));
-  const liquid = new Mesh(geometry(mesh.liquid), new MeshBasicMaterial({ map: atlas, vertexColors: true, transparent: true, opacity: .78, depthWrite: false, side: DoubleSide }));
+  const opaque = new Mesh(geometry(mesh.opaque), moving(new MeshBasicMaterial({ map: atlas, vertexColors: true, alphaTest: .5 }), 'sway'));
+  const plants = new Mesh(geometry(mesh.plants), moving(new MeshBasicMaterial({ map: atlas, vertexColors: true, alphaTest: .5, side: DoubleSide }), 'sway'));
+  const liquid = new Mesh(geometry(mesh.liquid), moving(new MeshBasicMaterial({ map: atlas, vertexColors: true, transparent: true, opacity: .78, depthWrite: false, side: DoubleSide }), 'wave'));
   liquid.renderOrder = 1;
   return [opaque, plants, liquid].filter(part => (part.geometry.index?.count ?? 0) > 0);
 }
@@ -53,6 +94,7 @@ export function geometry(arrays: MeshArrays): BufferGeometry {
   result.setAttribute('position', new BufferAttribute(arrays.positions, 3));
   result.setAttribute('uv', new BufferAttribute(arrays.uvs, 2));
   result.setAttribute('color', new BufferAttribute(arrays.colors, 3));
+  result.setAttribute('sway', new BufferAttribute(arrays.sway ?? new Float32Array(arrays.positions.length / 3), 1));
   result.setIndex(new BufferAttribute(arrays.indices, 1));
   result.computeBoundingSphere();
   return result;
@@ -220,6 +262,7 @@ export class BlockView<H> {
       flash(color, strength) { self.flashColor.copy(raw(color)); self.flashLevel = Math.max(self.flashLevel, Math.min(1, strength)); },
     };
     for (const thing of this.stage.living) thing.update(context, dt);
+    motion.time.value = this.time; motion.wind.value = this.wind;
   }
 
   private draw(): void {

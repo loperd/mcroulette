@@ -18,6 +18,8 @@ export interface MeshArrays {
   readonly uvs: Float32Array;
   readonly colors: Float32Array;
   readonly indices: Uint32Array;
+  /** Per vertex: how free it is to move in the wind (plant tops, leaves) or wave (water tops), 0..1. */
+  readonly sway: Float32Array;
 }
 
 export interface WorldMesh {
@@ -40,6 +42,20 @@ export interface MeshOptions {
   readonly minimum?: number;
   /** Strength of ambient occlusion, 0 none .. 1 full (vanilla-like ≈ .6). */
   readonly occlusion?: number;
+  /**
+   * The sun, the way shader packs light the world — but baked, since the sun never moves: faces
+   * turned to it warm up, and every vertex casts a ray towards it through the grid; if a block or a
+   * leaf is in the way it lies in shadow. Only where sky light reaches (no sun in caves).
+   */
+  readonly sun?: {
+    /** Direction TOWARDS the sun. */
+    readonly direction: readonly [number, number, number];
+    readonly color: readonly [number, number, number];
+    /** How much of the light is sun (vs. sky): 0 vanilla .. ~.45 strong dusk shadows. */
+    readonly strength: number;
+    /** How far a shadow reaches, in blocks. */
+    readonly reach?: number;
+  };
 }
 
 /** The game's light curve for a level 0..15, with the default (moody → bright midpoint) gamma. */
@@ -65,8 +81,8 @@ export const FACES: readonly Face[] = [
 const AO_LEVELS = [.5, .65, .82, 1];
 
 class Builder {
-  positions: number[] = []; uvs: number[] = []; colors: number[] = []; indices: number[] = [];
-  quad(points: readonly (readonly [number, number, number])[], uv: readonly [number, number, number, number], colors: readonly (readonly [number, number, number])[], flip = false, sub?: readonly [number, number, number, number]): void {
+  positions: number[] = []; uvs: number[] = []; colors: number[] = []; indices: number[] = []; sway: number[] = [];
+  quad(points: readonly (readonly [number, number, number])[], uv: readonly [number, number, number, number], colors: readonly (readonly [number, number, number])[], flip = false, sub?: readonly [number, number, number, number], sway: readonly number[] = [0, 0, 0, 0]): void {
     const start = this.positions.length / 3;
     const [u0, v0, u1, v1] = uv, du = u1 - u0, dv = v1 - v0;
     // Optional sub-rectangle of the tile (fractions), for small models like the torch.
@@ -76,13 +92,19 @@ class Builder {
       this.positions.push(p[0], p[1], p[2]);
       this.uvs.push(u0 + du * corners[i]![0], v0 + dv * corners[i]![1]);
       this.colors.push(colors[i]![0], colors[i]![1], colors[i]![2]);
+      this.sway.push(sway[i]!);
     });
     if (flip) this.indices.push(start + 1, start + 2, start + 3, start + 1, start + 3, start);
     else this.indices.push(start, start + 1, start + 2, start, start + 2, start + 3);
   }
   arrays(): MeshArrays {
-    return { positions: new Float32Array(this.positions), uvs: new Float32Array(this.uvs), colors: new Float32Array(this.colors), indices: new Uint32Array(this.indices) };
+    return { positions: new Float32Array(this.positions), uvs: new Float32Array(this.uvs), colors: new Float32Array(this.colors), indices: new Uint32Array(this.indices), sway: new Float32Array(this.sway) };
   }
+}
+
+function normalise(v: readonly [number, number, number]): readonly [number, number, number] {
+  const l = Math.hypot(v[0], v[1], v[2]) || 1;
+  return [v[0] / l, v[1] / l, v[2] / l];
 }
 
 export function meshWorld(world: BlockWorld, registry: BlockRegistry, options: MeshOptions): WorldMesh {
@@ -91,6 +113,25 @@ export function meshWorld(world: BlockWorld, registry: BlockRegistry, options: M
   const minimum = options.minimum ?? .045, occlusion = options.occlusion ?? .6;
   const [ox, oy, oz] = world.origin;
   const blockAt = (x: number, y: number, z: number): Block | undefined => registry.get(world.get(x, y, z));
+  const sun = options.sun, sunDir = sun ? normalise(sun.direction) : [0, 1, 0] as const;
+  /** Is a point (grid coordinates) lit by the sun: nothing solid or leafy between it and the sky? */
+  const sunlit = (px: number, py: number, pz: number): boolean => {
+    const reach = sun?.reach ?? 64;
+    for (let d = .6; d < reach; d += .5) {
+      const cx = Math.floor(px + sunDir[0] * d), cy = Math.floor(py + sunDir[1] * d), cz = Math.floor(pz + sunDir[2] * d);
+      if (cy >= world.sy) return true;
+      const hit = blockAt(cx, cy, cz);
+      if (hit && (hit.opaque || hit.model === 'cube')) return false;
+    }
+    return true;
+  };
+  /** Sun on top of the vanilla light: shadowed where blocked, warm where facing it; scaled by sky. */
+  const withSun = (color: [number, number, number], skyLevel: number, facing: number, px: number, py: number, pz: number): [number, number, number] => {
+    if (!sun || skyLevel <= 0) return color;
+    const sky = brightness(skyLevel), k = sun.strength * sky;
+    const amount = facing > 0 && sunlit(px, py, pz) ? facing : 0;
+    return [0, 1, 2].map(i => Math.min(1.25, color[i]! * (1 - k + sun.color[i]! * k * 2.6 * amount))) as [number, number, number];
+  };
   const solid = (x: number, y: number, z: number) => blockAt(x, y, z)?.opaque ? 1 : 0;
   const light = (s: number, g: number): [number, number, number] => {
     const bs = brightness(s), bg = brightness(g);
@@ -103,10 +144,12 @@ export function meshWorld(world: BlockWorld, registry: BlockRegistry, options: M
     const at = (px: number, py: number, pz: number): [number, number, number] => [x + px + ox, y + py + oy, z + pz + oz];
 
     if (block.model === 'cross') {
-      const c = light(world.skyAt(x, y, z), world.glowAt(x, y, z)), cs = [c, c, c, c];
+      const c = withSun(light(world.skyAt(x, y, z), world.glowAt(x, y, z)), world.skyAt(x, y, z), Math.max(.55, sunDir[1]), x + .5, y + .6, z + .5), cs = [c, c, c, c];
       const uv = options.uv(block.textures.side);
-      plants.quad([at(.15, 0, .15), at(.85, 0, .85), at(.85, 1, .85), at(.15, 1, .15)], uv, cs);
-      plants.quad([at(.15, 0, .85), at(.85, 0, .15), at(.85, 1, .15), at(.15, 1, .85)], uv, cs);
+      // Rooted at the bottom, free at the top.
+      const free = [0, 0, 1, 1];
+      plants.quad([at(.15, 0, .15), at(.85, 0, .85), at(.85, 1, .85), at(.15, 1, .15)], uv, cs, false, undefined, free);
+      plants.quad([at(.15, 0, .85), at(.85, 0, .15), at(.85, 1, .15), at(.15, 1, .85)], uv, cs, false, undefined, free);
       continue;
     }
     if (block.model === 'torch') {
@@ -135,7 +178,7 @@ export function meshWorld(world: BlockWorld, registry: BlockRegistry, options: M
       // The open side of the face, and the two axes along it.
       const ax = x + nx, ay = y + ny, az = z + nz;
       const tangents = ([[1, 0, 0], [0, 1, 0], [0, 0, 1]] as const).filter(t => t[0] * nx + t[1] * ny + t[2] * nz === 0);
-      const colors: [number, number, number][] = [], aos: number[] = [];
+      const colors: [number, number, number][] = [], aos: number[] = [], sway: number[] = [];
       const points = face.corners.map(([cx, cy, cz]) => {
         const corner = [cx, cy, cz] as const;
         const steps = tangents.map(t => (corner[t.indexOf(1)]! === 0 ? -1 : 1));
@@ -155,13 +198,21 @@ export function meshWorld(world: BlockWorld, registry: BlockRegistry, options: M
         const lit = block.light > 0 ? [1, 1, 1] as const : light(skySum / count, glowSum / count);
         const occluded = 1 - (1 - AO_LEVELS[ao]!) * occlusion;
         const shade = block.light > 0 ? 1 : face.shade * occluded;
-        colors.push([lit[0] * shade, lit[1] * shade, lit[2] * shade]);
-        const top = block.model === 'liquid' && cy === 1 && blockAt(x, y + 1, z)?.id !== block.id ? 14 / 16 : cy;
+        let vertex: [number, number, number] = [lit[0] * shade, lit[1] * shade, lit[2] * shade];
+        if (block.light === 0) {
+          const facing = nx * sunDir[0] + ny * sunDir[1] + nz * sunDir[2];
+          vertex = withSun(vertex, skySum / count, facing, x + cx + nx * .02, y + cy + ny * .02, z + cz + nz * .02);
+        }
+        colors.push(vertex);
+        const surface = block.model === 'liquid' && cy === 1 && blockAt(x, y + 1, z)?.id !== block.id;
+        const top = surface ? 14 / 16 : cy;
+        // Leaves rustle a little as a whole; a liquid's surface waves.
+        sway.push(block.cutout && block.model === 'cube' ? .3 : surface ? 1 : 0);
         return at(cx, top, cz);
       });
       const target = block.model === 'liquid' ? liquid : opaque;
       // Split the quad along the brighter diagonal, so occlusion does not streak.
-      target.quad(points, uv, colors, aos[0]! + aos[2]! < aos[1]! + aos[3]!);
+      target.quad(points, uv, colors, aos[0]! + aos[2]! < aos[1]! + aos[3]!, undefined, sway);
     }
   }
   return { opaque: opaque.arrays(), plants: plants.arrays(), liquid: liquid.arrays() };
