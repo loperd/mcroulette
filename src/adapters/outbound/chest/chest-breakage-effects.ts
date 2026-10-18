@@ -399,6 +399,9 @@ export class ChestBreakageEffects {
     }
   }
 
+  /** True while a hanging part is still swinging (the scene keeps drawing until it rests). */
+  get swinging(): boolean { return (this.swings ?? []).some(swing => swing.angle !== 0 || swing.velocity !== 0); }
+
   /** Jolt the hanging parts: each swing gets a push of its own. */
   kick(strength = 1): void {
     if (this.reduced) return;

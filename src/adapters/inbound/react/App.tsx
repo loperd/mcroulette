@@ -1,5 +1,7 @@
 import type { CaseInstance } from '../../../domain/case-instance.ts';
-import type { CaseVisualTheme } from '../../../config/cases.ts';
+import type { CaseVisualTheme, WorldId } from '../../../config/cases.ts';
+import type { ChestHandles } from '../../../application/ports/chest-handles.ts';
+import { PixelWorldBackground } from './PixelWorldBackground.tsx';
 import type { CSSProperties } from 'react';
 import type { ItemCatalog } from '../../../application/ports/item-catalog.ts';
 import type { ChestPreview } from '../../../application/ports/chest-preview.ts';
@@ -14,7 +16,7 @@ import type { SoundPreference } from './SoundControl.tsx';
 import { Button } from './Button.tsx';
 import { ErrorNotice } from './ErrorNotice.tsx';
 
-export function App({ captureWreck, catalog, session, preview, sceneElement, rouletteElement, transitionElement, backgroundUrl, onRetryInitialization, onOpenGesture, soundPreference, recentFind, onOpenRequest, onPrizeClose, openLabel, availableCaseCount, archiveCount, archiveView, casePalette, inspectedCase }: {
+export function App({ captureWreck, catalog, session, preview, sceneElement, rouletteElement, transitionElement, backgroundUrl, world, onRetryInitialization, onOpenGesture, soundPreference, recentFind, onOpenRequest, onPrizeClose, openLabel, availableCaseCount, archiveCount, archiveView, casePalette, inspectedCase }: {
   readonly onOpenRequest?: () => void;
   readonly onPrizeClose?: () => void;
   readonly casePalette?: CaseVisualTheme;
@@ -34,6 +36,8 @@ export function App({ captureWreck, catalog, session, preview, sceneElement, rou
   readonly transitionElement?: HTMLElement;
   readonly onOpenGesture?: () => void;
   readonly backgroundUrl?: string;
+  /** The living world behind the chest, and the chest's handles it may pull. */
+  readonly world?: { readonly id: WorldId; readonly chest?: ChestHandles };
   readonly onRetryInitialization?: () => Promise<void>;
 }) {
   const state = useObservableState(catalog);
@@ -41,7 +45,10 @@ export function App({ captureWreck, catalog, session, preview, sceneElement, rou
   return (
     <main className={`page-shell app${session ? ' app--game' : ''}`} style={{ ...(casePalette ? { '--case-accent': casePalette.accent, '--case-accent-highlight': casePalette.highlight,
       '--case-accent-deep': casePalette.deep, '--case-accent-glow': casePalette.glow, '--case-effect': casePalette.accent } : {}), ...(backgroundUrl ? { '--case-world-image': `url("${backgroundUrl}")`, backgroundImage:
-      `linear-gradient(180deg, rgba(5, 12, 13, 0.42), rgba(5, 12, 13, 0.3) 42%, rgba(5, 12, 13, 0.68)), url("${backgroundUrl}")` } : {}) } as CSSProperties}>
+      `linear-gradient(180deg, rgba(5, 12, 13, 0.42), rgba(5, 12, 13, 0.3) 42%, rgba(5, 12, 13, 0.68)), url("${backgroundUrl}")` } : {}),
+      // Its own stacking context: the world (z-index -1) sits over the case picture, under everything else.
+      isolation: 'isolate' } as CSSProperties}>
+      {world && <PixelWorldBackground world={world.id} chest={world.chest} />}
       <div className="app__content page-container">
         {!session && <header className="app__header">
           <p className="eyebrow">Minecraft</p>

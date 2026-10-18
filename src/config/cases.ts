@@ -4,9 +4,13 @@ import { ENDER_REFERENCE_MODIFICATIONS } from './ender-modifications.ts';
 
 export interface CasePresentation {
   readonly brand: string; readonly collection: string; readonly title: string; readonly description: string; readonly backgroundPath: string;
+  /** The living world the chest stands in (drawn behind it); `backgroundPath` is the still fallback. */
+  readonly world: WorldId;
   /** Case identity styling. Kept separate from rarity, which describes possible contents. */
   readonly theme: CaseVisualTheme;
 }
+/** The worlds a chest can live in. */
+export type WorldId = 'overworld' | 'deep-mine' | 'end' | 'dragon';
 export interface CaseVisualTheme { readonly accent: string; readonly highlight: string; readonly deep: string; readonly glow: string }
 export interface ChestModelDefinition {
   readonly revision: string; readonly path: string; readonly body: string; readonly lid: string; readonly key?: string;
@@ -37,11 +41,11 @@ const MODEL: ChestModelDefinition = Object.freeze({ revision: 'ender-reference',
   modifications: copyModificationProfile(ENDER_REFERENCE_MODIFICATIONS) });
 
 function makeCase(id: string, collectionId: string, rarity: CaseRarity, collection: string, title: string,
-  description: string, palette: { shell: string; panel: string; metal: string; accent: string }, theme: CaseVisualTheme): CaseDefinition {
+  description: string, palette: { shell: string; panel: string; metal: string; accent: string }, theme: CaseVisualTheme, world: WorldId): CaseDefinition {
   return Object.freeze({
     appearance: changeChestAppearance(createChestAppearance(id.length * 173), { palette }), id, collectionId, rarity,
     presentation: Object.freeze({ brand: 'Voxel Vault', collection, title, description,
-      backgroundPath: 'images/cases/ender-environment.png', theme: Object.freeze(theme) }),
+      backgroundPath: 'images/cases/ender-environment.png', world, theme: Object.freeze(theme) }),
     model: MODEL, catalogPath: `api/v1/cases/${id}/catalog`, prizePath: `api/v1/cases/${id}/roll`,
     poster: 'images/cases/ender.png',
   });
@@ -55,18 +59,18 @@ export const ENDER_CASE: CaseDefinition = Object.freeze({
   appearance: createChestAppearance(),
   id: 'ender', collectionId: 'the-end', rarity: 'rare',
   presentation: Object.freeze({ brand: 'Voxel Vault', collection: 'Коллекция Края', title: 'Сокровища Эндера',
-    description: 'Тайны другого измерения. Открой сундук и найди свой артефакт.', backgroundPath: 'images/cases/ender-environment.png',
+    description: 'Тайны другого измерения. Открой сундук и найди свой артефакт.', backgroundPath: 'images/cases/ender-environment.png', world: 'end',
     theme: Object.freeze({ accent: '#59a9ef', highlight: '#a2d5ff', deep: '#174d79', glow: '#59a9ef66' }) }),
   model: MODEL,
   catalogPath: 'api/v1/cases/ender/catalog', prizePath: 'api/v1/cases/ender/roll', poster: 'images/cases/ender.png',
 });
 const COMMON_CASE = makeCase('traveler', 'overworld', 'common', 'Дороги Верхнего мира', 'Сундук Путника',
   'Дорожные трофеи, простые инструменты и находки после долгих странствий.',
-  { shell: '#493a2b', panel: '#72583a', metal: '#928267', accent: '#9aa9a0' }, rarityTheme('common'));
+  { shell: '#493a2b', panel: '#72583a', metal: '#928267', accent: '#9aa9a0' }, rarityTheme('common'), 'overworld');
 const UNCOMMON_CASE = makeCase('deep-mine', 'deep-mines', 'uncommon', 'Глубинные шахты', 'Кладовая Шахтёра',
   'Снаряжение и редкие минералы из забытых подземных залов.',
-  { shell: '#343c3b', panel: '#405c58', metal: '#7b8984', accent: '#5fc78e' }, rarityTheme('uncommon'));
+  { shell: '#343c3b', panel: '#405c58', metal: '#7b8984', accent: '#5fc78e' }, rarityTheme('uncommon'), 'deep-mine');
 const EPIC_CASE = makeCase('dragon', 'dragon-reach', 'epic', 'Предел Дракона', 'Казна Драконоборца',
   'Реликвии древней битвы, пропитанные энергией Края.',
-  { shell: '#3a293f', panel: '#58406a', metal: '#9782a0', accent: '#b887ed' }, rarityTheme('epic'));
+  { shell: '#3a293f', panel: '#58406a', metal: '#9782a0', accent: '#b887ed' }, rarityTheme('epic'), 'dragon');
 export const CASES: readonly CaseDefinition[] = Object.freeze([COMMON_CASE, UNCOMMON_CASE, ENDER_CASE, EPIC_CASE]);

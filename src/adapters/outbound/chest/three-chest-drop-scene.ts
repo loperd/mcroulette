@@ -2,11 +2,12 @@ import { chestEffectColor } from './chest-appearance.ts';
 import { createChestAppearance, copyChestAppearance, type ChestAppearance } from '../../../domain/chest-appearance.ts';
 import { ENDER_CASE, type ChestModelDefinition } from '../../../config/cases.ts';
 import {
-  ACESFilmicToneMapping, AnimationMixer, Box3, LoopOnce, Sphere, Vector2, DirectionalLight, HemisphereLight, Mesh, PCFSoftShadowMap, type Object3D,
+  ACESFilmicToneMapping, AnimationMixer, Box3, Color, LoopOnce, Sphere, Vector2, DirectionalLight, HemisphereLight, Mesh, PCFSoftShadowMap, PointLight, type Object3D,
   PerspectiveCamera, PlaneGeometry, Scene, ShadowMaterial, WebGLRenderer, Vector3,
 } from 'three';
 import type { ChestDropPort } from '../../../application/ports/chest-preview.ts';
 import type { ChestPresentationPort } from '../../../application/ports/chest-presentation.ts';
+import type { ChestHandles } from '../../../application/ports/chest-handles.ts';
 import { FrameTimeline } from '../browser/frame-timeline.ts';
 import { FixedStepper } from '../browser/fixed-stepper.ts';
 import { browserFrameEnvironment, FrameScheduler } from '../browser/frame-scheduler.ts';
@@ -51,6 +52,35 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
   private mixer?: AnimationMixer;
   private opening?: { advance(delta: number): void; cancel(error: unknown): void };
   private mode: 'preview' | 'drop' | 'opening' | 'stopped' = 'stopped';
+  /** What the world is doing to the chest right now (tremor, light); see `handles`. */
+  private worldTremor = { left: 0, total: 0, strength: 0 };
+  private worldFlash = { left: 0, total: 0, peak: 0 };
+  private worldLight?: PointLight;
+  private worldBase?: Vector3;
+  private woken = false;
+
+  /**
+   * The handles a world may pull. The chest lives on its own (stands, falls, opens); a world can
+   * only blow at it, shake the ground under it and throw light on it. It never learns which world.
+   */
+  readonly handles: ChestHandles = {
+    gust: strength => {
+      this.breakageEffects?.kick(Math.max(0, Math.min(1, strength)) * 1.4);
+      this.wake();
+    },
+    tremor: (strength, seconds) => {
+      if (this.view.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      const left = Math.max(this.worldTremor.left, seconds);
+      this.worldTremor = { left, total: left, strength: Math.max(0, Math.min(1, strength)) };
+      this.wake();
+    },
+    light: (color, intensity, seconds) => {
+      if (!this.worldLight) return;
+      this.worldLight.color = new Color(color);
+      this.worldFlash = { left: seconds, total: seconds, peak: Math.max(0, Math.min(1, intensity)) * 6 };
+      this.wake();
+    },
+  };
   private previewTime = 0;
   private readonly entranceTimeline: FrameTimeline;
   private previewEntrance?: Animation;
@@ -216,6 +246,10 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
       // that get obvious as the chest moves towards the camera. normalBias handles grazing angles.
       light.shadow.bias = -0.0005; light.shadow.normalBias = 0.02;
       scene.add(light);
+      // The world's light on the chest (lava, lightning, an ender flash): off until a world pulls it.
+      this.worldLight = new PointLight(0xffffff, 0, 6, 1.6);
+      this.worldLight.position.set(-1.6, 2.4, -2.2);
+      scene.add(this.worldLight);
       const floor = new Mesh(new PlaneGeometry(20, 20), new ShadowMaterial({ opacity: 0.25 }));
       this.floor = floor;
       floor.rotation.x = -Math.PI / 2;
@@ -362,6 +396,7 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
           this.fractureEffects?.update(delta, false);
           // After the pose: the energy build-up swells and shakes the chest on top of it.
           this.breakageEffects?.update(delta, elapsed / (clipDuration + 0.3));
+          this.applyWorld(delta);
           this.render();
           // A destroyed chest has nothing left to open: end shortly after the burst settles.
           const wrecked = destroyed && this.breakageEffects?.broken === true
@@ -443,8 +478,11 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
       this.syncPose();
       this.assets!.visual.position.y = 2.6;
       this.assets!.visual.scale.setScalar(0.75);
+      this.breakageEffects?.update(Math.min(deltaSeconds, 0.1));
+      this.applyWorld(Math.min(deltaSeconds, 0.1));
       this.render(); return;
     }
+    if (this.mode === 'stopped') { this.worldOnly(Math.min(deltaSeconds, 0.1)); return; }
     if (this.mode === 'opening') { this.opening?.advance(Math.min(deltaSeconds, 0.1)); return; }
     if (this.mode !== 'drop') return;
     let simulated = 0;
@@ -480,8 +518,50 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     this.fractureEffects?.update(simulated, !this.impactTriggered);
     this.breakageEffects?.update(simulated);
     // The chest is solid: the landing is a jolt (dust, swinging latch, falling vines), never a squash.
+    this.applyWorld(simulated);
     this.render();
     this.landing?.advance(simulated);
+  }
+
+  /** A world pulled a handle: make sure frames run until its effect has played out. */
+  private wake(): void {
+    if (this.mode !== 'stopped' || !this.scheduler || !this.assets || this.woken) return;
+    this.woken = true;
+    this.worldBase = this.assets.visual.position.clone();
+    this.scheduler.start();
+  }
+
+  /** The chest stands still (settled, or shown as it is): only the world's effects move it. */
+  private worldOnly(delta: number): void {
+    this.breakageEffects?.update(delta);
+    this.applyWorld(delta);
+    this.render();
+    if (this.worldTremor.left <= 0 && this.worldFlash.left <= 0 && delta > 0 && this.breakageEffects?.swinging !== true) {
+      if (this.worldBase && this.assets) this.assets.visual.position.copy(this.worldBase);
+      this.woken = false; this.worldBase = undefined;
+      this.scheduler?.stop();
+      this.render();
+    }
+  }
+
+  /** Tremor and light from the world, on top of the pose the chest has this frame. */
+  private applyWorld(delta: number): void {
+    const visual = this.assets?.visual;
+    if (!visual) return;
+    // Woken only while standing still; once the chest falls or opens again it drives its own frames.
+    if (this.mode !== 'stopped') { this.woken = false; this.worldBase = undefined; }
+    else if (this.worldBase) visual.position.copy(this.worldBase);
+    if (this.worldTremor.left > 0) {
+      this.worldTremor.left = Math.max(0, this.worldTremor.left - delta);
+      const fade = this.worldTremor.left / Math.max(.001, this.worldTremor.total), amount = this.worldTremor.strength * .045 * fade;
+      visual.position.x += (Math.random() - .5) * amount;
+      visual.position.z += (Math.random() - .5) * amount;
+      visual.position.y += Math.random() * amount * .4;
+    }
+    if (this.worldLight) {
+      this.worldFlash.left = Math.max(0, this.worldFlash.left - delta);
+      this.worldLight.intensity = this.worldFlash.peak * (this.worldFlash.left / Math.max(.001, this.worldFlash.total)) ** 1.5;
+    }
   }
 
   private syncPose(): void {
