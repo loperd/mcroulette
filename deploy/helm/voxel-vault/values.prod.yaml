@@ -4,7 +4,7 @@
 # Frontend: https://voxelvault.mono.place      — Cloudflare (static build); /api/* goes to the API,
 #                                                 so the browser sees one origin (session cookie, passkeys).
 # API:      https://api-voxelvault.mono.place  — this chart, on the VPS cluster.
-# CI sets image.tag to the commit SHA (immutable; rollback = previous SHA).
+# CI sets image.tag to the release tag (0.3.0; rollback = the previous release).
 image:
   repository: ghcr.io/loperd/mcroulette-api
   pullPolicy: IfNotPresent
