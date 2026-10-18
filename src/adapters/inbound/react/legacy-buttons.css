@@ -21,12 +21,12 @@
   transition: transform 140ms ease, color 140ms ease, background-color 140ms ease, border-color 140ms ease, box-shadow 160ms ease, filter 140ms ease;
 }
 .btn-green {
-  color: #f2fff9;
-  /* No light outline: the edge is darker than the fill, the top sheen a soft tint. */
-  border-color: #1d6a2c;
-  background: linear-gradient(180deg, #8fe46a 0%, #79df52 7%, #4fc43c 42%, #2d9d37 74%, #20762f 100%);
-  box-shadow: inset 0 1px 0 #d8ff9e40, inset 0 -2px 0 #185b2da8, 0 4px 0 #15552b, 0 8px 22px #020a08a0, 0 0 24px #59d94745;
-  text-shadow: 0 2px 2px #145329b3;
+  /* One clean gradient, no outline, no slab, no halo: only a soft dark shadow. */
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(180deg, #5fd24a 0%, #3fae3c 55%, #2a8a35 100%);
+  box-shadow: 0 10px 24px -10px #062a13;
+  text-shadow: 0 1px 2px #0f4a2299;
 }
 .btn-transparent {
   color: #c6d9d0;
@@ -38,7 +38,7 @@
 .btn:focus-visible { outline: 2px solid #8ce8bb; outline-offset: 3px; }
 .btn:disabled { opacity: 0.5; cursor: default; }
 @media (hover: hover) and (pointer: fine) {
-  .btn-green:hover:not(:disabled) { transform: translateY(-1px); filter: saturate(1.08) brightness(1.06); box-shadow: inset 0 1px 0 #e6ffb855, inset 0 -2px 0 #185b2da8, 0 5px 0 #15552b, 0 11px 26px #020a08b3, 0 0 30px #6ae64f70; }
+  .btn-green:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.08); box-shadow: 0 14px 28px -10px #062a13; }
   .btn-transparent:hover:not(:disabled) { color: #e3f6eb; border-color: #8ce8bb4d; background: linear-gradient(180deg, #8ce8bb18, #8ce8bb0a); }
 }
 @media (prefers-reduced-motion: reduce) {
