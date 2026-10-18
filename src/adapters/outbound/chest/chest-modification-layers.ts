@@ -163,7 +163,10 @@ export class ChestModificationLayers {
       const box = surface.geometry.boundingBox ?? new Box3(), size = box.getSize(new Vector3());
       // One model pixel (1/16 of the part width) as the voxel unit, matching the chest texture grid.
       const unit = Math.max(size.x, size.z) / 16 * style.scale;
+      const before = this.added.length;
       build.call(this, { surface, box, size, unit, next, style, intensity, first: index === 0, faces: facesOf(surface, box) });
+      // What it is decides how it behaves when the chest is jolted (vines fall off, cobweb sticks).
+      for (const mesh of this.added.slice(before)) mesh.userData.growth = style.type;
     }
     return true;
   }

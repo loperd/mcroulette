@@ -61,7 +61,6 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
   private breakageEffects?: ChestBreakageEffects;
   private readonly breakage: ChestBreakage;
   private impactTriggered = false;
-  private impactAge = 0;
   private readonly impactCorner = new Vector3();
   private landing?: { advance(delta: number): void; cancel(error: unknown): void };
 
@@ -277,7 +276,6 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     this.initialPose = false;
     this.mode = 'drop';
     this.impactTriggered = false;
-    this.impactAge = 0;
     this.fractureEffects?.start(this.view.matchMedia('(prefers-reduced-motion: reduce)').matches);
     this.breakageEffects?.start(this.view.matchMedia('(prefers-reduced-motion: reduce)').matches);
     this.element.hidden = false;
@@ -467,7 +465,6 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
         this.view.matchMedia('(prefers-reduced-motion: reduce)').matches);
       if (lowest < 0.06) {
         this.impactTriggered = true;
-        this.impactAge = 0;
         this.impactEffects?.trigger(visual.position.x, visual.position.z,
           this.view.matchMedia('(prefers-reduced-motion: reduce)').matches);
         this.effects?.impact();
@@ -482,13 +479,7 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     this.impactEffects?.update(simulated);
     this.fractureEffects?.update(simulated, !this.impactTriggered);
     this.breakageEffects?.update(simulated);
-    if (this.impactTriggered && !this.view.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      this.impactAge += simulated;
-      const t = this.impactAge;
-      const squash = Math.exp(-t * 11) * Math.sin(Math.min(t / 0.24, 1) * Math.PI) * 0.14;
-      this.assets!.visual.scale.set(1 + squash * 0.5, 1 - squash, 1 + squash * 0.5);
-      this.assets!.visual.position.y -= squash * 0.8;
-    }
+    // The chest is solid: the landing is a jolt (dust, swinging latch, falling vines), never a squash.
     this.render();
     this.landing?.advance(simulated);
   }

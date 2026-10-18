@@ -34,7 +34,7 @@ const scenarios = [
     mods: [{ id: 'snow', intensity: .9 }, { id: 'end-crystals', intensity: 1 }, { id: 'cobweb', intensity: 1 }, { id: 'vines', intensity: .8 }] },
   { label: 'opening · snowy lid falls off, the beam throws it', moment: 'opening', parts: [{ part: 'lid', severity: .6, detached: true, pattern: 'fall' }],
     mods: [{ id: 'snow', intensity: .9 }, { id: 'end-crystals', intensity: 1 }] },
-  { label: 'landing · intact: snow and crystals at the edges fall, latch and vines swing', moment: 'impact', parts: [],
+  { label: 'landing · intact: vines tear off and drift down, snow and crystals at the rim fall, cobweb sticks, the latch swings outwards', moment: 'impact', parts: [],
     mods: [{ id: 'snow', intensity: 1 }, { id: 'end-crystals', intensity: 1 }, { id: 'vines', intensity: .9 }, { id: 'cobweb', intensity: 1 }] },
 ] as const;
 

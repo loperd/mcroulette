@@ -181,7 +181,8 @@ export class ChestBreakageEffects {
 
   /**
    * Opening: progress 0..1 of its duration, delta in seconds. Call after the scene has posed the
-   * chest for this frame: the energy build-up adds its swell and tremble on top.
+   * chest for this frame: the energy build-up adds its tremble on top. The chest is a solid
+   * object: it shakes, it never swells or squashes.
    */
   update(delta: number, progress = 0): void {
     if (this.moment === 'opening' && this.active && !this.burst && progress >= CHARGE_AT) {
@@ -189,8 +190,7 @@ export class ChestBreakageEffects {
       const charge = Math.min(1, (progress - CHARGE_AT) / (BURST_AT - CHARGE_AT)), strength = this.strength();
       // Burst first: fragments are cut from the chest at its real size, not mid-swell.
       if (progress < BURST_AT && !this.reduced) {
-        // The chest strains against the power inside: swelling, then a tremble that grows.
-        this.chest.scale.multiplyScalar(1 + charge ** 2 * .05 * strength);
+        // The chest strains against the power inside: a tremble that grows (a solid never swells).
         this.chest.position.x += (this.next() - .5) * charge ** 2 * .035 * strength;
         this.chest.position.z += (this.next() - .5) * charge ** 2 * .035 * strength;
       }
@@ -375,7 +375,10 @@ export class ChestBreakageEffects {
     const world = this.requirePhysics();
     this.syncParts(world);
     const torn = this.tearLoose(world, (mesh, position) => {
-      if (mesh.geometry.type === 'PlaneGeometry' || !mesh.parent) return false;
+      if (!mesh.parent) return false;
+      // Vines hang by a few tendrils: the jolt tears most of them off. Cobweb sticks.
+      if (mesh.userData.growth === 'vines') return this.next() < .55 + strength * .35;
+      if (mesh.geometry.type === 'PlaneGeometry') return false;
       // Off the edge: how far from the middle of the part it grows on (0 centre, 1 rim).
       const part = mesh.parent as Mesh;
       if (!part.geometry?.boundingBox) part.geometry?.computeBoundingBox();
@@ -387,9 +390,11 @@ export class ChestBreakageEffects {
     });
     for (const entry of torn) {
       const t = entry.body.translation(), centre = this.chestBox().getCenter(new Vector3());
-      const out = new Vector3(t.x - centre.x, 0, t.z - centre.z).normalize().multiplyScalar((.4 + this.next() * .7) * strength);
+      const vine = entry.object.userData.growth === 'vines';
+      // Vines peel away from their face and drift down; boxes are knocked off the rim.
+      const out = new Vector3(t.x - centre.x, 0, t.z - centre.z).normalize().multiplyScalar((vine ? .25 + this.next() * .35 : .4 + this.next() * .7) * strength);
       const mass = Math.max(entry.body.mass(), 1e-6);
-      entry.body.applyImpulse({ x: out.x * mass, y: (.5 + this.next() * .9) * strength * mass, z: out.z * mass }, true);
+      entry.body.applyImpulse({ x: out.x * mass, y: (vine ? .1 + this.next() * .3 : .5 + this.next() * .9) * strength * mass, z: out.z * mass }, true);
       entry.body.applyTorqueImpulse({ x: (this.next() - .5) * .3 * mass, y: 0, z: (this.next() - .5) * .3 * mass }, true);
     }
   }
@@ -397,7 +402,8 @@ export class ChestBreakageEffects {
   /** Jolt the hanging parts: each swing gets a push of its own. */
   kick(strength = 1): void {
     if (this.reduced) return;
-    for (const swing of this.ensureSwings()) swing.velocity += (this.next() < .5 ? -1 : 1) * (3 + this.next() * 3) * strength;
+    // Outwards: a jolt throws the latch away from the front wall, the spring brings it back.
+    for (const swing of this.ensureSwings()) swing.velocity += (3 + this.next() * 3) * strength;
   }
 
   /** Loose growth (on the chest or on parts that came off) passing `keep` becomes rigid bodies. */
@@ -421,21 +427,26 @@ export class ChestBreakageEffects {
       mesh.matrixAutoUpdate = false;
       const half = { x: Math.max(Math.abs(scale.x) / 2, .004), y: Math.max(Math.abs(scale.y) / 2, .004), z: Math.max(Math.abs(scale.z) / 2, .004) };
       const plane = mesh.geometry.type === 'PlaneGeometry';
-      if (plane) half.z = .004;
+      if (plane) half.z = .006; // thick enough not to tunnel through the floor
       this.addBody(world, mesh, new Matrix4().makeScale(scale.x, scale.y, scale.z), position, rotation,
         RAPIER.ColliderDesc.cuboid(half.x, half.y, half.z), half.x * half.y * half.z * 8 * (plane ? .3 : 1.2), new Vector3(), 'shatter', 'opening', 0);
       const entry = this.bodies[this.bodies.length - 1]!;
       entry.body.setLinvel({ x: 0, y: 0, z: 0 }, true); entry.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+      // A leaf of vines or web is mostly air: it flutters down instead of dropping like a stone.
+      if (plane) { entry.body.setLinearDamping(2.2); entry.body.setAngularDamping(1.2); }
       created.push(entry);
     }
     return created;
   }
 
-  /** Swings: the latch and loose planes, damped springs around their top edge. */
+  /**
+   * Swings: hanging parts of the chest (the latch), damped springs around their top edge. Only
+   * outwards: the chest is solid, nothing swings into it. Loose growth never swings — vines fall
+   * off as bodies of their own, cobweb sticks.
+   */
   private ensureSwings(): Swing[] {
     if (this.swings) return this.swings;
     const candidates = new Set<Mesh>(this.swingMeshes);
-    this.chest.traverse(object => { if (object instanceof Mesh && object.userData.loose && object.geometry.type === 'PlaneGeometry') candidates.add(object); });
     const worldX = new Vector3(1, 0, 0), parentRotation = new Quaternion();
     this.swings = [...candidates].filter(object => object.parent).map(object => {
       if (!object.geometry.boundingBox) object.geometry.computeBoundingBox();
@@ -466,7 +477,9 @@ export class ChestBreakageEffects {
     for (const swing of this.swings) {
       if (!isShown(swing.object) || (swing.angle === 0 && swing.velocity === 0)) continue;
       swing.velocity += (-swing.stiffness * swing.angle - swing.damping * swing.velocity) * delta;
-      swing.angle = Math.max(-1.2, Math.min(1.2, swing.angle + swing.velocity * delta));
+      swing.angle = Math.min(1.2, swing.angle + swing.velocity * delta);
+      // The front wall stops it: a +angle swings the bottom outwards (-Z), so it bounces off at 0.
+      if (swing.angle < 0) { swing.angle = 0; swing.velocity = Math.abs(swing.velocity) * .3; }
       if (Math.abs(swing.angle) < 1e-4 && Math.abs(swing.velocity) < 1e-3) swing.angle = swing.velocity = 0;
       turn.setFromAxisAngle(swing.axis, swing.angle);
       swing.object.position.copy(swing.basePosition).sub(swing.pivot).applyQuaternion(turn).add(swing.pivot);

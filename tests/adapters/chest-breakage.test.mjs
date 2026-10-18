@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { Box3, BoxGeometry, Group, Matrix4, Mesh, MeshStandardMaterial, Scene, Vector3 } from 'three';
+import { Box3, BoxGeometry, Group, Matrix4, Mesh, MeshStandardMaterial, PlaneGeometry, Scene, Vector3 } from 'three';
 import { buildFragment, fractureCells } from '../../src/adapters/outbound/chest/chest-fracture-geometry.ts';
 import { random } from '../../src/adapters/outbound/chest/chest-surface-patterns.ts';
 import { BURST_AT, ChestBreakageEffects } from '../../src/adapters/outbound/chest/chest-breakage-effects.ts';
@@ -89,7 +89,9 @@ test('opening breakage charges, then bursts at its moment; a fallen part keeps i
   effects.impact();
   assert.equal(effects.broken, false, 'an opening break ignores the impact');
   effects.update(1 / 60, BURST_AT * .9);
-  assert.equal(effects.broken, false); assert.ok(root.scale.x > 1, 'the chest swells with energy before it gives way');
+  assert.equal(effects.broken, false);
+  assert.deepEqual(root.scale.toArray(), [1, 1, 1], 'the chest is solid: it trembles with energy, it never swells');
+  assert.ok(root.position.x !== 0 || root.position.z !== 0, 'the energy makes it tremble');
   effects.update(1 / 60, BURST_AT);
   assert.equal(effects.broken, true); assert.equal(meshes.lid.visible, false); assert.equal(meshes.body.visible, true);
   const fallen = extras(world).find(child => child.children.some(grand => grand.userData.chestOverlay));
@@ -134,4 +136,37 @@ test('the beam tears loose growth off the top and throws it up; the chest itself
   assert.equal(snow.parent, meshes.lid, 'reset puts it back');
   assert.equal(meshes.lid.visible && meshes.body.visible, true);
   effects.dispose(); snow.geometry.dispose(); low.geometry.dispose(); dispose();
+});
+
+test('the landing tears vines off as falling bodies; cobweb sticks; the latch swings only outwards', () => {
+  const { world, root, meshes, dispose } = chest();
+  // The test chest's parts are stacked: move the latch to the front so it hangs off the body.
+  meshes.latch.position.set(0, .5, -1.4); // clear of the vines: the fixture's parts are unit boxes
+  const leaf = growth => {
+    const mesh = new Mesh(new PlaneGeometry(1, 1), new MeshStandardMaterial());
+    mesh.userData.loose = true; mesh.userData.chestOverlay = true; mesh.userData.growth = growth;
+    mesh.scale.set(.4, .4, 1); mesh.position.set(.2, 0, -.52); meshes.body.add(mesh); return mesh;
+  };
+  const vines = Array.from({ length: 6 }, () => leaf('vines')), web = leaf('cobweb');
+  const effects = new ChestBreakageEffects(world, root, profile, createChestAppearance(), copyChestBreakage({ seed: 5, moment: 'opening', parts: [] }, profile), '#35905f', 0);
+  effects.start(false);
+  const latchRest = meshes.latch.quaternion.clone();
+  effects.landed(1);
+  const fallen = vines.filter(vine => vine.parent === world);
+  assert.ok(fallen.length >= 3, `most vines fall off on landing (${fallen.length}/6)`);
+  assert.equal(web.parent, meshes.body, 'cobweb sticks to the chest');
+  const startY = fallen.map(vine => vine.matrix.elements[13]);
+  let minLatchTilt = Infinity;
+  for (let step = 0; step < 90; step++) {
+    effects.update(1 / 60);
+    // Bottom of the latch: + is outwards (-Z, the front); it must never go into the chest.
+    const down = new Vector3(0, -1, 0).applyQuaternion(meshes.latch.quaternion.clone().multiply(latchRest.clone().invert()));
+    minLatchTilt = Math.min(minLatchTilt, -down.z);
+  }
+  assert.ok(fallen.every((vine, index) => vine.matrix.elements[13] < startY[index]), 'torn vines drift down');
+  assert.ok(minLatchTilt >= -1e-6, 'the latch never swings into the chest');
+  assert.deepEqual(root.scale.toArray(), [1, 1, 1], 'the landing never squashes the chest');
+  effects.reset();
+  assert.ok(vines.every(vine => vine.parent === meshes.body), 'reset puts the vines back');
+  effects.dispose(); for (const mesh of [...vines, web]) mesh.geometry.dispose(); dispose();
 });
