@@ -24,12 +24,39 @@ export interface ChestAssets {
   dispose(): void;
 }
 
+/**
+ * Chest models fetched ahead of time (the warm-up after sign-in), kept in memory for the session:
+ * every scene gets its copy without a download, whatever the server's cache headers say.
+ */
+const modelBuffers = new Map<string, Promise<ArrayBuffer>>();
+
+export function prefetchChestModel(url: string): Promise<void> {
+  let pending = modelBuffers.get(url);
+  if (!pending) {
+    pending = fetch(url).then(response => {
+      if (!response.ok) throw new Error(`The chest model request failed with HTTP ${response.status}.`);
+      return response.arrayBuffer();
+    });
+    // A failed prefetch is forgotten: the scene then simply downloads the model itself.
+    pending.catch(() => { if (modelBuffers.get(url) === pending) modelBuffers.delete(url); });
+    modelBuffers.set(url, pending);
+  }
+  return pending.then(() => undefined);
+}
+
 export async function loadChestAssets(baseUrl: URL, signal: AbortSignal, definition: ChestModelDefinition = ENDER_CASE.model, metadata: ChestAppearance = createChestAppearance(), effectColor = chestEffectColor(metadata)): Promise<ChestAssets> {
   signal.throwIfAborted();
   const appearance = copyChestAppearance(metadata);
-  const response = await waitFor(fetch(resolvePublicAsset(definition.path, baseUrl), { signal }), signal);
-  if (!response.ok) throw new Error(`The chest model request failed with HTTP ${response.status}.`);
-  const buffer = await waitFor(response.arrayBuffer(), signal);
+  const url = resolvePublicAsset(definition.path, baseUrl), prefetched = modelBuffers.get(url);
+  let buffer: ArrayBuffer;
+  if (prefetched) {
+    // A copy: the Draco decoder may transfer the buffer to its worker.
+    buffer = (await waitFor(prefetched, signal)).slice(0);
+  } else {
+    const response = await waitFor(fetch(url, { signal }), signal);
+    if (!response.ok) throw new Error(`The chest model request failed with HTTP ${response.status}.`);
+    buffer = await waitFor(response.arrayBuffer(), signal);
+  }
   signal.throwIfAborted();
 
   const draco = new DRACOLoader()

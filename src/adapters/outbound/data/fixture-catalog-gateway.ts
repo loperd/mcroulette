@@ -12,6 +12,10 @@ interface CatalogRequest {
   settled: boolean;
 }
 
+/** Catalogs fetched by the warm-up after sign-in, by URL: case screens start from them, no request. */
+const warmCatalogs = new Map<string, unknown>();
+export function warmCatalog(url: string, value: unknown): void { warmCatalogs.set(url, value); }
+
 export class FixtureCatalogGateway implements CatalogGateway {
   private readonly baseUrl: URL;
   private readonly fetcher: FetchJson;
@@ -53,7 +57,9 @@ export class FixtureCatalogGateway implements CatalogGateway {
     const abort = new AbortController();
     const request: CatalogRequest = {
       abort, consumers: 0, settled: false,
-      promise: requestJson(resolvePublicAsset(this.path, this.baseUrl), abort.signal, this.fetcher)
+      promise: (warmCatalogs.has(resolvePublicAsset(this.path, this.baseUrl))
+        ? Promise.resolve(warmCatalogs.get(resolvePublicAsset(this.path, this.baseUrl)))
+        : requestJson(resolvePublicAsset(this.path, this.baseUrl), abort.signal, this.fetcher))
         .then(value => {
           abort.signal.throwIfAborted();
           const items = decodeCatalog(value, this.baseUrl);
