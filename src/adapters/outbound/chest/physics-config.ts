@@ -8,9 +8,15 @@ export const PHYSICS_CONFIG = Object.freeze({
   friction: 1,
 });
 
+/** Where the chest floats until it is opened: in the middle of the view, a little over the ground. */
+export const PREVIEW_POSE: Pose = Object.freeze({
+  position: Object.freeze({ x: 0, y: 1.34, z: 0 }),
+  rotation: Object.freeze({ x: 0, y: 0, z: 0, w: 1 }),
+});
+
 /**
- * Where the chest hangs until it is opened, and falls from: level, so it lands flat and never tips
- * forward, and low enough that the fall is a thud, not a tumble.
+ * Where the chest rises to when it is opened, and falls from: level, so it lands flat and never
+ * tips forward, and low enough that the fall is a thud, not a tumble.
  */
 export const SPAWN_POSE: Pose = Object.freeze({
   position: Object.freeze({ x: 0, y: 3, z: 0 }),

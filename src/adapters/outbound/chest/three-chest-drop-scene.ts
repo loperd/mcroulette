@@ -3,7 +3,7 @@ import { createChestAppearance, copyChestAppearance, type ChestAppearance } from
 import { ENDER_CASE, type ChestModelDefinition } from '../../../config/cases.ts';
 import {
   ACESFilmicToneMapping, AnimationMixer, Box3, Color, LoopOnce, Sphere, DirectionalLight, Group, HemisphereLight, Mesh, PointLight, type Object3D,
-  PerspectiveCamera, PlaneGeometry, Scene, ShadowMaterial, Vector3,
+  PerspectiveCamera, PlaneGeometry, Quaternion, Scene, ShadowMaterial, Vector3,
 } from 'three';
 import type { Guest, GuestWorld } from '../../../../packages/blockworld/src/index.ts';
 import type { ChestDropPort } from '../../../application/ports/chest-preview.ts';
@@ -23,13 +23,18 @@ import { gameAudio } from '../browser/game-audio.ts';
 import { NO_BREAKAGE, type ChestBreakage } from '../../../domain/chest-breakage.ts';
 import { ChestImpactEffects } from './chest-impact-effects.ts';
 import { ChestOpeningEffects } from './chest-opening-effects.ts';
-import { SPAWN_POSE } from './physics-config.ts';
+import { PREVIEW_POSE, SPAWN_POSE } from './physics-config.ts';
 import { CHEST_WIDTH } from './chest-bounds.ts';
 
 /** The chest is a block and a half wide: bigger than the world's blocks, the thing that matters. */
 const BLOCKS_WIDE = 1.5;
 /** Its units to a block. */
 const UNIT = CHEST_WIDTH / BLOCKS_WIDE;
+
+/** Opening: the chest rises, spinning, to where it falls from (seconds), then charges. */
+const RISE = 1.15, CHARGE = 1.35;
+/** Turns about its own axis on the way up: fast in the middle, settling to face the viewer again. */
+const RISE_TURNS = 2;
 
 /** How long to wait for a world to take the chest in before giving up. */
 const WORLD_WAIT_MS = 10_000;
@@ -235,18 +240,26 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     const position = visual.position.clone(), rotation = visual.quaternion.clone();
     const scale = visual.scale.x;
     const reduced = this.view.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const duration = reduced ? 0 : 2.2;
+    const duration = reduced ? 0 : RISE + CHARGE;
+    // Its body goes up to where it falls from, held; the chest follows it up, spinning.
+    this.physics!.resetChest(this.assets!.colliders, SPAWN_POSE);
+    this.physics!.setChestMoving(false);
     this.fractureEffects?.start(reduced);
     let chargeStarted = false;
+    const spin = new Quaternion(), up = new Vector3(0, 1, 0);
     await this.entranceTimeline.run(duration, elapsed => {
-      const progress = duration ? Math.min(elapsed / 0.85, 1) : 1;
-      const eased = progress * progress * (3 - 2 * progress);
+      const progress = duration ? Math.min(elapsed / RISE, 1) : 1;
+      // Ease in and out: it lifts off slowly, whirls up, and slows to a stop at the top.
+      const eased = progress < .5 ? 4 * progress ** 3 : 1 - (-2 * progress + 2) ** 3 / 2;
       this.syncPose();
       visual.position.lerpVectors(position, visual.position.clone(), eased);
       visual.quaternion.slerpQuaternions(rotation, visual.quaternion.clone(), eased);
+      visual.quaternion.premultiply(spin.setFromAxisAngle(up, eased * RISE_TURNS * Math.PI * 2));
       visual.scale.setScalar(scale + (1 - scale) * eased);
-      if (!reduced && elapsed > 0.85) {
-        const charge = Math.min((elapsed - 0.85) / 1.35, 1);
+      // Sparks swirl up under it as it rises.
+      if (!reduced && progress < 1) this.impactEffects?.approach(visual.position.x, visual.position.y, visual.position.z, false);
+      if (!reduced && elapsed > RISE) {
+        const charge = Math.min((elapsed - RISE) / CHARGE, 1);
         if (!chargeStarted) { this.effects?.charge(); chargeStarted = true; }
         const envelope = Math.sin(charge * Math.PI);
         visual.position.y += envelope * 0.16;
@@ -257,7 +270,7 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
       }
       this.render();
     }, signal);
-    // It shook where it hangs, and falls from there: no reset (and no flicker) before the drop.
+    // It shook up there, and falls from there: no reset (and no flicker) before the drop.
     this.syncPose();
     this.initialPose = true;
   }
@@ -335,7 +348,8 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     this.assertPrepared(signal);
     this.mode = 'preview'; this.previewTime = 0;
     this.initialPose = false;
-    // It hangs in the air, held: the world's physics leaves it be until it is opened.
+    // It floats in the middle of the view, held: the world's physics leaves it be until it is opened.
+    this.physics!.resetChest(this.assets!.colliders, PREVIEW_POSE);
     this.physics!.setChestMoving(false);
     this.syncPose();
     this.show(true); this.render();
@@ -530,6 +544,8 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
       const delta = Math.min(deltaSeconds, 0.1);
       this.previewTime += delta;
       this.syncPose();
+      // Floating: a slow bob over its spot.
+      this.assets!.visual.position.y += Math.sin(this.previewTime * 1.6) * 0.045;
       this.breakageEffects?.update(delta);
       this.applyWorld(Math.min(deltaSeconds, 0.1));
       this.render(); return;
