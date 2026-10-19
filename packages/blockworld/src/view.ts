@@ -1,9 +1,10 @@
 import {
-  BackSide, BufferAttribute, BufferGeometry, Color, DoubleSide, Fog, LinearSRGBColorSpace, Mesh, MeshBasicMaterial, NoToneMapping, PerspectiveCamera,
-  Scene, SphereGeometry, Vector3, WebGLRenderer, type Object3D, type Texture,
+  BackSide, Group, OrthographicCamera, PlaneGeometry, ShaderMaterial, SRGBColorSpace, type Camera, type ToneMapping, BufferAttribute, BufferGeometry, Color, DoubleSide, Fog, LinearSRGBColorSpace, Mesh, MeshBasicMaterial, NoToneMapping, PerspectiveCamera,
+  Scene, SphereGeometry, Vector2, Vector3, WebGLRenderer, type Object3D, type Texture,
 } from 'three';
 import type { MeshArrays, WorldMesh } from './mesher.ts';
 import { raw } from './color.ts';
+import { WorldPhysics, type PhysicsGround, type Vec } from './physics.ts';
 
 /**
  * Shows a block world: one renderer, a sky dome and fog, a slowly drifting camera, and the stage's
@@ -24,6 +25,8 @@ export interface StageContext<H> {
   gust(strength: number, side: number): void;
   /** The world flashes (lightning): sky and fog light up for a moment. */
   flash(color: string, strength: number): void;
+  /** A blast: bodies in the world's physics (a guest's, say) are thrown away from the point. */
+  blast(at: Vec, strength: number, radius: number): void;
 }
 
 export interface Living<H> { update(context: StageContext<H>, dt: number): void }
@@ -33,8 +36,21 @@ export interface Stage<H> {
   readonly living: readonly Living<H>[];
   readonly sky: { readonly top: string; readonly horizon: string; readonly bottom: string };
   readonly fog: { readonly color: string; readonly near: number; readonly far: number };
-  readonly camera: { readonly position: readonly [number, number, number]; readonly target: readonly [number, number, number]; readonly fov?: number; readonly drift?: number };
+  readonly camera: {
+    readonly position: readonly [number, number, number]; readonly target: readonly [number, number, number]; readonly fov?: number; readonly drift?: number;
+    /** Where on the screen the target shows, as fractions of width and height (default the middle). */
+    readonly focus?: readonly [number, number];
+  };
   readonly calm?: number;
+  /**
+   * The block guests stand on (see `Guest`): the point on top of it where their floor (y 0) goes.
+   * Without it the world takes no guests.
+   */
+  readonly anchor?: readonly [number, number, number];
+  /** No sky and a see-through canvas: only guests and whatever the stage holds are drawn. */
+  readonly transparent?: boolean;
+  /** What bodies in the world's physics stand on: its blocks around the anchor, or a flat floor. */
+  readonly ground?: PhysicsGround;
   /**
    * The sun as the sky and the shaders see it: a halo around it, haze that glows towards it, water
    * glinting with it, leaves lit through. Direction towards the sun; leave out for none (night, caves).
@@ -45,6 +61,47 @@ export interface Stage<H> {
 }
 
 export interface StageBuilder<H> { readonly id: string; build(seed: number): Stage<H> }
+
+/**
+ * Something from outside that lives in the world — a chest, say. The world is the base: it stands
+ * the guest on its anchor block, draws it with its own camera after the world itself, sharing the
+ * depth (so grass in front of it hides it and it hides what is behind), and its camera is the one
+ * that moves in on it. The guest brings its own things, units, lights and look; it moves on its
+ * own (physics, animations) and asks the world to draw when it did.
+ */
+export interface Guest {
+  /** The guest's things, in its own units, its floor at y 0 and its middle over x 0, z 0. */
+  readonly root: Object3D;
+  /** How many of its units make one block. */
+  readonly unit: number;
+  /** The side it shows the viewer, a direction along its ground (x, z); the world turns it so. */
+  readonly front?: readonly [number, number];
+  /** Its own look: lit materials, a film curve, shadows, clipping planes. The world's look is untouched. */
+  readonly look?: { readonly toneMapping?: ToneMapping; readonly exposure?: number; readonly srgb?: boolean; readonly shadows?: boolean; readonly clipping?: boolean };
+  /** The world took the guest in; it may now ask for frames and move the camera. */
+  enter?(world: GuestWorld): void;
+  /** The world let it go (or went away). */
+  leave?(): void;
+}
+
+export interface GuestWorld {
+  /** Draw now: the guest moved. */
+  draw(): void;
+  /** Move the camera in on the guest: `closer` 0 at home .. 1 at it; `lift` raises the aim, in blocks. */
+  approach(closer: number, lift?: number): void;
+  /** The guest alone on a clear background, seen by another camera (in world units), as a PNG. */
+  picture(camera: Camera, width: number, height: number): string;
+  /** The world's camera, to see from the way the world does. */
+  readonly camera: PerspectiveCamera;
+  /** The world's physics: the guest's body goes in here; the world's ground and blasts act on it. */
+  readonly physics: Promise<WorldPhysics>;
+  /** Bring the world's physics up to now (a guest drawing its own frames calls this first). */
+  sync(): void;
+  /** Where the guest's floor stands in the world (its physics is in world coordinates). */
+  readonly anchor: Vec;
+  /** How the world turned the guest about the vertical (radians) to show its front. */
+  readonly turn: number;
+}
 
 /**
  * What the shaders know about the world: its clock, the wind, the sun (where it hangs and its
@@ -160,6 +217,7 @@ export function geometry(arrays: MeshArrays): BufferGeometry {
 }
 
 const FPS = 30, MIN_FPS = 20;
+const AIM = new Vector3();
 const stages = new Map<string, Stage<unknown>>();
 
 /** Build a stage ahead of time; later views reuse it instantly. */
@@ -210,6 +268,15 @@ export class BlockView<H> {
   private readonly flashColor = new Color();
   private readonly target = new Vector3();
   private host: H | undefined;
+  private readonly guests = new Map<Guest, Group>();
+  /** A darkening laid over the world but under the guests (an interface reads over it). */
+  private readonly veil?: { readonly scene: Scene; readonly camera: OrthographicCamera; readonly material: ShaderMaterial };
+  private readonly guestScene = new Scene();
+  private closer = 0;
+  private lift = 0;
+  private lastDrawn = 0;
+  private physicsWorld?: WorldPhysics;
+  private physicsLoad?: Promise<WorldPhysics>;
   private time = 0;
   private wind = 0;
   private gustLevel = 0;
@@ -227,12 +294,17 @@ export class BlockView<H> {
   private readonly onChange = () => this.sync();
   private readonly resizeObserver?: ResizeObserver;
 
-  constructor(element: HTMLElement, builder: StageBuilder<H>, options: { seed?: number } = {}) {
+  /**
+   * `veil`: darkness laid over the world, under its guests, as alphas at the top, middle (42%) and
+   * bottom of the view, so an interface on top stays readable without dimming the guests.
+   */
+  constructor(element: HTMLElement, builder: StageBuilder<H>, options: { seed?: number; veil?: { color: string; top: number; middle: number; bottom: number } } = {}) {
     this.view = element.ownerDocument.defaultView ?? window;
     this.stage = stageOf(builder, options.seed ?? 1);
     let state = ((options.seed ?? 1) * 9301 + 49297) % 233280;
     this.rand = () => { state = (state * 9301 + 49297) % 233280; return state / 233280; };
-    this.renderer = new WebGLRenderer({ antialias: false, alpha: false, powerPreference: 'low-power', stencil: false });
+    this.renderer = new WebGLRenderer({ antialias: false, alpha: this.stage.transparent === true, powerPreference: 'low-power', stencil: false });
+    if (this.stage.transparent) this.renderer.setClearColor(0x000000, 0);
     // The game's look: colours go to the screen as computed, no colour management, no tone curve.
     this.renderer.outputColorSpace = LinearSRGBColorSpace;
     this.renderer.toneMapping = NoToneMapping;
@@ -245,10 +317,23 @@ export class BlockView<H> {
     this.camera = new PerspectiveCamera(this.stage.camera.fov ?? 70, 16 / 9, .1, 1200);
     this.fogBase = raw(this.stage.fog.color);
     this.fog = new Fog(this.fogBase.clone(), this.stage.fog.near, this.stage.fog.far);
-    this.scene.fog = this.fog;
     this.dome = skyDome(this.stage.sky);
-    this.scene.add(this.dome, this.stage.root);
+    if (!this.stage.transparent) { this.scene.fog = this.fog; this.scene.add(this.dome); }
+    this.scene.add(this.stage.root);
     this.target.set(...this.stage.camera.target);
+    if (options.veil) {
+      const { color, top, middle, bottom } = options.veil;
+      const material = new ShaderMaterial({
+        transparent: true, depthTest: false, depthWrite: false,
+        uniforms: { color: { value: raw(color) }, top: { value: top }, middle: { value: middle }, bottom: { value: bottom } },
+        vertexShader: 'varying float vY; void main() { vY = uv.y; gl_Position = vec4(position.xy, 0., 1.); }',
+        fragmentShader: `uniform vec3 color; uniform float top; uniform float middle; uniform float bottom; varying float vY;
+void main() { float down = 1. - vY; float a = down < .42 ? mix(top, middle, down / .42) : mix(middle, bottom, (down - .42) / .58); gl_FragColor = vec4(color, a); }`,
+      });
+      const scene = new Scene();
+      scene.add(new Mesh(new PlaneGeometry(2, 2), material));
+      this.veil = { scene, camera: new OrthographicCamera(), material };
+    }
     this.motion = this.view.matchMedia('(prefers-reduced-motion: reduce)');
     this.motion.addEventListener('change', this.onChange);
     element.ownerDocument.addEventListener('visibilitychange', this.onChange);
@@ -259,6 +344,52 @@ export class BlockView<H> {
 
   /** What the world may act on now (or nothing). */
   hold(host: H | undefined): void { this.host = host; }
+
+  /** Take a guest in: it stands on the anchor block and is drawn with the world. */
+  admit(guest: Guest): void {
+    const anchor = this.stage.anchor;
+    if (!anchor || this.guests.has(guest) || this.disposed) return;
+    const place = new Group(), eye = this.stage.camera.position, front = guest.front ?? [0, 1];
+    const turn = Math.atan2(eye[0] - anchor[0], eye[2] - anchor[2]) - Math.atan2(front[0], front[1]);
+    place.position.set(...anchor);
+    place.rotation.y = turn;
+    place.scale.setScalar(1 / guest.unit);
+    place.add(guest.root);
+    this.guestScene.add(place);
+    this.guests.set(guest, place);
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const view = this;
+    guest.enter?.({
+      draw: () => view.draw(),
+      approach: (closer, lift = 0) => { view.closer = Math.max(0, Math.min(1, closer)); view.lift = lift; },
+      picture: (camera, width, height) => view.picture(camera, width, height),
+      camera: view.camera,
+      physics: view.physics(),
+      sync: () => view.physicsWorld?.sync(view.view.performance.now()),
+      anchor, turn,
+    });
+    this.draw();
+  }
+
+  /** The world's physics, made on first use: the stage's ground (or a floor under the anchor). */
+  private physics(): Promise<WorldPhysics> {
+    return this.physicsLoad ??= WorldPhysics.create(this.stage.ground ?? { floor: this.stage.anchor?.[1] ?? 0 }).then(physics => {
+      if (this.disposed) { physics.dispose(); throw new Error('The world was closed.'); }
+      this.physicsWorld = physics;
+      return physics;
+    });
+  }
+
+  /** Let a guest go; the camera goes home. */
+  dismiss(guest: Guest): void {
+    const place = this.guests.get(guest);
+    if (!place) return;
+    this.guests.delete(guest);
+    place.remove(guest.root); place.removeFromParent();
+    this.closer = 0; this.lift = 0;
+    guest.leave?.();
+    this.draw();
+  }
 
   /** One frame at a given time (previews, reduced motion). Living things run without a host. */
   renderAt(seconds: number): void {
@@ -271,7 +402,9 @@ export class BlockView<H> {
   snapshot(type = 'image/jpeg', quality = .85): string { this.draw(); return this.canvas.toDataURL(type, quality); }
 
   dispose(): void {
+    for (const guest of [...this.guests.keys()]) this.dismiss(guest);
     this.disposed = true; this.running = false;
+    this.physicsWorld?.dispose(); this.physicsWorld = undefined;
     this.view.cancelAnimationFrame(this.frame);
     this.canvas.ownerDocument.removeEventListener('visibilitychange', this.onChange);
     this.motion.removeEventListener('change', this.onChange);
@@ -279,6 +412,7 @@ export class BlockView<H> {
     // The stage stays cached for the session; only this view's own objects go.
     this.scene.remove(this.stage.root);
     this.dome.geometry.dispose(); (this.dome.material as MeshBasicMaterial).dispose();
+    this.veil?.material.dispose();
     this.renderer.dispose();
     this.canvas.remove();
   }
@@ -288,6 +422,9 @@ export class BlockView<H> {
     if (!box || box.width <= 0 || box.height <= 0) return;
     this.renderer.setSize(box.width, box.height, false);
     this.camera.aspect = box.width / box.height;
+    // The target shows at the stage's focus: the picture is cut from a frame shifted that way.
+    const [fx, fy] = this.stage.camera.focus ?? [.5, .5];
+    if (fx !== .5 || fy !== .5) this.camera.setViewOffset(box.width, box.height, (.5 - fx) * box.width, (.5 - fy) * box.height, box.width, box.height);
     this.camera.updateProjectionMatrix();
     this.draw();
   }
@@ -301,12 +438,15 @@ export class BlockView<H> {
   private readonly loop = (now: number) => {
     if (!this.running) return;
     this.frame = this.view.requestAnimationFrame(this.loop);
+    // Physics keeps its own time every frame, whatever the drawing budget.
+    this.physicsWorld?.sync(now);
     const elapsed = (now - this.last) / 1000;
     if (elapsed < 1 / this.fps - .002) return;
     this.last = now;
     const started = this.view.performance.now();
     this.tick(Math.min(elapsed, .1), true);
-    this.draw();
+    // A guest that moves draws every frame itself; no need to draw twice.
+    if (now - this.lastDrawn > 1000 / this.fps * .5) this.draw();
     this.budget(this.view.performance.now() - started);
   };
 
@@ -317,6 +457,8 @@ export class BlockView<H> {
     this.slow = 0;
     if (this.quality > .45) { this.quality = Math.max(.4, this.quality - .15); this.renderer.setPixelRatio(this.quality); this.resize(); return; }
     if (this.fps > MIN_FPS) { this.fps = MIN_FPS; return; }
+    // With guests the world must go on (their physics lives here); alone it may become a still.
+    if (this.guests.size > 0) return;
     this.running = false; this.view.cancelAnimationFrame(this.frame);
   }
 
@@ -345,6 +487,7 @@ export class BlockView<H> {
       time: this.time, wind: this.wind, rand: this.rand, host: live ? this.host : undefined,
       gust(strength, side) { self.gustLevel = Math.max(self.gustLevel, Math.min(1, strength)); self.gustSide = side < 0 ? -1 : 1; },
       flash(color, strength) { self.flashColor.copy(raw(color)); self.flashLevel = Math.max(self.flashLevel, Math.min(1, strength)); },
+      blast(at, strength, radius) { if (live) self.physicsWorld?.blast(at, strength, radius); },
     };
     for (const thing of this.stage.living) thing.update(context, dt);
     atmosphere.time.value = this.time; atmosphere.wind.value = this.wind;
@@ -355,11 +498,50 @@ export class BlockView<H> {
     const camera = this.stage.camera, t = this.time, drift = camera.drift ?? 1;
     // A slow drift: the world is a place, not a picture.
     this.camera.position.set(camera.position[0] + Math.sin(t * .05) * 2.2 * drift, camera.position[1] + Math.sin(t * .07) * .4 * drift, camera.position[2] + Math.cos(t * .04) * 1.2 * drift);
-    this.camera.lookAt(this.target);
+    // Moving in on a guest: along the line to the target, the aim raised a little.
+    AIM.copy(this.target).setY(this.target.y + this.lift);
+    if (this.closer > 0 || this.lift !== 0) this.camera.position.sub(AIM).multiplyScalar(1 - this.closer).add(AIM);
+    this.camera.lookAt(AIM);
     this.dome.position.copy(this.camera.position);
     this.fog.color.copy(this.fogBase).lerp(this.flashColor, this.flashLevel * .6);
     (this.dome.material as MeshBasicMaterial).color.setScalar(1 + this.flashLevel * 1.5);
     this.atmosphere();
-    this.renderer.render(this.scene, this.camera);
+    this.lastDrawn = this.view.performance.now();
+    const renderer = this.renderer;
+    renderer.outputColorSpace = LinearSRGBColorSpace; renderer.toneMapping = NoToneMapping;
+    renderer.shadowMap.enabled = false; renderer.localClippingEnabled = false;
+    renderer.autoClear = true;
+    renderer.render(this.scene, this.camera);
+    renderer.autoClear = false;
+    if (this.veil) renderer.render(this.veil.scene, this.veil.camera);
+    if (this.guests.size === 0) { renderer.autoClear = true; return; }
+    // The guests, over the world and in its depth, each in its own look.
+    for (const guest of this.guests.keys()) {
+      const look = guest.look ?? {};
+      renderer.outputColorSpace = look.srgb ? SRGBColorSpace : LinearSRGBColorSpace;
+      renderer.toneMapping = look.toneMapping ?? NoToneMapping; renderer.toneMappingExposure = look.exposure ?? 1;
+      renderer.shadowMap.enabled = look.shadows === true; renderer.localClippingEnabled = look.clipping === true;
+      for (const [other, place] of this.guests) place.visible = other === guest;
+      renderer.render(this.guestScene, this.camera);
+    }
+    for (const place of this.guests.values()) place.visible = true;
+    renderer.autoClear = true;
+  }
+
+  /** The guests alone, on a clear background, from another camera: a picture for elsewhere. */
+  private picture(camera: Camera, width: number, height: number): string {
+    const renderer = this.renderer, size = renderer.getSize(new Vector2()), ratio = renderer.getPixelRatio();
+    const look = [...this.guests.keys()][0]?.look ?? {}, clear = renderer.getClearColor(new Color()), alpha = renderer.getClearAlpha();
+    renderer.setPixelRatio(1); renderer.setSize(width, height, false);
+    renderer.outputColorSpace = look.srgb ? SRGBColorSpace : LinearSRGBColorSpace;
+    renderer.toneMapping = look.toneMapping ?? NoToneMapping; renderer.toneMappingExposure = look.exposure ?? 1;
+    renderer.shadowMap.enabled = look.shadows === true; renderer.localClippingEnabled = look.clipping === true;
+    renderer.setClearColor(0x000000, 0); renderer.autoClear = true;
+    renderer.render(this.guestScene, camera);
+    const image = this.canvas.toDataURL('image/png');
+    renderer.setClearColor(clear, alpha);
+    renderer.setPixelRatio(ratio); renderer.setSize(size.x, size.y, false);
+    this.resize();
+    return image;
   }
 }

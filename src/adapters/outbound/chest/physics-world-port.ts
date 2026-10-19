@@ -6,6 +6,8 @@ export interface BoxCollider { readonly center: Vec3; readonly halfExtents: Vec3
 export interface PhysicsWorldPort {
   resetChest(colliders: readonly BoxCollider[], pose: Pose): void;
   step(deltaSeconds: number): void;
+  /** Run until the chest rests (a still picture, reduced motion). */
+  settle(): void;
   readChestPose(): Pose;
   isChestSleeping(): boolean;
   diagnostics(): { readonly bodies: number; readonly colliders: number };

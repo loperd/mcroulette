@@ -36,12 +36,11 @@ const id = (name: string) => BLOCKS.id(name);
 
 const SX = 112, SY = 40, SZ = 150, OX = -56, OZ = -110, GROUND = 10;
 /**
- * Where the chest hangs in this world: one block, two above the grass, over the road. The camera
- * stands as a player would (eyes ~1.7 above the grass) 4.3 blocks away, looking a little down — at
- * that distance a block fills the share of the screen the chest does, so the chest is to scale.
+ * Where the chest lands: on the grass by the road, one block of this world. The camera stands as a
+ * player would, about 5 blocks off and 2 up, looking at it; it moves in on it when it opens.
  */
-const CHEST = [0, GROUND + 3, 6] as const;
-const EYE = [CHEST[0], GROUND + 2.72, CHEST[2] + 4.33] as const;
+const CHEST = [-1.5, GROUND + 1, 6.5] as const;
+const EYE = [CHEST[0], CHEST[1] + 2.06, CHEST[2] + 5.06] as const;
 /** The sky light at dusk: warm on the lit side of the world, as the game tints it at sunset. */
 const DUSK: [number, number, number] = [1, .78, .64];
 /** The low evening sun (from where its square hangs, a little higher so shadows stay readable). */
@@ -114,7 +113,7 @@ function build(seed: number, events: Parameters<typeof happenings>[2] = {}): Sta
     const x = Math.floor(rand() * SX) + OX, z = Math.floor(rand() * SZ) + OZ, h = top(x, z);
     if (Math.abs(x - roadAt(z)) < 3 || lake(x, z) || world.get(x - OX, h, z - OZ) !== id('grass') || world.get(x - OX, h + 1, z - OZ)) continue;
     // Nothing grows right at the camera's feet: a grass tuft there would fill the screen.
-    if (Math.hypot(x - EYE[0], z - EYE[2]) < 4.5) continue;
+    if (Math.hypot(x - EYE[0], z - EYE[2]) < 4.5 || Math.hypot(x - CHEST[0], z - CHEST[2]) < 1.5) continue;
     const meadow = Math.abs(x) < 20 && z > -40;
     const roll = rand();
     if (!meadow && roll < .1) oak(world, x - OX, h + 1, z - OZ, rand);
@@ -142,7 +141,10 @@ function build(seed: number, events: Parameters<typeof happenings>[2] = {}): Sta
     sun: { direction: [-300, 70, -560], color: '#ffb36e', scatter: .85 },
     sky: { top: '#2a3a78', horizon: '#f2a46e', bottom: '#3a3050' },
     fog: { color: '#d99a7e', near: 70, far: 330 },
-    camera: { position: EYE, target: [0, EYE[1] - 4.2, EYE[2] - 30], fov: 60, drift: .12 },
+    camera: { position: EYE, target: [CHEST[0], CHEST[1] + .65, CHEST[2]], fov: 50, drift: .12, focus: [.5, .36] },
+    // The chest lands here, on the world's own blocks (they are its physics ground), seen by this camera.
+    anchor: CHEST,
+    ground: { blocks: { world, registry: BLOCKS, around: [CHEST[0], CHEST[2]], radius: 12 } },
   };
 }
 

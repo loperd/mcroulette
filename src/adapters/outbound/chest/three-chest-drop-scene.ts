@@ -2,9 +2,10 @@ import { chestEffectColor } from './chest-appearance.ts';
 import { createChestAppearance, copyChestAppearance, type ChestAppearance } from '../../../domain/chest-appearance.ts';
 import { ENDER_CASE, type ChestModelDefinition } from '../../../config/cases.ts';
 import {
-  ACESFilmicToneMapping, AnimationMixer, Box3, Color, LoopOnce, Sphere, Vector2, DirectionalLight, HemisphereLight, Mesh, PCFSoftShadowMap, PointLight, type Object3D,
-  PerspectiveCamera, PlaneGeometry, Scene, ShadowMaterial, WebGLRenderer, Vector3,
+  ACESFilmicToneMapping, AnimationMixer, Box3, Color, LoopOnce, Sphere, DirectionalLight, Group, HemisphereLight, Mesh, PointLight, type Object3D,
+  PerspectiveCamera, PlaneGeometry, Scene, ShadowMaterial, Vector3,
 } from 'three';
+import type { Guest, GuestWorld } from '../../../../packages/blockworld/src/index.ts';
 import type { ChestDropPort } from '../../../application/ports/chest-preview.ts';
 import type { ChestPresentationPort } from '../../../application/ports/chest-presentation.ts';
 import type { ChestHandles } from '../../../application/ports/chest-handles.ts';
@@ -14,16 +15,27 @@ import { browserFrameEnvironment, FrameScheduler } from '../browser/frame-schedu
 import { normalizeBaseUrl } from '../data/asset-url.ts';
 import { loadChestAssets, type ChestAssets } from './chest-assets.ts';
 import { disposeObject } from './dispose-object.ts';
-import { createRapierPhysicsWorld } from './rapier-physics-world.ts';
-import type { PhysicsWorldPort } from './physics-world-port.ts';
+import { WorldBodyPhysics } from './world-body-physics.ts';
+import type { PhysicsWorldPort, Pose } from './physics-world-port.ts';
 import { ChestFractureEffects } from './chest-fracture-effects.ts';
 import { BEAM_AT, BURST_AT, ChestBreakageEffects } from './chest-breakage-effects.ts';
 import { gameAudio } from '../browser/game-audio.ts';
 import { NO_BREAKAGE, type ChestBreakage } from '../../../domain/chest-breakage.ts';
 import { ChestImpactEffects } from './chest-impact-effects.ts';
 import { ChestOpeningEffects } from './chest-opening-effects.ts';
-import { SPAWN_POSE } from './physics-config.ts';
+import { PREVIEW_DROP_POSE, SPAWN_POSE } from './physics-config.ts';
+import { CHEST_WIDTH } from './chest-bounds.ts';
 
+/** How long to wait for a world to take the chest in before giving up. */
+const WORLD_WAIT_MS = 10_000;
+
+/**
+ * The chest, a guest of whatever world it is shown in. The world is the base: it owns the canvas,
+ * the camera, the ground and the physics. The chest brings its model, lights, effects and body; it
+ * falls under the world's physics onto the world's ground, is drawn by the world's camera, and the
+ * world's camera moves in on it when it opens. A world may pull its handles (gusts, tremors, light)
+ * and blow it about with real blasts.
+ */
 export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort {
   readonly element: HTMLDivElement;
   private readonly baseUrl: URL;
@@ -35,16 +47,20 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
   private readonly document: Document;
   private readonly errors = new Set<(error: unknown) => void>();
   private readonly stepper = new FixedStepper();
-  private renderer?: WebGLRenderer;
   private scene?: Scene;
-  private camera?: PerspectiveCamera;
   private floor?: Mesh;
   private assets?: ChestAssets;
-  private physics?: PhysicsWorldPort;
+  private physics?: PhysicsWorldPort & { settle(): void };
   private scheduler?: FrameScheduler;
-  private observer?: ResizeObserver;
-  private detachContextLost?: () => void;
   private detachAbort?: () => void;
+  /** Everything of the chest's, standing on the world's anchor block. */
+  private readonly root = new Group();
+  private world?: GuestWorld;
+  private worldPhysics?: WorldBodyPhysics;
+  private arrived?: () => void;
+  /** Where the chest was when its world went away: it stands there in the next one. */
+  private carried?: Pose;
+  private arrival: Promise<void>;
   private generation = 0;
   private initialPose = false;
   private prepared = false;
@@ -82,6 +98,20 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     },
   };
   private previewTime = 0;
+  /** The preview fall: from the sky onto the ground, a real body under physics. */
+  private previewLanded = false;
+  private previewSettled = false;
+
+  /** What a world takes in: the chest's things, one block wide, in the chest's own look. */
+  readonly guest: Guest = {
+    root: this.root,
+    unit: CHEST_WIDTH,
+    // The three-quarter view it was made to be seen in: front and one side.
+    front: [-5, -7],
+    look: { toneMapping: ACESFilmicToneMapping, exposure: 1.1, srgb: true, shadows: true, clipping: true },
+    enter: world => { void this.enter(world); },
+    leave: () => this.leave(),
+  };
   private readonly entranceTimeline: FrameTimeline;
   private previewEntrance?: Animation;
   private effects?: ChestOpeningEffects;
@@ -107,6 +137,40 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     this.entranceTimeline = new FrameTimeline(browserFrameEnvironment(this.view, document));
     this.element = document.createElement('div');
     this.element.className = 'chest-canvas';
+    this.arrival = new Promise(resolve => { this.arrived = resolve; });
+    this.root.visible = false;
+  }
+
+  /** A world took the chest in: its body goes into that world's physics, where it was. */
+  private async enter(world: GuestWorld): Promise<void> {
+    this.world = world;
+    const physics = await world.physics.catch(error => { this.runtimeFailure(error); return undefined; });
+    if (!physics || this.world !== world) return;
+    const carried = this.carried;
+    this.carried = undefined;
+    this.worldPhysics = new WorldBodyPhysics(physics, world, CHEST_WIDTH);
+    this.physics = this.worldPhysics;
+    if (carried && this.assets) { this.physics.resetChest(this.assets.colliders, carried); this.syncPose(); }
+    this.arrived?.();
+    this.render();
+  }
+
+  /** The world went away: the chest waits for the next one. */
+  private leave(): void {
+    // Its body goes with the old world's physics: remember where it stood and stop moving.
+    this.carried = this.worldPhysics?.carryOver();
+    this.scheduler?.stop();
+    this.worldPhysics?.dispose();
+    this.worldPhysics = undefined; this.physics = undefined;
+    this.world = undefined;
+    this.arrival = new Promise(resolve => { this.arrived = resolve; });
+  }
+
+  /** Shown or not: the placeholder in the page and the chest in the world together. */
+  private show(visible: boolean): void {
+    this.element.hidden = !visible;
+    this.root.visible = visible;
+    this.world?.draw();
   }
 
   setSoundMuted(muted: boolean): void { this.soundMuted = muted; this.effects?.setMuted(muted); gameAudio.setMuted(muted); }
@@ -116,32 +180,29 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
    * destruction screen. Rendered and read in the same task, so the drawing buffer is still valid.
    */
   captureWreck(): string | undefined {
-    const renderer = this.renderer, scene = this.scene, camera = this.camera, assets = this.assets;
-    if (!renderer || !scene || !camera || !assets) return undefined;
+    const world = this.world, scene = this.scene, assets = this.assets;
+    if (!world || !scene || !assets) return undefined;
     try {
       // Frame what lies around the chest (fragments, standing parts, debris), not crumbs far away.
-      const origin = assets.visual.position.clone().setY(0), box = new Box3(), point = new Vector3();
+      // All in the world's units: the chest stands on the anchor, a block wide.
+      const block = 1 / CHEST_WIDTH, origin = assets.visual.getWorldPosition(new Vector3()), box = new Box3(), point = new Vector3();
+      origin.y = world.anchor[1];
       scene.traverse(object => {
         if (!(object instanceof Mesh) || object === this.floor) return;
         for (let shown: Object3D | null = object; shown; shown = shown.parent) if (!shown.visible) return;
         object.getWorldPosition(point);
-        if (point.distanceTo(origin) < 2.2) box.expandByObject(object);
+        if (point.distanceTo(origin) < 2.2 * block) box.expandByObject(object);
       });
       if (box.isEmpty()) return undefined;
       const sphere = box.getBoundingSphere(new Sphere());
-      // A dedicated camera from the game's own viewing direction, close enough to fill the shot.
-      const width = 720, height = 600, shot = new PerspectiveCamera(32, width / height, 0.05, 60);
-      const direction = camera.position.clone().sub(sphere.center).normalize();
+      // A dedicated camera from the world's own viewing direction, close enough to fill the shot.
+      const width = 720, height = 600, shot = new PerspectiveCamera(32, width / height, 0.05 * block, 60);
+      const direction = world.camera.position.clone().sub(sphere.center).normalize();
       const distance = sphere.radius / Math.sin(shot.fov * Math.PI / 360) * 1.08;
       shot.position.copy(sphere.center).addScaledVector(direction, distance);
       shot.lookAt(sphere.center);
-      const size = renderer.getSize(new Vector2()), ratio = renderer.getPixelRatio();
-      renderer.setPixelRatio(1); renderer.setSize(width, height, false);
-      renderer.render(scene, shot);
-      const image = renderer.domElement.toDataURL('image/png');
-      renderer.setPixelRatio(ratio); renderer.setSize(size.x, size.y, false);
-      renderer.render(scene, camera);
-      return image;
+      shot.updateMatrixWorld();
+      return world.picture(shot, width, height);
     } catch { return undefined; }
   }
 
@@ -156,6 +217,8 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     const visual = this.assets!.visual;
     const position = visual.position.clone(), rotation = visual.quaternion.clone();
     const scale = visual.scale.x;
+    // From where it lies on the ground, up to where it will fall from.
+    this.physics!.resetChest(this.assets!.colliders, SPAWN_POSE);
     const reduced = this.view.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const duration = reduced ? 0 : 2.2;
     this.fractureEffects?.start(reduced);
@@ -193,38 +256,19 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     this.release();
     const generation = this.generation;
     try {
-      const renderer = new WebGLRenderer({ alpha: true, antialias: true });
-      this.renderer = renderer;
-      renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = PCFSoftShadowMap;
-      renderer.toneMapping = ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.1;
-      renderer.localClippingEnabled = true; // geometric fracture fragments are clipped copies of the mesh
-      renderer.setClearColor(0x000000, 0);
-      renderer.domElement.setAttribute('aria-hidden', 'true');
-      this.element.appendChild(renderer.domElement);
-      const contextLost = (event: Event) => {
-        event.preventDefault();
-        if (generation !== this.generation || this.disposed) return;
-        this.runtimeFailure(new Error('The WebGL context was lost.'));
-      };
-      renderer.domElement.addEventListener('webglcontextlost', contextLost);
-      this.detachContextLost = () => renderer.domElement.removeEventListener('webglcontextlost', contextLost);
-
+      // The chest's things load while it waits for a world to stand in (and its physics to fall in).
       await Promise.all([
         loadChestAssets(this.baseUrl, signal, this.modelDefinition, this.appearance, this.effectColor).then(assets => {
           if (!this.isCurrent(generation, signal)) { assets.dispose(); signal.throwIfAborted(); throw new Error('Scene preparation was cancelled.'); }
           this.assets = assets;
         }),
-        createRapierPhysicsWorld(signal).then(physics => {
-          if (!this.isCurrent(generation, signal)) { physics.dispose(); signal.throwIfAborted(); throw new Error('Scene preparation was cancelled.'); }
-          this.physics = physics;
-        }),
+        this.awaitWorld(signal),
       ]);
       this.assertAlive(signal);
       if (this.generation !== generation || !this.assets || !this.physics) throw new Error('Scene preparation was cancelled.');
       const scene = new Scene();
       this.scene = scene;
+      this.root.add(scene);
       scene.add(this.assets.visual);
       const effectColor = this.effectColor;
       this.fractureEffects = new ChestFractureEffects(this.assets.visual, effectColor, this.assets.appearance, this.modelDefinition.modifications);
@@ -245,29 +289,23 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
       // Without a bias every lit face catches its own shadow (shadow acne): fine diagonal stripes
       // that get obvious as the chest moves towards the camera. normalBias handles grazing angles.
       light.shadow.bias = -0.0005; light.shadow.normalBias = 0.02;
-      scene.add(light);
+      // The light's target stands with the chest, wherever the world puts it.
+      scene.add(light, light.target);
       // The world's light on the chest (lava, lightning, an ender flash): off until a world pulls it.
       this.worldLight = new PointLight(0xffffff, 0, 6, 1.6);
       this.worldLight.position.set(-1.6, 2.4, -2.2);
       scene.add(this.worldLight);
-      const floor = new Mesh(new PlaneGeometry(20, 20), new ShadowMaterial({ opacity: 0.25 }));
+      // Catches the chest's shadow on the world's ground; nudged towards the camera so it never
+      // flickers against the ground it lies on.
+      const floor = new Mesh(new PlaneGeometry(20, 20), new ShadowMaterial({ opacity: 0.25, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }));
       this.floor = floor;
       floor.rotation.x = -Math.PI / 2;
       floor.receiveShadow = true;
       scene.add(floor);
-      const camera = new PerspectiveCamera(50, 1, 0.1, 100);
-      camera.position.set(-5, 3.5, -7);
-      camera.lookAt(0, 1.1, 0);
-      this.camera = camera;
       this.scheduler = new FrameScheduler(browserFrameEnvironment(this.view, this.document),
         delta => this.frame(delta), () => this.stepper.reset(), error => this.runtimeFailure(error));
-      this.observer = new ResizeObserver(() => {
-        if (generation !== this.generation || this.disposed) return;
-        try { this.resize(); } catch (error) { this.runtimeFailure(error); }
-      });
-      this.observer.observe(this.element);
       this.prepared = true;
-      this.resize();
+      this.render();
     } catch (error) {
       if (this.generation === generation) this.release();
       throw error;
@@ -279,23 +317,22 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     this.assertPrepared(signal);
     this.mode = 'preview'; this.previewTime = 0;
     this.initialPose = false;
-    this.assets!.visual.scale.setScalar(0.75);
-    this.floor!.visible = false;
-    this.syncPose();
-    this.assets!.visual.position.y = 2.6;
-    // Publish only the complete preview pose: reset's physical scale must never be visible.
-    this.element.hidden = false; this.render();
-    if (!this.view.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      this.previewEntrance = this.element.animate([
-        { transform: 'translateY(-65svh)' },
-        { transform: 'translateY(0)' },
-      ], { duration: 1300, easing: 'cubic-bezier(0.2, 0.7, 0.25, 1)', fill: 'backwards' });
+    // The chest comes down from the sky as what it is, a solid block: it falls, lands, rocks and
+    // settles on the ground; its shadow lies on the ground under it.
+    this.physics!.resetChest(this.assets!.colliders, PREVIEW_DROP_POSE);
+    this.previewLanded = false; this.previewSettled = false;
+    const reduced = this.view.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) {
+      this.physics!.settle();
+      this.previewLanded = true; this.previewSettled = true;
     }
+    this.syncPose();
+    this.show(true); this.render();
     const scheduler = this.scheduler!;
     const stop = () => scheduler.stop();
     signal.addEventListener('abort', stop, { once: true });
     this.detachAbort = () => signal.removeEventListener('abort', stop);
-    if (!this.view.matchMedia('(prefers-reduced-motion: reduce)').matches) scheduler.start();
+    if (!reduced) scheduler.start();
   }
 
   async drop(signal: AbortSignal): Promise<void> {
@@ -312,7 +349,7 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     this.impactTriggered = false;
     this.fractureEffects?.start(this.view.matchMedia('(prefers-reduced-motion: reduce)').matches);
     this.breakageEffects?.start(this.view.matchMedia('(prefers-reduced-motion: reduce)').matches);
-    this.element.hidden = false;
+    this.show(true);
     await new Promise<void>((resolve, reject) => {
       let elapsed = 0;
       const cleanup = () => {
@@ -342,13 +379,12 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     // energy building up until it bursts.
     const destroyed = this.breakage.destroyed;
     if (!destroyed) this.effects?.start();
-    this.element.hidden = false;
+    this.show(true);
     const mixer = this.mixer!, assets = this.assets!;
     const clips = assets.animations;
     const actions = clips.map(clip => mixer.clipAction(clip));
     const reducedMotion = this.view.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const clipDuration = Math.max(...clips.map(clip => clip.duration));
-    const breaksWhileOpening = this.breakage.moment === 'opening' && this.breakage.parts.some(part => part.detached);
     const pending = new Set(actions);
     const start = assets.visual.position.clone();
     let elapsed = 0;
@@ -381,12 +417,12 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
           elapsed += delta;
           // Original 25-frame movement expressed in seconds; physics no longer owns the visual pose.
           const progress = Math.min(elapsed / (25 / 60), 1);
-          // The opening zoom presents an intact chest; one that will break keeps its real size,
-          // or its fragments would come out larger than the chest ever was.
-          const eased = breaksWhileOpening ? 0 : 1 - (1 - progress) ** 3;
+          // The camera moves in on the chest (the world behind comes closer with it); the chest
+          // itself keeps its real size, so fragments are never larger than it was.
+          const eased = 1 - (1 - progress) ** 3;
           assets.visual.position.copy(start);
-          assets.visual.position.y -= 0.7 * eased;
-          assets.visual.scale.setScalar(1 + 0.25 * eased);
+          // A fifth of the way in, the aim raised a third of a block: the chest fills more of the view.
+          this.world?.approach(0.2 * eased, 0.33 * eased);
           if (!destroyed) {
             mixer.update(delta);
             this.effects?.update(elapsed / (clipDuration + 0.3), reducedMotion);
@@ -433,14 +469,14 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     this.opening?.cancel(new Error('The chest was hidden before opening finished.'));
     this.scheduler?.stop();
     this.mode = 'stopped';
-    this.element.hidden = true;
+    this.show(false);
   }
 
   async reset(signal: AbortSignal): Promise<void> {
     this.assertPrepared(signal);
     this.entranceTimeline.cancel();
     this.previewEntrance?.cancel(); this.previewEntrance = undefined;
-    this.element.hidden = true;
+    this.show(false);
     this.effects?.stop();
     this.impactEffects?.reset();
     this.fractureEffects?.reset();
@@ -454,6 +490,7 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     this.breakageEffects?.reset();
     this.floor!.visible = true;
     this.mixer!.setTime(0);
+    this.world?.approach(0, 0);
     this.assets!.restore();
     this.physics!.resetChest(this.assets!.colliders, SPAWN_POSE);
     this.initialPose = true;
@@ -474,11 +511,22 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     this.assets?.modifications.update(Math.min(deltaSeconds, 0.1));
     if (!this.element.isConnected) { this.stepper.reset(); return; }
     if (this.mode === 'preview') {
-      this.previewTime += Math.min(deltaSeconds, 0.1);
-      this.syncPose();
-      this.assets!.visual.position.y = 2.6;
-      this.assets!.visual.scale.setScalar(0.75);
-      this.breakageEffects?.update(Math.min(deltaSeconds, 0.1));
+      const delta = Math.min(deltaSeconds, 0.1);
+      this.previewTime += delta;
+      if (!this.previewSettled) {
+        this.stepper.advance(deltaSeconds, step => this.physics!.step(step));
+        this.syncPose();
+        const visual = this.assets!.visual;
+        if (!this.previewLanded && this.lowestCorner() < 0.06) {
+          // Touchdown: a puff of dust and a jolt through whatever hangs off the chest.
+          this.previewLanded = true;
+          this.impactEffects?.trigger(visual.position.x, visual.position.z, false);
+          this.breakageEffects?.landed(.6);
+        }
+        this.impactEffects?.update(delta);
+        if (this.previewLanded && this.physics!.isChestSleeping()) this.previewSettled = true;
+      } else this.syncPose();
+      this.breakageEffects?.update(delta);
       this.applyWorld(Math.min(deltaSeconds, 0.1));
       this.render(); return;
     }
@@ -489,16 +537,7 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     this.stepper.advance(deltaSeconds, step => { this.physics!.step(step); simulated += step; });
     this.syncPose();
     if (!this.impactTriggered) {
-      const visual = this.assets!.visual;
-      let lowest = Infinity;
-      for (const box of this.assets!.colliders) {
-        for (const x of [-1, 1]) for (const y of [-1, 1]) for (const z of [-1, 1]) {
-          this.impactCorner.set(box.center.x + x * box.halfExtents.x,
-            box.center.y + y * box.halfExtents.y, box.center.z + z * box.halfExtents.z);
-          this.impactCorner.applyQuaternion(visual.quaternion).add(visual.position);
-          lowest = Math.min(lowest, this.impactCorner.y);
-        }
-      }
+      const visual = this.assets!.visual, lowest = this.lowestCorner();
       this.impactEffects?.approach(visual.position.x, visual.position.y, visual.position.z,
         this.view.matchMedia('(prefers-reduced-motion: reduce)').matches);
       if (lowest < 0.06) {
@@ -521,6 +560,21 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     this.applyWorld(simulated);
     this.render();
     this.landing?.advance(simulated);
+  }
+
+  /** Height of the chest's lowest corner above the floor. */
+  private lowestCorner(): number {
+    const visual = this.assets!.visual;
+    let lowest = Infinity;
+    for (const box of this.assets!.colliders) {
+      for (const x of [-1, 1]) for (const y of [-1, 1]) for (const z of [-1, 1]) {
+        this.impactCorner.set(box.center.x + x * box.halfExtents.x,
+          box.center.y + y * box.halfExtents.y, box.center.z + z * box.halfExtents.z);
+        this.impactCorner.applyQuaternion(visual.quaternion).add(visual.position);
+        lowest = Math.min(lowest, this.impactCorner.y);
+      }
+    }
+    return lowest;
   }
 
   /** A world pulled a handle: make sure frames run until its effect has played out. */
@@ -570,22 +624,10 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     this.assets!.visual.quaternion.set(pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w);
   }
 
-  private resize(): void {
-    if (!this.renderer || !this.camera) return;
-    const { width, height } = this.element.getBoundingClientRect();
-    if (width <= 0 || height <= 0) return;
-    this.renderer.setPixelRatio(Math.min(this.view.devicePixelRatio || 1, 2));
-    this.renderer.setSize(width, height, false);
-    // Intro shows the upper slice of the same full-screen camera, not a zoomed viewport.
-    const fullHeight = Math.max(height, this.view.innerHeight);
-    this.camera.aspect = width / fullHeight;
-    this.camera.setViewOffset(width, fullHeight, 0, 0, width, height);
-    this.camera.updateProjectionMatrix();
-    this.render();
-  }
-
   private render(): void {
-    if (this.renderer && this.scene && this.camera) this.renderer.render(this.scene, this.camera);
+    // The world draws itself and the chest in it, from its camera.
+    this.root.visible = !this.element.hidden;
+    this.world?.draw();
   }
 
   private runtimeFailure(error: unknown): void {
@@ -609,26 +651,37 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     this.prepared = false;
     this.initialPose = false;
     this.detachAbort?.(); this.detachAbort = undefined;
-    this.detachContextLost?.(); this.detachContextLost = undefined;
     this.scheduler?.dispose(); this.scheduler = undefined;
-    this.observer?.disconnect(); this.observer = undefined;
     this.fractureEffects?.dispose(); this.fractureEffects = undefined;
     this.breakageEffects?.dispose(); this.breakageEffects = undefined;
     this.impactEffects?.dispose(); this.impactEffects = undefined;
     this.effects?.dispose(); this.effects = undefined;
-    const physics = this.physics, assets = this.assets, scene = this.scene, renderer = this.renderer;
+    // The body leaves the world's physics; the world itself stays.
+    const physics = this.physics, assets = this.assets, scene = this.scene;
     this.physics = undefined; this.assets = undefined;
-    this.scene = undefined; this.renderer = undefined; this.camera = undefined; this.floor = undefined;
+    this.scene = undefined; this.floor = undefined;
     assets?.visual.removeFromParent();
+    scene?.removeFromParent();
     const errors: unknown[] = [];
     for (const clean of [() => physics?.dispose(), () => assets?.dispose(),
-      () => { if (scene) disposeObject(scene); },
-      () => { if (renderer) { renderer.dispose(); renderer.forceContextLoss(); } }]) {
+      () => { if (scene) disposeObject(scene); }]) {
       try { clean(); } catch (error) { errors.push(error); }
     }
-    this.element.replaceChildren();
+    // Still standing in its world: a new preparation makes a new body there.
+    this.physics = this.worldPhysics;
     this.stepper.reset();
     if (errors.length > 0) throw new AggregateError(errors, 'Failed to release scene resources.');
+  }
+
+  /** Until a world takes the chest in and its physics is ready; a page with no world gives up. */
+  private async awaitWorld(signal: AbortSignal): Promise<void> {
+    if (this.world && this.worldPhysics) { this.physics = this.worldPhysics; return; }
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const abort = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error('No world took the chest in.')), WORLD_WAIT_MS);
+      signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+    });
+    try { await Promise.race([this.arrival, abort]); } finally { clearTimeout(timer); }
   }
 
   private assertAlive(signal: AbortSignal): void {

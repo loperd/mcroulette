@@ -64,6 +64,10 @@ class RapierPhysicsWorld implements PhysicsWorldPort {
     world.step();
   }
 
+  settle(): void {
+    for (let frame = 0; frame < 900 && !this.isChestSleeping(); frame++) this.step(1 / 60);
+  }
+
   readChestPose(): Pose {
     this.requireWorld();
     if (!this.chest) throw new Error('The chest body has not been created.');

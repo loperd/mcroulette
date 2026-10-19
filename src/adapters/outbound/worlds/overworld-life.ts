@@ -109,6 +109,8 @@ const creeper: Start = (root, place, context) => {
           phase = 'boom'; clock = 0; body.visible = false;
           blast = explosion(root, [body.position.x, place.ground + .8, body.position.z]);
           ctx.flash('#fff1d6', .55);
+          // The blast is real: whatever stands in the world's physics nearby is thrown.
+          ctx.blast([body.position.x, place.ground + .5, body.position.z], 5, 4);
           ctx.gust(.9, -side);
           ctx.host?.tremor(.75, .9); ctx.host?.gust(.9, -side); ctx.host?.light('#ffd9a0', 1, .45);
         }

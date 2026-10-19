@@ -14,6 +14,13 @@ export const SPAWN_POSE: Pose = Object.freeze({
   rotation: Object.freeze({ x: Math.sin(tilt / 2), y: 0, z: 0, w: Math.cos(tilt / 2) }),
 });
 
+/** The preview fall: high in the sky, turned a little, tipped just enough to land on one edge and rock back flat. */
+const lean = 1.5 * Math.PI / 180, twist = 14 * Math.PI / 180;
+export const PREVIEW_DROP_POSE: Pose = Object.freeze({
+  position: Object.freeze({ x: 0, y: 7, z: 0 }),
+  rotation: Object.freeze({ x: Math.sin(lean / 2) * Math.cos(twist / 2), y: Math.cos(lean / 2) * Math.sin(twist / 2), z: Math.sin(lean / 2) * Math.sin(twist / 2), w: Math.cos(lean / 2) * Math.cos(twist / 2) }),
+});
+
 export function assertChestDefinition(colliders: readonly BoxCollider[], pose: Pose): void {
   if (colliders.length === 0) throw new Error('The chest must have at least one collider.');
   assertVector(pose.position);

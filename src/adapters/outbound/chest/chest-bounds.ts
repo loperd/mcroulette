@@ -2,8 +2,11 @@ import type { BoxCollider, Vec3 } from './physics-world-port.ts';
 
 export interface Bounds { readonly min: Vec3; readonly max: Vec3 }
 
+/** The chest's width in its scene's units: one block of whatever world it stands in. */
+export const CHEST_WIDTH = 1.7;
+
 /** Normalizes the closed body and lid together; the hidden key is not a collider. */
-export function normalizeChestBounds(bounds: readonly Bounds[], targetWidth = 1.7): {
+export function normalizeChestBounds(bounds: readonly Bounds[], targetWidth = CHEST_WIDTH): {
   readonly scale: number;
   readonly center: Vec3;
   readonly colliders: readonly BoxCollider[];

@@ -34,6 +34,27 @@ Extras layered over the vanilla look, never replacing it:
   marks each vertex's share of block light (`glow`), so only that share moves, and each torch keeps
   its own beat. A lightning flash outshines the sun for a moment.
 
+## The world is the base
+
+The world owns the canvas, the camera, the ground and the physics. Anything else that lives in it
+— a chest, say — comes in as a **guest** (`view.admit(guest)`):
+
+- the world stands the guest on the stage's `anchor` block, scaled so `unit` of its units make a
+  block, and turned to show the viewer its `front`;
+- its body goes into the world's physics (`WorldPhysics`, Rapier, in blocks with a block = 1 m). The
+  ground is the world's own solid blocks around the anchor (`Stage.ground`), or a flat floor;
+- the world draws the guest after itself, with its own camera and sharing the depth, so a blade of
+  grass in front of the guest hides it. The guest keeps its own look: lit materials, film curve,
+  shadows and clipping. A `veil` (darkness for an interface on top) goes between the two;
+- the guest moves on its own (animations, its body) and asks for a frame with `world.draw()`. The
+  world's camera moves in on it with `world.approach(closer, lift)`;
+- the world acts on it: `context.blast(at, strength, radius)` throws bodies in its physics;
+- there is one physics clock. Whoever comes first in a frame (the world's loop or a guest) brings
+  the simulation up to now, so it is never stepped twice.
+
+A stage with `transparent: true` and only a `ground` is a see-through layer for a guest over
+something that is not a block world.
+
 ## Performance
 
 The world is meshed once and cached per stage; the mesher returns plain typed arrays (testable in

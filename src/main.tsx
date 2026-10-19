@@ -241,7 +241,7 @@ function renderRoute() {
         session={current.application.session} sceneElement={current.scene.element} rouletteElement={current.roulette.element}
         onOpenGesture={() => { current.sound.unlock(); current.scene.unlockAudio(); }} transitionElement={current.transitions.element}
         onRetryInitialization={current.application.initialize} backgroundUrl={resolvePublicAsset(definition.presentation.backgroundPath, baseUrl)}
-        world={{ id: definition.presentation.world, chest: current.scene.handles }} />
+        world={{ id: definition.presentation.world, chest: current.scene.handles, guest: current.scene.guest }} />
     </CasePresentationContext.Provider>
   </NavigationContext.Provider></StrictMode>);
   if (fresh) current.initialize();
