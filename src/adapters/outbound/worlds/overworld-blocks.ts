@@ -5,6 +5,7 @@ import {
   BlockRegistry, BlockWorld, blockAtlas, computeLight, meshWorld, raw, worldMeshes, type Living, type Stage, type StageBuilder,
 } from '../../../../packages/blockworld/src/index.ts';
 import type { ChestHandles } from '../../../application/ports/chest-handles.ts';
+import { happenings, shadedBox } from './overworld-life.ts';
 
 /**
  * The Overworld at dusk ("Дороги Верхнего мира"), built by the rules of the game: every block one
@@ -34,6 +35,13 @@ const BLOCKS = new BlockRegistry([
 const id = (name: string) => BLOCKS.id(name);
 
 const SX = 112, SY = 40, SZ = 150, OX = -56, OZ = -110, GROUND = 10;
+/**
+ * Where the chest hangs in this world: one block, two above the grass, over the road. The camera
+ * stands as a player would (eyes ~1.7 above the grass) 4.3 blocks away, looking a little down — at
+ * that distance a block fills the share of the screen the chest does, so the chest is to scale.
+ */
+const CHEST = [0, GROUND + 3, 6] as const;
+const EYE = [CHEST[0], GROUND + 2.72, CHEST[2] + 4.33] as const;
 /** The sky light at dusk: warm on the lit side of the world, as the game tints it at sunset. */
 const DUSK: [number, number, number] = [1, .78, .64];
 /** The low evening sun (from where its square hangs, a little higher so shadows stay readable). */
@@ -76,7 +84,7 @@ function oak(world: BlockWorld, x: number, y: number, z: number, rand: () => num
   for (let dy = 0; dy < h; dy++) world.set(x, y + dy, z, log);
 }
 
-function build(seed: number): Stage<ChestHandles> {
+function build(seed: number, events: Parameters<typeof happenings>[2] = {}): Stage<ChestHandles> {
   let state = seed * 7919 + 13;
   const rand = () => { state = (state * 16807) % 2147483647; return state / 2147483647; };
   const world = new BlockWorld(SX, SY, SZ, [OX, 0, OZ]);
@@ -105,8 +113,8 @@ function build(seed: number): Stage<ChestHandles> {
   for (let i = 0; i < 2400; i++) {
     const x = Math.floor(rand() * SX) + OX, z = Math.floor(rand() * SZ) + OZ, h = top(x, z);
     if (Math.abs(x - roadAt(z)) < 3 || lake(x, z) || world.get(x - OX, h, z - OZ) !== id('grass') || world.get(x - OX, h + 1, z - OZ)) continue;
-    // Nothing grows right under the camera: a grass tuft there would fill the screen.
-    if (z > 22) continue;
+    // Nothing grows right at the camera's feet: a grass tuft there would fill the screen.
+    if (Math.hypot(x - EYE[0], z - EYE[2]) < 4.5) continue;
     const meadow = Math.abs(x) < 20 && z > -40;
     const roll = rand();
     if (!meadow && roll < .1) oak(world, x - OX, h + 1, z - OZ, rand);
@@ -129,11 +137,12 @@ function build(seed: number): Stage<ChestHandles> {
   sun.position.set(-300, 70, -560); sun.lookAt(0, 20, 0);
   root.add(sun);
   return {
-    root, living: [clouds(root, rand), storm(root), sheep(root, rand), fireflies(root, rand), leaves(root, rand)], calm: .1,
+    root, living: [clouds(root, rand), storm(root), sheep(root, rand), fireflies(root, rand), leaves(root, rand),
+      happenings(root, { ground: GROUND + 1, chest: CHEST, road: roadAt, tint: DUSK }, events)], calm: .1,
     sun: { direction: [-300, 70, -560], color: '#ffb36e', scatter: .85 },
     sky: { top: '#2a3a78', horizon: '#f2a46e', bottom: '#3a3050' },
     fog: { color: '#d99a7e', near: 70, far: 330 },
-    camera: { position: [0, GROUND + 7, 38], target: [0, GROUND + 3, -30], fov: 60 },
+    camera: { position: EYE, target: [0, EYE[1] - 4.2, EYE[2] - 30], fov: 60, drift: .12 },
   };
 }
 
@@ -204,23 +213,11 @@ function storm(root: Group): Living<ChestHandles> {
   };
 }
 
-/**
- * A box shaded the way the game shades blocks — top 1, north/south .8, east/west .6, bottom .5 —
- * and tinted by the evening light, so mobs sit in the world instead of glowing on it.
- */
-function shadedBox(w: number, h: number, d: number, hex: string, light = .86): BoxGeometry {
-  const box = new BoxGeometry(w, h, d), base = raw(hex), colors: number[] = [];
-  // BoxGeometry faces in order: +x, -x, +y, -y, +z, -z; four vertices each.
-  for (const shade of [.6, .6, 1, .5, .8, .8]) for (let v = 0; v < 4; v++) colors.push(base.r * shade * light * DUSK[0], base.g * shade * light * DUSK[1], base.b * shade * light * DUSK[2]);
-  box.setAttribute('color', new BufferAttribute(new Float32Array(colors), 3));
-  return box;
-}
-
 /** Sheep, sized by the game's model (1/16 a pixel): they wander the meadow, stop, graze. */
 function sheep(root: Group, rand: () => number): Living<ChestHandles> {
   const px = 1 / 16, material = new MeshBasicMaterial({ vertexColors: true });
-  const wool = shadedBox(10 * px, 9 * px, 15 * px, '#e9e4dc'), headWool = shadedBox(7 * px, 7 * px, 7 * px, '#e9e4dc');
-  const face = shadedBox(6 * px, 6 * px, 2 * px, '#c9a991'), leg = shadedBox(4 * px, 12 * px, 4 * px, '#c9a991');
+  const wool = shadedBox(10 * px, 9 * px, 15 * px, '#e9e4dc', DUSK), headWool = shadedBox(7 * px, 7 * px, 7 * px, '#e9e4dc', DUSK);
+  const face = shadedBox(6 * px, 6 * px, 2 * px, '#c9a991', DUSK), leg = shadedBox(4 * px, 12 * px, 4 * px, '#c9a991', DUSK);
   leg.translate(0, -6 * px, 0);
   const flock = Array.from({ length: 4 }, (_, i) => {
     const body = new Group(), head = new Group(), legs: Mesh[] = [];
@@ -228,7 +225,7 @@ function sheep(root: Group, rand: () => number): Living<ChestHandles> {
     head.add(new Mesh(headWool, material), new Mesh(face, material).translateZ(4 * px).translateY(-.5 * px));
     head.position.set(0, 19 * px, 9 * px); body.add(head);
     for (const [lx, lz] of [[-3, -5], [3, -5], [-3, 5], [3, 5]] as const) { const m = new Mesh(leg, material); m.position.set(lx * px, 12 * px, lz * px); legs.push(m); body.add(m); }
-    const x = (i % 2 ? 1 : -1) * (6 + rand() * 5), z = 12 - rand() * 18;
+    const x = (i % 2 ? 1 : -1) * (4 + rand() * 7), z = 1 - rand() * 16;
     body.position.set(x, GROUND + 1, z); body.rotation.y = rand() * Math.PI * 2;
     root.add(body);
     return { body, head, legs, target: { x, z }, rest: rand() * 4, graze: 0, step: rand() * 10 };
@@ -243,7 +240,7 @@ function sheep(root: Group, rand: () => number): Living<ChestHandles> {
           if (one.rest <= 0) {
             // A new spot nearby on its side of the meadow, clear of the chest in the middle.
             const side = Math.sign(body.position.x) || 1, x = Math.abs(body.position.x) + (context.rand() - .5) * 8;
-            one.target = { x: side * Math.max(5, Math.min(11, x)), z: Math.max(-10, Math.min(14, body.position.z + (context.rand() - .5) * 10)) };
+            one.target = { x: side * Math.max(5, Math.min(11, x)), z: Math.max(-16, Math.min(1, body.position.z + (context.rand() - .5) * 10)) };
           }
         } else if (far < .1) {
           one.rest = 2 + context.rand() * 6; one.graze = context.rand() < .6 ? one.rest : 0;
@@ -321,4 +318,8 @@ function leaves(root: Group, rand: () => number): Living<ChestHandles> {
   };
 }
 
-export const OVERWORLD_BLOCKS: StageBuilder<ChestHandles> = { id: 'overworld-blocks', build };
+export const OVERWORLD_BLOCKS: StageBuilder<ChestHandles> = { id: 'overworld-blocks', build: seed => build(seed) };
+
+/** The Overworld with only some happenings, the first one soon (previews). */
+export const overworldWith = (events: Parameters<typeof happenings>[2]): StageBuilder<ChestHandles> =>
+  ({ id: `overworld-blocks:${(events?.only ?? []).join('+')}`, build: seed => build(seed, events) });

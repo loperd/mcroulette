@@ -2,18 +2,23 @@ import { BlockView, type StageBuilder } from '../../packages/blockworld/src/inde
 import type { ChestHandles } from '../application/ports/chest-handles.ts';
 import { BLOCK_WORLDS, WORLD_SCENES } from '../adapters/outbound/worlds/index.ts';
 import { PixelWorld } from '../adapters/outbound/worlds/pixel-world.ts';
+import { overworldWith } from '../adapters/outbound/worlds/overworld-blocks.ts';
+import type { HappeningKind } from '../adapters/outbound/worlds/overworld-life.ts';
 import type { WorldId } from '../config/cases.ts';
 
 /**
  * Development sheet of every world: each row a world, each column a moment (seconds). A world
  * already on blockworld shows in 3D; the rest still in their old 2D pixel form, marked so.
+ * ?happen=creeper,villager runs just those happenings in the Overworld.
  * ?worlds=overworld&times=0,6,14. Result: window.worldSheet (JPEG data URL). Handles pulled by
  * the world are logged above each frame.
  */
 const IDS = Object.keys(WORLD_SCENES) as WorldId[];
 interface Shown { readonly canvas: HTMLCanvasElement; hold(host: ChestHandles): void; renderAt(seconds: number): void; dispose(): void }
 const show = (id: WorldId, host: HTMLElement): Shown => {
-  const builder: StageBuilder<ChestHandles> | undefined = BLOCK_WORLDS[id];
+  // ?happen=creeper: the Overworld with just that, starting a second in.
+  const happen = params.get('happen');
+  const builder: StageBuilder<ChestHandles> | undefined = id === 'overworld' && happen ? overworldWith({ only: happen.split(',') as HappeningKind[], first: 1 }) : BLOCK_WORLDS[id];
   return builder ? new BlockView(host, builder, { seed: 11 }) : new PixelWorld(host, WORLD_SCENES[id], { seed: 11 });
 };
 const params = new URLSearchParams(location.search);
