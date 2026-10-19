@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 import type { ChestPreview } from '../../../application/ports/chest-preview.ts';
 import { useObservableState } from './use-observable-state.ts';
-import { ChestBackdrop } from './ChestBackdrop.tsx';
 import { Button } from './Button.tsx';
 import { ErrorNotice } from './ErrorNotice.tsx';
 
@@ -18,7 +17,6 @@ export function ChestPreviewPanel({ preview, element }: {
   if (state.phase === 'disposed') return null;
   return (
     <section className="chest-preview" aria-label="Сундук">
-      <ChestBackdrop visible={state.phase === 'ready' || state.phase === 'resetting'} />
       <div className="chest-preview__viewport" ref={mount} />
       {(state.phase === 'idle' || state.phase === 'loading' || state.phase === 'resetting') && (
         <div className="chest-preview__status" role="status" aria-live="polite">

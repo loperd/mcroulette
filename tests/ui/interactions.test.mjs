@@ -76,7 +76,6 @@ test('StrictMode hosts survive two complete game cycles through canvas roulette 
   assert.equal(document.querySelector('.game-viewport').classList.contains('game-viewport--intro'), true);
   assert.equal(document.querySelector('.chest-scene').hidden, false);
   assert.equal(document.querySelector('.roulette-scene').hidden, true);
-  assert.equal(document.querySelector('.chest-backdrop').hidden, true);
   const advanceUntil = async phase => {
     await act(async () => {
       for (let index = 0; index < 250 && app.session.getState().phase !== phase; index++) {
@@ -93,16 +92,13 @@ test('StrictMode hosts survive two complete game cycles through canvas roulette 
     assert.equal(document.querySelector('.intro-scene'), null);
     assert.equal(document.querySelector('.chest-scene').hidden, false);
     assert.equal(document.querySelector('.roulette-scene').hidden, true);
-    assert.equal(document.querySelector('.chest-backdrop').hidden, false);
     await act(async () => { landings[cycle].resolve(); await flush(); });
     assert.equal(app.session.getState().phase, 'opening');
     // The portal behind the chest stays through clearing, the drop and the opening.
-    assert.equal(document.querySelector('.chest-backdrop').hidden, false);
     assert.equal(roulette.element.hidden, true);
     await act(async () => { clips[cycle].resolve(); await flush(); });
     assert.equal(app.session.getState().phase, 'flashing');
     assert.equal(document.querySelector('.roulette-scene').hidden, true);
-    assert.equal(document.querySelector('.chest-backdrop').hidden, true, 'the portal closes once the chest has opened');
     await advanceUntil('spinning');
     assert.equal(document.querySelector('.chest-scene').hidden, true);
     assert.equal(document.querySelector('.roulette-scene').hidden, false);
@@ -114,7 +110,8 @@ test('StrictMode hosts survive two complete game cycles through canvas roulette 
     assert.match(document.querySelector('.prize').textContent, /King/);
     assert.equal(roulette.element.hidden, true);
     assert.equal(document.activeElement.textContent, 'Закрыть');
-    assert.equal(document.querySelectorAll('canvas').length, 3);
+    // The chest's own and the roulette's: no 2D backdrop canvas (the chest stands in a 3D world).
+    assert.equal(document.querySelectorAll('canvas').length, 2);
     assert.equal(sceneElement.parentNode.className, 'game-viewport__scene');
     assert.equal(roulette.element.parentNode.className, 'game-viewport__roulette');
     await act(async () => { document.querySelector('.btn').click(); await flush(); });
@@ -122,7 +119,6 @@ test('StrictMode hosts survive two complete game cycles through canvas roulette 
     assert.equal(document.activeElement.textContent, 'Открыть сундук');
     assert.equal(app.session.getState().slots.length, 40);
     assert.equal(sceneElement.hidden, false);
-    assert.equal(document.querySelector('.chest-backdrop').hidden, true);
     assert.equal(env.frames.size, 0);
   }
   assert.equal(requests, 2);
@@ -218,7 +214,7 @@ test('preview mounts its external canvas once in StrictMode and routes replay an
   };
   const app=createApplication({baseUrl:'https://example.test/demo/',chestPreview:scene,fetcher:async()=>json(items)});
   await mount(app,{sceneElement:element});await act(async()=>{await app.initialize();});
-  assert.equal(document.querySelectorAll('canvas').length,2);
+  assert.equal(document.querySelectorAll('canvas').length,1);
   assert.equal(element.parentNode.className,'chest-preview__viewport');
   assert.equal(counts.prepare,1);assert.equal(counts.drop,1);
   await act(async()=>{document.querySelector('.btn').click();await flush();});
@@ -229,7 +225,7 @@ test('preview mounts its external canvas once in StrictMode and routes replay an
   await act(async()=>{document.querySelector('.btn').click();await flush();});
   assert.equal(counts.prepare,2);assert.equal(counts.drop,3);
   assert.equal(document.querySelector('[role="alert"]'),null);
-  assert.equal(document.querySelectorAll('canvas').length,2);
+  assert.equal(document.querySelectorAll('canvas').length,1);
 });
 
 

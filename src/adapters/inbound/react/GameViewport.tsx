@@ -17,7 +17,7 @@ export function GameViewport({ session, scene, roulette, transition }: {
   return <section className={`game-viewport${preview && state.phase !== 'clearing' ? ' game-viewport--intro' : ''}${state.phase === 'clearing' ? ' game-viewport--clearing' : ''}`}
     style={{ '--content-exit-duration': `${CONTENT_EXIT_SECONDS}s` } as CSSProperties} aria-label="Сундук"
     hidden={!preview && active !== 'chest' && active !== 'roulette'}>
-    <ChestScene active={preview || active === 'chest'} portalVisible={['clearing', 'dropping', 'opening'].includes(state.phase)} element={scene} />
+    <ChestScene active={preview || active === 'chest'} element={scene} />
     <RouletteScene active={active === 'roulette'} element={roulette} />
     <PresentationHost className="transition-scene" element={transition} />
   </section>;
