@@ -164,7 +164,6 @@ h1 { margin-top: 8px; font-size: clamp(2rem, 6vw, 3.5rem); line-height: 1.1; let
 .case-caption { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; color: #9dbdb6; font-size: 12px; letter-spacing: .22em; white-space: nowrap; }
 .case-caption span { height: 1px; width: 28px; background: #86ead044; }
 .case-atmosphere { position: absolute; inset: 45px 10% 0; z-index: -1; pointer-events: none; background: radial-gradient(ellipse at 50% 63%, #43d2b525, transparent 52%); }
-.case-atmosphere::after { content: ''; position: absolute; bottom: 11%; left: 38%; width: 24%; height: 8%; border-radius: 50%; background: radial-gradient(ellipse, #07120f99, transparent 70%); }
 .case-atmosphere span { position: absolute; width: 3px; height: 3px; left: 37%; top: 65%; background: var(--case-accent); box-shadow: 0 0 8px #86ead060; opacity: .45; animation: case-mote 7s ease-in-out infinite alternate; }
 .case-atmosphere span:nth-child(2) { left: 62%; top: 42%; animation-delay: -3s; }
 .case-atmosphere span:nth-child(3) { left: 42%; top: 22%; animation-delay: -5s; width: 2px; height: 2px; }
