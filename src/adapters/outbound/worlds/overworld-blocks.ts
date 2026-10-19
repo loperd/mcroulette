@@ -37,10 +37,11 @@ const id = (name: string) => BLOCKS.id(name);
 const SX = 112, SY = 40, SZ = 150, OX = -56, OZ = -110, GROUND = 10;
 /**
  * Where the chest lands: on the grass by the road, one block of this world. The camera stands as a
- * player would, about 5 blocks off and 2 up, looking at it; it moves in on it when it opens.
+ * player would, 7 blocks off at eye height, looking at it: the chest stands above the page's
+ * label with the meadow, the hills and the sky behind it. The camera moves in when it opens.
  */
 const CHEST = [-1.5, GROUND + 1, 6.5] as const;
-const EYE = [CHEST[0], CHEST[1] + 2.06, CHEST[2] + 5.06] as const;
+const EYE = [CHEST[0], CHEST[1] + 1.9, CHEST[2] + 7] as const;
 /** The sky light at dusk: warm on the lit side of the world, as the game tints it at sunset. */
 const DUSK: [number, number, number] = [1, .78, .64];
 /** The low evening sun (from where its square hangs, a little higher so shadows stay readable). */
@@ -141,7 +142,7 @@ function build(seed: number, events: Parameters<typeof happenings>[2] = {}): Sta
     sun: { direction: [-300, 70, -560], color: '#ffb36e', scatter: .85 },
     sky: { top: '#2a3a78', horizon: '#f2a46e', bottom: '#3a3050' },
     fog: { color: '#d99a7e', near: 70, far: 330 },
-    camera: { position: EYE, target: [CHEST[0], CHEST[1] + .65, CHEST[2]], fov: 50, drift: .12, focus: [.5, .36] },
+    camera: { position: EYE, target: [CHEST[0], CHEST[1] + .5, CHEST[2]], fov: 50, drift: .12, focus: [.5, .38] },
     // The chest lands here, on the world's own blocks (they are its physics ground), seen by this camera.
     anchor: CHEST,
     ground: { blocks: { world, registry: BLOCKS, around: [CHEST[0], CHEST[2]], radius: 12 } },

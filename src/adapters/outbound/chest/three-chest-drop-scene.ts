@@ -58,6 +58,8 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
   private world?: GuestWorld;
   private worldPhysics?: WorldBodyPhysics;
   private arrived?: () => void;
+  /** Whether `arrival` has been kept: a world came and its physics is ready. */
+  private present = false;
   /** Where the chest was when its world went away: it stands there in the next one. */
   private carried?: Pose;
   private arrival: Promise<void>;
@@ -144,13 +146,15 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
   /** A world took the chest in: its body goes into that world's physics, where it was. */
   private async enter(world: GuestWorld): Promise<void> {
     this.world = world;
-    const physics = await world.physics.catch(error => { this.runtimeFailure(error); return undefined; });
+    // A world that let the chest go before its physics was ready (it closed) is no failure.
+    const physics = await world.physics.catch(error => { if (this.world === world) this.runtimeFailure(error); return undefined; });
     if (!physics || this.world !== world) return;
     const carried = this.carried;
     this.carried = undefined;
     this.worldPhysics = new WorldBodyPhysics(physics, world, CHEST_WIDTH);
     this.physics = this.worldPhysics;
     if (carried && this.assets) { this.physics.resetChest(this.assets.colliders, carried); this.syncPose(); }
+    this.present = true;
     this.arrived?.();
     this.render();
   }
@@ -163,7 +167,8 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     this.worldPhysics?.dispose();
     this.worldPhysics = undefined; this.physics = undefined;
     this.world = undefined;
-    this.arrival = new Promise(resolve => { this.arrived = resolve; });
+    // Whoever already waits for a world keeps waiting on the same promise; only a kept one is renewed.
+    if (this.present) { this.present = false; this.arrival = new Promise(resolve => { this.arrived = resolve; }); }
   }
 
   /** Shown or not: the placeholder in the page and the chest in the world together. */

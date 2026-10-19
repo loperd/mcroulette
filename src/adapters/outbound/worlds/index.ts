@@ -25,7 +25,7 @@ export const GROUND_ONLY: StageBuilder<ChestHandles> = Object.freeze({
   build: (): Stage<ChestHandles> => ({
     root: new Group(), living: [], transparent: true,
     sky: { top: '#000000', horizon: '#000000', bottom: '#000000' }, fog: { color: '#000000', near: 1e4, far: 2e4 },
-    camera: { position: [0, 2.06, 5.06], target: [0, .65, 0], fov: 50, drift: 0, focus: [.5, .36] },
+    camera: { position: [0, 1.9, 7], target: [0, .5, 0], fov: 50, drift: 0, focus: [.5, .38] },
     anchor: [0, 0, 0], ground: { floor: 0 },
   }),
 });
