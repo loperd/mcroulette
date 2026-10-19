@@ -13,7 +13,7 @@ func Open(dsn string) (*gorm.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open PostgreSQL: %w", err)
 	}
-	if err := db.AutoMigrate(&User{}, &Credential{}, &Identity{}, &Ceremony{}, &OAuthFlow{}, &Session{}, &ChestType{}, &LootItem{}, &CaseRoll{}, &ChestInstance{}); err != nil {
+	if err := db.AutoMigrate(&User{}, &Credential{}, &Identity{}, &Ceremony{}, &OAuthFlow{}, &Session{}, &ChestType{}, &LootItem{}, &ChestInstance{}, &InventoryItem{}, &WalletBalance{}); err != nil {
 		return nil, fmt.Errorf("migrate application schema: %w", err)
 	}
 	if err := seed(db); err != nil {

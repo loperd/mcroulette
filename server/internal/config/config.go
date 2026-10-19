@@ -19,6 +19,8 @@ type Config struct {
 	TelegramRedirect string
 	// Chests every new player gets once, as "case:count,case:count".
 	StarterChests string
+	// The chest economy's rulebook: types, items, traits and the rules that tune them.
+	EconomyPath string
 }
 
 func Load() Config {
@@ -35,6 +37,7 @@ func Load() Config {
 		TelegramSecret:   os.Getenv("TELEGRAM_CLIENT_SECRET"),
 		TelegramRedirect: os.Getenv("TELEGRAM_REDIRECT_URL"),
 		StarterChests:    env("STARTER_CHESTS", "traveler:10,deep-mine:5,ender:5,dragon:3"),
+		EconomyPath:      env("ECONOMY_CONFIG", "config/economy.json"),
 	}
 }
 

@@ -10,22 +10,20 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 	"net/http"
 	"regexp"
-	"strings"
 	"time"
 
 	"github.com/casbin/casbin/v3"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
+	"github.com/voxel-vault/api/internal/app"
 	"github.com/voxel-vault/api/internal/config"
-	"github.com/voxel-vault/api/internal/domain"
+	"github.com/voxel-vault/api/internal/domain/rulebook"
 	"github.com/voxel-vault/api/internal/store"
 	"golang.org/x/oauth2"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 const sessionCookie = "vv_session"
@@ -44,15 +42,25 @@ type Server struct {
 	telegramVerifier *oidc.IDTokenVerifier
 	telegramOAuth    oauth2.Config
 	mux              *http.ServeMux
+	economy          *app.Economy
+	rulebook         func() *rulebook.Rulebook
+	starter          []app.Grant
 }
 
-func New(db *gorm.DB, cfg config.Config, acl *casbin.Enforcer) (*Server, error) {
+// New serves the API; rb is the chest economy's rulebook in force.
+func New(db *gorm.DB, cfg config.Config, acl *casbin.Enforcer, rb *rulebook.Rulebook) (*Server, error) {
 	wa, err := webauthn.New(&webauthn.Config{RPID: cfg.RPID, RPDisplayName: cfg.RPDisplayName, RPOrigins: cfg.RPOrigins,
 		AttestationPreference: protocol.PreferNoAttestation, AuthenticatorSelection: webauthn.SelectAuthenticator("", nil, "required")})
 	if err != nil {
 		return nil, fmt.Errorf("configure WebAuthn: %w", err)
 	}
-	s := &Server{db: db, config: cfg, webauthn: wa, acl: acl, mux: http.NewServeMux()}
+	starter, err := parseGrants(rb, cfg.StarterChests)
+	if err != nil {
+		return nil, fmt.Errorf("configure starter chests: %w", err)
+	}
+	current := func() *rulebook.Rulebook { return rb }
+	s := &Server{db: db, config: cfg, webauthn: wa, acl: acl, mux: http.NewServeMux(), rulebook: current, starter: starter,
+		economy: &app.Economy{Store: store.Economy{DB: db}, Rulebook: current, Clock: time.Now, IDs: newUUID, Seeds: newSeed}}
 	if cfg.TelegramClientID != "" && cfg.TelegramSecret != "" && cfg.TelegramRedirect != "" {
 		provider, err := oidc.NewProvider(context.Background(), "https://oauth.telegram.org")
 		if err != nil {
@@ -97,7 +105,6 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/cases", s.listCases)
 	s.mux.HandleFunc("GET /api/v1/cases/{caseID}/catalog", s.caseCatalog)
 	s.mux.HandleFunc("GET /api/v1/items/{itemID}/image.svg", s.itemImage)
-	s.mux.HandleFunc("POST /api/v1/cases/{caseID}/roll", s.sameOrigin(s.requirePermission("/api/v1/cases/:caseID/roll", "POST", s.rollLoot)))
 	s.mux.HandleFunc("POST /api/v1/auth/passkeys/register/options", s.sameOrigin(s.registerOptions))
 	s.mux.HandleFunc("POST /api/v1/auth/passkeys/register/verify", s.sameOrigin(s.registerVerify))
 	s.mux.HandleFunc("POST /api/v1/auth/passkeys/login/options", s.sameOrigin(s.loginOptions))
@@ -131,96 +138,26 @@ func (s *Server) listCases(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, cases)
 }
 
+// caseCatalog is everything a chest type can hold, by the rulebook; chance is the pool weight
+// as a percentage of the pool.
 func (s *Server) caseCatalog(w http.ResponseWriter, r *http.Request) {
-	caseID := r.PathValue("caseID")
-	if _, ok := domain.CaseByID(caseID); !ok {
+	rb := s.rulebook()
+	chestType, ok := rb.Type(r.PathValue("caseID"))
+	if !ok {
 		writeError(w, 404, "chest type not found")
 		return
 	}
-	var rows []store.LootItem
-	if err := s.db.WithContext(r.Context()).Where("case_id = ?", caseID).Order("id").Find(&rows).Error; err != nil {
-		writeError(w, 500, "could not load loot table")
-		return
+	weights := make([]float64, len(chestType.Pool))
+	var total float64
+	for i, item := range chestType.Pool {
+		weights[i] = rb.Value("pool.weight."+item.Rarity, rulebook.Situation{"type": chestType.ID, "collection": chestType.Collection, "item.rarity": item.Rarity})
+		total += weights[i]
 	}
-	dtos := make([]itemDTO, 0, len(rows))
-	for _, item := range rows {
-		dtos = append(dtos, toItemDTO(item))
+	dtos := make([]itemDTO, 0, len(chestType.Pool))
+	for i, item := range chestType.Pool {
+		dtos = append(dtos, rulebookItemDTO(rb, item.ID, percent(weights[i], total)))
 	}
 	writeJSON(w, http.StatusOK, dtos)
-}
-
-func (s *Server) rollLoot(w http.ResponseWriter, r *http.Request) {
-	user := userFrom(r.Context())
-	caseID := r.PathValue("caseID")
-	if _, ok := domain.CaseByID(caseID); !ok {
-		writeError(w, 404, "chest type not found")
-		return
-	}
-	var request struct {
-		SessionID  string `json:"sessionId"`
-		InstanceID string `json:"instanceId"`
-	}
-	if !decode(w, r, &request) || strings.TrimSpace(request.SessionID) == "" || len(request.SessionID) > 128 || strings.TrimSpace(request.InstanceID) == "" {
-		writeError(w, 400, "invalid sessionId or instanceId")
-		return
-	}
-	var existing store.CaseRoll
-	if err := s.db.WithContext(r.Context()).Where("session_id = ? AND user_id = ?", request.SessionID, user.ID).First(&existing).Error; err == nil {
-		s.writeRolledItem(w, r, existing.LootItemID)
-		return
-	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-		writeError(w, 500, "could not read roll")
-		return
-	}
-	// Only a chest the player owns, of this type, opened in this session gets a prize: it is
-	// reserved for the session here, in one step with the check.
-	err := s.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
-		var chest store.ChestInstance
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&chest, "id = ? AND user_id = ? AND case_id = ?", request.InstanceID, user.ID, caseID).Error; err != nil {
-			return err
-		}
-		return claim(tx, &chest, request.SessionID)
-	})
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		writeError(w, 404, "chest not found")
-		return
-	} else if errors.Is(err, errChestUnavailable) {
-		writeError(w, 409, "chest is not available for this session")
-		return
-	} else if err != nil {
-		writeError(w, 500, "could not reserve chest")
-		return
-	}
-	var rows []store.LootItem
-	if err := s.db.WithContext(r.Context()).Where("case_id = ?", caseID).Find(&rows).Error; err != nil {
-		writeError(w, 500, "could not load loot table")
-		return
-	}
-	item, err := weightedItem(rows)
-	if err != nil {
-		writeError(w, 500, "loot table is empty")
-		return
-	}
-	roll := store.CaseRoll{SessionID: request.SessionID, UserID: user.ID, CaseID: caseID, LootItemID: item.ID}
-	if err := s.db.WithContext(r.Context()).Create(&roll).Error; err != nil {
-		// Concurrent retries converge on the unique (session,user) result.
-		if existingErr := s.db.WithContext(r.Context()).Where("session_id = ? AND user_id = ?", request.SessionID, user.ID).First(&existing).Error; existingErr == nil {
-			s.writeRolledItem(w, r, existing.LootItemID)
-			return
-		}
-		writeError(w, 500, "could not persist roll")
-		return
-	}
-	writeJSON(w, http.StatusOK, toItemDTO(item))
-}
-
-func (s *Server) writeRolledItem(w http.ResponseWriter, r *http.Request, id string) {
-	var item store.LootItem
-	if err := s.db.WithContext(r.Context()).First(&item, "id = ?", id).Error; err != nil {
-		writeError(w, 500, "stored roll item missing")
-		return
-	}
-	writeJSON(w, http.StatusOK, toItemDTO(item))
 }
 
 // privilegeArt picks the character art of an item by what it is: the frontend serves these
@@ -232,40 +169,11 @@ var privilegeArt = map[string]string{
 	"crown": "knight", "heart": "knight", "egg": "knight",
 }
 
-func toItemDTO(item store.LootItem) itemDTO {
-	image := "/api/v1/items/" + item.ID + "/image.svg"
-	if art, ok := privilegeArt[item.Glyph]; ok {
-		image = "images/privileges/" + art + ".webp"
+func itemImageURL(id, glyph string) string {
+	if art, ok := privilegeArt[glyph]; ok {
+		return "images/privileges/" + art + ".webp"
 	}
-	return itemDTO{ID: item.ID, Title: item.Title, Image: image, Type: item.Rarity, Chance: item.Weight}
-}
-
-func weightedItem(items []store.LootItem) (store.LootItem, error) {
-	var total int64
-	for _, item := range items {
-		if item.Weight > 0 {
-			total += int64(item.Weight * 1000)
-		}
-	}
-	if total <= 0 {
-		return store.LootItem{}, errors.New("no positive weights")
-	}
-	n, err := rand.Int(rand.Reader, big.NewInt(total))
-	if err != nil {
-		return store.LootItem{}, err
-	}
-	target := n.Int64()
-	for _, item := range items {
-		weight := int64(item.Weight * 1000)
-		if weight <= 0 {
-			continue
-		}
-		if target < weight {
-			return item, nil
-		}
-		target -= weight
-	}
-	return store.LootItem{}, errors.New("weighted selection failed")
+	return "/api/v1/items/" + id + "/image.svg"
 }
 
 func (s *Server) itemImage(w http.ResponseWriter, r *http.Request) {
@@ -428,5 +336,3 @@ func securityHeaders(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
-
-var _ = domain.Cases

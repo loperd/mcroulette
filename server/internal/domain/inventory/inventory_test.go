@@ -1,0 +1,87 @@
+package inventory_test
+
+import (
+	"errors"
+	"testing"
+
+	"github.com/voxel-vault/api/internal/domain/inventory"
+	"github.com/voxel-vault/api/internal/domain/rulebook"
+	"github.com/voxel-vault/api/internal/domain/rulebook/rulebooktest"
+	"github.com/voxel-vault/api/internal/domain/wallet"
+)
+
+// item-i is rare: base value 16.
+func setup(t *testing.T, items ...inventory.Item) (*rulebook.Rulebook, *inventory.Inventory, *wallet.Wallet) {
+	t.Helper()
+	rb := rulebooktest.Build(t)
+	inv := inventory.New("player")
+	for _, item := range items {
+		if err := inv.Receive(rb, item); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return rb, inv, wallet.New("player")
+}
+
+func TestRepairCostsTheBaseInMaterialPerStep(t *testing.T) {
+	rb, inv, w := setup(t, inventory.Item{ID: "1", Item: "item-i", State: "heavy"})
+	if _, err := inv.Repair(rb, w, "1", nil); !errors.Is(err, wallet.ErrInsufficient) {
+		t.Fatalf("repair without material: %v", err)
+	}
+	_ = w.Credit(wallet.Amount{Resource: "end-shards", Value: 40})
+	cost, err := inv.Repair(rb, w, "1", nil)
+	if err != nil || cost != (wallet.Amount{Resource: "end-shards", Value: 16}) {
+		t.Fatalf("cost %+v %v", cost, err)
+	}
+	if got := inv.Items()[0].State; got != "slight" || w.Balance("end-shards") != 24 {
+		t.Fatalf("state %s, balance %d", got, w.Balance("end-shards"))
+	}
+	_, _ = inv.Repair(rb, w, "1", nil)
+	if _, err := inv.Repair(rb, w, "1", nil); !errors.Is(err, inventory.ErrIntact) {
+		t.Fatalf("repairing an intact item: %v", err)
+	}
+}
+
+func TestSalvageAndSell(t *testing.T) {
+	rb, inv, w := setup(t, inventory.Item{ID: "1", Item: "item-i", State: "heavy"}, inventory.Item{ID: "2", Item: "item-l", State: "slight"})
+	gain, err := inv.Salvage(rb, w, "1", nil)
+	if err != nil || gain != (wallet.Amount{Resource: "end-shards", Value: 8}) { // 16 × .5
+		t.Fatalf("salvage %+v %v", gain, err)
+	}
+	gain, err = inv.Sell(rb, w, "2", nil)
+	if err != nil || gain != (wallet.Amount{Resource: wallet.Currency, Value: 120}) { // 64 × .75 × 2.5
+		t.Fatalf("sell %+v %v", gain, err)
+	}
+	if len(inv.Items()) != 0 {
+		t.Fatal("salvaged and sold items stayed")
+	}
+}
+
+func TestMergeKeepsTheBetterTwin(t *testing.T) {
+	rb, inv, _ := setup(t,
+		inventory.Item{ID: "1", Item: "item-i", State: "broken"}, inventory.Item{ID: "2", Item: "item-i", State: "slight"},
+		inventory.Item{ID: "3", Item: "item-j", State: "slight"}, inventory.Item{ID: "4", Item: "item-j", State: rulebook.Intact})
+	if _, err := inv.Merge(rb, "1", "3", 1, nil); !errors.Is(err, inventory.ErrNotTwins) {
+		t.Fatalf("merging different items: %v", err)
+	}
+	if _, err := inv.Merge(rb, "3", "4", 1, nil); !errors.Is(err, inventory.ErrIntact) {
+		t.Fatalf("merging with an intact item: %v", err)
+	}
+	kept, err := inv.Merge(rb, "1", "2", 1, nil)
+	if err != nil || kept.ID != "2" || (kept.State != "slight" && kept.State != rulebook.Intact) {
+		t.Fatalf("kept %+v %v", kept, err)
+	}
+	if len(inv.Items()) != 3 {
+		t.Fatal("the worse twin stayed")
+	}
+}
+
+func TestReceiveRejectsUnknownItemsAndDuplicates(t *testing.T) {
+	rb, inv, _ := setup(t, inventory.Item{ID: "1", Item: "item-a", State: rulebook.Intact})
+	if err := inv.Receive(rb, inventory.Item{ID: "2", Item: "nope", State: rulebook.Intact}); !errors.Is(err, inventory.ErrUnknownItem) {
+		t.Fatalf("unknown item: %v", err)
+	}
+	if err := inv.Receive(rb, inventory.Item{ID: "1", Item: "item-a", State: rulebook.Intact}); !errors.Is(err, inventory.ErrDuplicate) {
+		t.Fatalf("duplicate: %v", err)
+	}
+}

@@ -7,6 +7,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/api ./c
 
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /out/api /api
+COPY --from=build /src/config /config
+ENV ECONOMY_CONFIG=/config/economy.json
 EXPOSE 8080
 USER nonroot:nonroot
 ENTRYPOINT ["/api"]

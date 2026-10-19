@@ -4,137 +4,234 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/voxel-vault/api/internal/domain"
+	"github.com/voxel-vault/api/internal/app"
+	"github.com/voxel-vault/api/internal/domain/chest"
+	"github.com/voxel-vault/api/internal/domain/inventory"
+	"github.com/voxel-vault/api/internal/domain/rulebook"
+	"github.com/voxel-vault/api/internal/domain/wallet"
 	"github.com/voxel-vault/api/internal/store"
-	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
-// Chests exist only on the server. A player gets them from the server (the starter grant on the
-// first inventory read, an admin grant) and can only open what they own: claim a chest for one
-// opening session, have its prize rolled for that session, then complete it with that prize or
-// record that it was destroyed.
+// Chests and items exist only on the server, and the server alone decides what happens to them.
+// A player gets chests from the server (the starter grant on the first inventory read, an admin
+// grant) and opens what they own: claim a chest for one opening session (the server lands it and
+// says what the fall did), then open it (the server says whether it broke or what dropped, and
+// puts the drop into the player's items). The client only draws those outcomes.
 
-const (
-	statusAvailable = "available"
-	statusOpening   = "opening"
-	statusOpened    = "opened"
-	statusDestroyed = "destroyed"
-	maxGrant        = 100
-	maxAppearance   = 16 << 10
-)
+type contentDTO struct {
+	Item   itemDTO `json:"item"`
+	Weight float64 `json:"weight"`
+}
 
-var errChestUnavailable = errors.New("chest unavailable")
+type traitDTO struct {
+	ID        string  `json:"id"`
+	Intensity float64 `json:"intensity"`
+	Seed      uint32  `json:"seed"`
+}
+
+type originDTO struct {
+	Source  string   `json:"source"`
+	Parents []string `json:"parents,omitempty"`
+}
+
+type dropDTO struct {
+	Item  itemDTO `json:"item"`
+	State string  `json:"state"`
+}
 
 type chestDTO struct {
-	ID         string          `json:"id"`
-	CaseID     string          `json:"caseId"`
-	Status     string          `json:"status"`
-	Seed       int64           `json:"seed"`
-	Appearance json.RawMessage `json:"appearance,omitempty"`
-	SessionID  *string         `json:"sessionId,omitempty"`
-	Reward     *itemDTO        `json:"reward,omitempty"`
-	OpenedAt   *time.Time      `json:"openedAt,omitempty"`
+	ID          string       `json:"id"`
+	CaseID      string       `json:"caseId"`
+	Status      string       `json:"status"`
+	Seed        uint64       `json:"seed"`
+	Revision    string       `json:"revision"`
+	Contents    []contentDTO `json:"contents"`
+	Traits      []traitDTO   `json:"traits"`
+	Rarity      string       `json:"rarity"`
+	Condition   float64      `json:"condition"`
+	Origin      originDTO    `json:"origin"`
+	SessionID   string       `json:"sessionId,omitempty"`
+	Drop        *dropDTO     `json:"drop,omitempty"`
+	DestroyedAt string       `json:"destroyedAt,omitempty"`
+	OpenedAt    *time.Time   `json:"openedAt,omitempty"`
+}
+
+type landingDTO struct {
+	Damage    *traitDTO `json:"damage,omitempty"`
+	Destroyed bool      `json:"destroyed"`
+}
+
+type ownedItemDTO struct {
+	ID     string  `json:"id"`
+	Item   itemDTO `json:"item"`
+	State  string  `json:"state"`
+	Origin string  `json:"origin"`
+}
+
+type amountDTO struct {
+	Resource string `json:"resource"`
+	Value    int64  `json:"value"`
 }
 
 func (s *Server) inventoryRoutes() {
-	s.mux.HandleFunc("GET /api/v1/inventory", s.requirePermission("/api/v1/inventory", "GET", s.listInventory))
-	s.mux.HandleFunc("POST /api/v1/inventory/{instanceID}/claim", s.sameOrigin(s.requirePermission("/api/v1/inventory/:instanceID/claim", "POST", s.claimChest)))
-	s.mux.HandleFunc("POST /api/v1/inventory/{instanceID}/complete", s.sameOrigin(s.requirePermission("/api/v1/inventory/:instanceID/complete", "POST", s.completeChest)))
-	s.mux.HandleFunc("POST /api/v1/inventory/{instanceID}/destroy", s.sameOrigin(s.requirePermission("/api/v1/inventory/:instanceID/destroy", "POST", s.destroyChest)))
-	s.mux.HandleFunc("PUT /api/v1/inventory/{instanceID}/appearance", s.sameOrigin(s.requirePermission("/api/v1/inventory/:instanceID/appearance", "PUT", s.chestAppearance)))
+	player := func(method, path string, handler http.HandlerFunc) {
+		pattern := strings.NewReplacer("{instanceID}", ":instanceID", "{itemID}", ":itemID").Replace(path)
+		h := s.requirePermission(pattern, method, handler)
+		if method != http.MethodGet {
+			h = s.sameOrigin(h)
+		}
+		s.mux.HandleFunc(method+" "+path, h)
+	}
+	player("GET", "/api/v1/inventory", s.listInventory)
+	player("POST", "/api/v1/inventory/{instanceID}/claim", s.claimChest)
+	player("POST", "/api/v1/inventory/{instanceID}/open", s.openChest)
+	player("POST", "/api/v1/inventory/merge", s.mergeChests)
+	player("GET", "/api/v1/inventory/items", s.listItems)
+	player("POST", "/api/v1/inventory/items/merge", s.mergeItems)
+	for name, action := range map[string]app.Workshop{"repair": app.Repair, "salvage": app.Salvage, "sell": app.Sell} {
+		player("POST", "/api/v1/inventory/items/{itemID}/"+name, s.workItem(action))
+	}
 	s.mux.HandleFunc("POST /api/v1/admin/users/{userID}/chests", s.sameOrigin(s.requirePermission("/api/v1/admin/users/:userID/chests", "POST", s.grantChests)))
 }
 
 func (s *Server) listInventory(w http.ResponseWriter, r *http.Request) {
 	user := userFrom(r.Context())
-	if err := s.grantStarter(s.db.WithContext(r.Context()), user.ID); err != nil {
+	if err := s.economy.GrantStarter(r.Context(), user.ID, s.starter); err != nil {
 		writeError(w, 500, "could not issue starter chests")
 		return
 	}
-	var rows []store.ChestInstance
-	if err := s.db.WithContext(r.Context()).Where("user_id = ?", user.ID).Order("created_at, id").Find(&rows).Error; err != nil {
+	states, err := s.economy.Chests(r.Context(), user.ID)
+	if err != nil {
 		writeError(w, 500, "could not read inventory")
 		return
 	}
-	dtos, err := s.chestDTOs(r, rows)
+	var openedAt map[string]time.Time
+	err = store.Transact(r.Context(), s.db, func(tx store.Tx) (err error) {
+		openedAt, err = tx.OpenedAt(user.ID)
+		return err
+	})
 	if err != nil {
-		writeError(w, 500, "could not read rewards")
+		writeError(w, 500, "could not read inventory")
 		return
+	}
+	rb := s.rulebook()
+	dtos := make([]chestDTO, len(states))
+	for i, state := range states {
+		dtos[i] = toChestDTO(rb, state)
+		if at, ok := openedAt[state.ID]; ok {
+			dtos[i].OpenedAt = &at
+		}
 	}
 	writeJSON(w, http.StatusOK, dtos)
 }
 
-// grantStarter gives a player the starter chests exactly once, even under concurrent requests:
-// the user row is locked and marked in the same transaction as the chests are created.
-func (s *Server) grantStarter(db *gorm.DB, userID string) error {
-	grants, err := parseGrants(s.config.StarterChests)
+// claimChest starts an opening session; the server lands the chest and answers what the fall
+// did. A retry for the same session answers the chest as it is, with no landing.
+func (s *Server) claimChest(w http.ResponseWriter, r *http.Request) {
+	sessionID, ok := sessionBody(w, r)
+	if !ok {
+		return
+	}
+	state, landing, err := s.economy.Claim(r.Context(), userFrom(r.Context()).ID, r.PathValue("instanceID"), sessionID)
 	if err != nil {
-		return err
+		writeEconomyError(w, err)
+		return
 	}
-	return db.Transaction(func(tx *gorm.DB) error {
-		var user store.User
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&user, "id = ?", userID).Error; err != nil {
-			return err
+	body := map[string]any{"chest": toChestDTO(s.rulebook(), state), "landing": nil}
+	if landing != nil {
+		dto := landingDTO{Destroyed: landing.Destroyed}
+		if landing.Damage != nil {
+			trait := toTraitDTO(*landing.Damage)
+			dto.Damage = &trait
 		}
-		if user.StarterGrantedAt != nil {
-			return nil
-		}
-		for _, grant := range grants {
-			if err := issueChests(tx, userID, grant.caseID, grant.count); err != nil {
-				return err
-			}
-		}
+		body["landing"] = dto
+	}
+	writeJSON(w, http.StatusOK, body)
+}
+
+// openChest finishes the session: the chest breaks or drops an item into the player's items. A
+// retry for the same session answers the same outcome.
+func (s *Server) openChest(w http.ResponseWriter, r *http.Request) {
+	sessionID, ok := sessionBody(w, r)
+	if !ok {
+		return
+	}
+	opened, err := s.economy.Open(r.Context(), userFrom(r.Context()).ID, r.PathValue("instanceID"), sessionID)
+	if err != nil {
+		writeEconomyError(w, err)
+		return
+	}
+	rb := s.rulebook()
+	dto := toChestDTO(rb, opened.Chest)
+	if opened.Chest.Status == chest.Opened {
 		now := time.Now()
-		return tx.Model(&store.User{}).Where("id = ?", userID).Update("starter_granted_at", now).Error
-	})
-}
-
-type grant struct {
-	caseID string
-	count  int
-}
-
-// parseGrants reads "case:count,case:count"; unknown chest types and bad counts are errors.
-func parseGrants(value string) ([]grant, error) {
-	var grants []grant
-	for _, part := range strings.Split(value, ",") {
-		part = strings.TrimSpace(part)
-		if part == "" {
-			continue
-		}
-		caseID, countText, ok := strings.Cut(part, ":")
-		count, err := strconv.Atoi(strings.TrimSpace(countText))
-		if _, known := domain.CaseByID(strings.TrimSpace(caseID)); !ok || err != nil || !known || count < 1 || count > maxGrant {
-			return nil, fmt.Errorf("invalid chest grant %q", part)
-		}
-		grants = append(grants, grant{caseID: strings.TrimSpace(caseID), count: count})
+		dto.OpenedAt = &now
 	}
-	return grants, nil
+	body := map[string]any{"chest": dto, "item": nil}
+	if opened.Item != nil {
+		body["item"] = toOwnedItemDTO(rb, *opened.Item)
+	}
+	writeJSON(w, http.StatusOK, body)
 }
 
-func issueChests(tx *gorm.DB, userID, caseID string, count int) error {
-	rows := make([]store.ChestInstance, 0, count)
-	for i := 0; i < count; i++ {
-		id, err := newUUID()
-		if err != nil {
-			return err
-		}
-		seed, err := newSeed()
-		if err != nil {
-			return err
-		}
-		rows = append(rows, store.ChestInstance{ID: id, UserID: userID, CaseID: caseID, Status: statusAvailable, Seed: seed})
+func (s *Server) mergeChests(w http.ResponseWriter, r *http.Request) {
+	a, b, ok := pairBody(w, r)
+	if !ok {
+		return
 	}
-	return tx.Create(&rows).Error
+	merged, err := s.economy.MergeChests(r.Context(), userFrom(r.Context()).ID, a, b)
+	if err != nil {
+		writeEconomyError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, toChestDTO(s.rulebook(), merged))
+}
+
+func (s *Server) listItems(w http.ResponseWriter, r *http.Request) {
+	items, balances, err := s.economy.Inventory(r.Context(), userFrom(r.Context()).ID)
+	if err != nil {
+		writeError(w, 500, "could not read items")
+		return
+	}
+	rb := s.rulebook()
+	dtos := make([]ownedItemDTO, 0, len(items))
+	for _, item := range items {
+		dtos = append(dtos, toOwnedItemDTO(rb, item))
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": dtos, "balances": balances})
+}
+
+// workItem repairs, salvages or sells an item; it answers what was paid or gained.
+func (s *Server) workItem(action app.Workshop) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		amount, err := s.economy.Work(r.Context(), userFrom(r.Context()).ID, r.PathValue("itemID"), action)
+		if err != nil {
+			writeEconomyError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, amountDTO{Resource: amount.Resource, Value: amount.Value})
+	}
+}
+
+func (s *Server) mergeItems(w http.ResponseWriter, r *http.Request) {
+	a, b, ok := pairBody(w, r)
+	if !ok {
+		return
+	}
+	kept, err := s.economy.MergeItems(r.Context(), userFrom(r.Context()).ID, a, b)
+	if err != nil {
+		writeEconomyError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, toOwnedItemDTO(s.rulebook(), kept))
 }
 
 func (s *Server) grantChests(w http.ResponseWriter, r *http.Request) {
@@ -142,173 +239,103 @@ func (s *Server) grantChests(w http.ResponseWriter, r *http.Request) {
 		CaseID string `json:"caseId"`
 		Count  int    `json:"count"`
 	}
-	if !decode(w, r, &body) || body.Count < 1 || body.Count > maxGrant {
+	if !decode(w, r, &body) || body.Count < 1 || body.Count > app.MaxIssue {
 		writeError(w, 400, "invalid grant")
 		return
 	}
-	if _, ok := domain.CaseByID(body.CaseID); !ok {
+	if _, ok := s.rulebook().Type(body.CaseID); !ok {
 		writeError(w, 404, "chest type not found")
 		return
 	}
 	userID := r.PathValue("userID")
-	err := s.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
-		if err := tx.First(&store.User{}, "id = ?", userID).Error; err != nil {
-			return err
-		}
-		return issueChests(tx, userID, body.CaseID, body.Count)
-	})
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	var found int64
+	if err := s.db.WithContext(r.Context()).Model(&store.User{}).Where("id = ?", userID).Count(&found).Error; err != nil {
+		writeError(w, 500, "could not issue chests")
+		return
+	} else if found == 0 {
 		writeError(w, 404, "user not found")
 		return
-	} else if err != nil {
-		writeError(w, 500, "could not issue chests")
+	}
+	if _, err := s.economy.Issue(r.Context(), userID, body.CaseID, "admin", body.Count); err != nil {
+		writeEconomyError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{"userId": userID, "caseId": body.CaseID, "issued": body.Count})
 }
 
-func (s *Server) claimChest(w http.ResponseWriter, r *http.Request) {
-	sessionID, ok := sessionBody(w, r)
-	if !ok {
-		return
-	}
-	s.transition(w, r, func(tx *gorm.DB, chest *store.ChestInstance) error {
-		return claim(tx, chest, sessionID)
-	})
-}
-
-// claim reserves an available chest for one opening session; claiming it again for the same
-// session changes nothing.
-func claim(tx *gorm.DB, chest *store.ChestInstance, sessionID string) error {
-	if chest.Status == statusOpening && chest.SessionID != nil && *chest.SessionID == sessionID {
-		return nil
-	}
-	if chest.Status != statusAvailable {
-		return errChestUnavailable
-	}
-	chest.Status, chest.SessionID = statusOpening, &sessionID
-	return tx.Save(chest).Error
-}
-
-func (s *Server) completeChest(w http.ResponseWriter, r *http.Request) {
-	sessionID, ok := sessionBody(w, r)
-	if !ok {
-		return
-	}
-	s.transition(w, r, func(tx *gorm.DB, chest *store.ChestInstance) error {
-		if chest.Status == statusOpened && sameSession(chest, sessionID) {
-			return nil
-		}
-		if chest.Status != statusOpening || !sameSession(chest, sessionID) {
-			return errChestUnavailable
-		}
-		// The reward is what the server rolled for this session, never what the client says.
-		var roll store.CaseRoll
-		if err := tx.Where("session_id = ? AND user_id = ?", sessionID, chest.UserID).First(&roll).Error; err != nil {
-			return errChestUnavailable
-		}
-		now := time.Now()
-		chest.Status, chest.RewardID, chest.OpenedAt = statusOpened, &roll.LootItemID, &now
-		return tx.Save(chest).Error
-	})
-}
-
-func (s *Server) destroyChest(w http.ResponseWriter, r *http.Request) {
-	sessionID, ok := sessionBody(w, r)
-	if !ok {
-		return
-	}
-	s.transition(w, r, func(tx *gorm.DB, chest *store.ChestInstance) error {
-		if chest.Status == statusDestroyed && sameSession(chest, sessionID) {
-			return nil
-		}
-		if chest.Status != statusOpening || !sameSession(chest, sessionID) {
-			return errChestUnavailable
-		}
-		chest.Status = statusDestroyed
-		return tx.Save(chest).Error
-	})
-}
-
-// chestAppearance keeps what a landing did to the chest's look (cracks, chips). Cosmetic: it
-// changes neither ownership nor reward, and only a chest in or after its opening can change.
-func (s *Server) chestAppearance(w http.ResponseWriter, r *http.Request) {
-	var body struct {
-		Appearance json.RawMessage `json:"appearance"`
-	}
-	if !decode(w, r, &body) || len(body.Appearance) == 0 || len(body.Appearance) > maxAppearance || !json.Valid(body.Appearance) || body.Appearance[0] != '{' {
-		writeError(w, 400, "invalid appearance")
-		return
-	}
-	s.transition(w, r, func(tx *gorm.DB, chest *store.ChestInstance) error {
-		if chest.Status == statusAvailable {
-			return errChestUnavailable
-		}
-		chest.Appearance = body.Appearance
-		return tx.Save(chest).Error
-	})
-}
-
-// transition loads the player's own chest under a row lock, applies a change and answers with
-// the chest as it now is; a chest of somebody else is the same as one that does not exist.
-func (s *Server) transition(w http.ResponseWriter, r *http.Request, change func(*gorm.DB, *store.ChestInstance) error) {
-	user := userFrom(r.Context())
-	var chest store.ChestInstance
-	err := s.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&chest, "id = ? AND user_id = ?", r.PathValue("instanceID"), user.ID).Error; err != nil {
-			return err
-		}
-		return change(tx, &chest)
-	})
+// writeEconomyError says what the domain refused; another player's chest or item is the same as
+// one that does not exist.
+func writeEconomyError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, gorm.ErrRecordNotFound):
-		writeError(w, 404, "chest not found")
-	case errors.Is(err, errChestUnavailable):
+	case errors.Is(err, app.ErrNotFound):
+		writeError(w, 404, "not found")
+	case errors.Is(err, inventory.ErrUnknownItem):
+		writeError(w, 404, "item not found")
+	case errors.Is(err, chest.ErrUnknownType):
+		writeError(w, 404, "chest type not found")
+	case errors.Is(err, app.ErrInvalid), errors.Is(err, chest.ErrNoSession):
+		writeError(w, 400, "invalid request")
+	case errors.Is(err, chest.ErrUnavailable), errors.Is(err, chest.ErrNotOpening), errors.Is(err, chest.ErrWrongSession):
 		writeError(w, 409, "chest is not available for this session")
-	case err != nil:
-		writeError(w, 500, "could not update chest")
+	case errors.Is(err, chest.ErrMismatch):
+		writeError(w, 409, "only two available chests of one type merge")
+	case errors.Is(err, inventory.ErrNotTwins):
+		writeError(w, 409, "only two damaged items of one kind merge")
+	case errors.Is(err, inventory.ErrIntact):
+		writeError(w, 409, "item is not damaged")
+	case errors.Is(err, wallet.ErrInsufficient):
+		writeError(w, 409, "not enough resources")
 	default:
-		dtos, err := s.chestDTOs(r, []store.ChestInstance{chest})
-		if err != nil {
-			writeError(w, 500, "could not read reward")
-			return
-		}
-		writeJSON(w, http.StatusOK, dtos[0])
+		writeError(w, 500, "could not update the economy")
 	}
 }
 
-func (s *Server) chestDTOs(r *http.Request, rows []store.ChestInstance) ([]chestDTO, error) {
-	ids := []string{}
-	for _, row := range rows {
-		if row.RewardID != nil {
-			ids = append(ids, *row.RewardID)
-		}
+func toChestDTO(rb *rulebook.Rulebook, s chest.State) chestDTO {
+	dto := chestDTO{
+		ID: s.ID, CaseID: s.Type, Status: string(s.Status), Seed: s.Seed, Revision: s.Revision,
+		Contents: make([]contentDTO, 0, len(s.Contents)), Traits: make([]traitDTO, 0, len(s.Traits)),
+		Rarity: s.Rarity, Condition: s.Condition, Origin: originDTO{Source: s.Origin.Source, Parents: s.Origin.Parents},
+		SessionID: s.Session, DestroyedAt: string(s.DestroyedAt),
 	}
-	items := map[string]store.LootItem{}
-	if len(ids) > 0 {
-		var loot []store.LootItem
-		if err := s.db.WithContext(r.Context()).Where("id IN ?", ids).Find(&loot).Error; err != nil {
-			return nil, err
-		}
-		for _, item := range loot {
-			items[item.ID] = item
-		}
+	var total float64
+	for _, slot := range s.Contents {
+		total += slot.Weight
 	}
-	dtos := make([]chestDTO, 0, len(rows))
-	for _, row := range rows {
-		dto := chestDTO{ID: row.ID, CaseID: row.CaseID, Status: row.Status, Seed: row.Seed, SessionID: row.SessionID, OpenedAt: row.OpenedAt}
-		if len(row.Appearance) > 0 {
-			dto.Appearance = row.Appearance
-		}
-		if row.RewardID != nil {
-			if item, ok := items[*row.RewardID]; ok {
-				reward := toItemDTO(item)
-				dto.Reward = &reward
-			}
-		}
-		dtos = append(dtos, dto)
+	for _, slot := range s.Contents {
+		dto.Contents = append(dto.Contents, contentDTO{Item: rulebookItemDTO(rb, slot.Item, percent(slot.Weight, total)), Weight: slot.Weight})
 	}
-	return dtos, nil
+	for _, trait := range s.Traits {
+		dto.Traits = append(dto.Traits, toTraitDTO(trait))
+	}
+	if s.Drop != nil {
+		dto.Drop = &dropDTO{Item: rulebookItemDTO(rb, s.Drop.Item, 0), State: s.Drop.State}
+	}
+	return dto
+}
+
+// percent is a weight's share of the total in percent: an item's chance to drop.
+func percent(weight, total float64) float64 {
+	if total <= 0 {
+		return 0
+	}
+	return math.Round(weight/total*10000) / 100
+}
+
+func toTraitDTO(t chest.Trait) traitDTO {
+	return traitDTO{ID: t.ID, Intensity: t.Intensity, Seed: t.Seed}
+}
+
+func toOwnedItemDTO(rb *rulebook.Rulebook, item inventory.Item) ownedItemDTO {
+	return ownedItemDTO{ID: item.ID, Item: rulebookItemDTO(rb, item.Item, 0), State: item.State, Origin: item.Origin}
+}
+
+// rulebookItemDTO describes an item by the rulebook; one the rulebook no longer has keeps its id.
+func rulebookItemDTO(rb *rulebook.Rulebook, id string, chance float64) itemDTO {
+	item, _, ok := rb.Item(id)
+	if !ok {
+		return itemDTO{ID: id, Title: id, Image: "/api/v1/items/" + id + "/image.svg", Chance: chance}
+	}
+	return itemDTO{ID: item.ID, Title: item.Title, Image: itemImageURL(item.ID, item.Glyph), Type: item.Rarity, Chance: chance}
 }
 
 func sessionBody(w http.ResponseWriter, r *http.Request) (string, bool) {
@@ -322,8 +349,36 @@ func sessionBody(w http.ResponseWriter, r *http.Request) (string, bool) {
 	return body.SessionID, true
 }
 
-func sameSession(chest *store.ChestInstance, sessionID string) bool {
-	return chest.SessionID != nil && *chest.SessionID == sessionID
+func pairBody(w http.ResponseWriter, r *http.Request) (string, string, bool) {
+	var body struct {
+		A string `json:"a"`
+		B string `json:"b"`
+	}
+	if !decode(w, r, &body) || body.A == "" || body.B == "" || len(body.A) > 128 || len(body.B) > 128 {
+		writeError(w, 400, "invalid pair")
+		return "", "", false
+	}
+	return body.A, body.B, true
+}
+
+// parseGrants reads "type:count,type:count"; types the rulebook does not have and bad counts
+// are errors.
+func parseGrants(rb *rulebook.Rulebook, value string) ([]app.Grant, error) {
+	var grants []app.Grant
+	for _, part := range strings.Split(value, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		chestType, countText, ok := strings.Cut(part, ":")
+		chestType = strings.TrimSpace(chestType)
+		count, err := strconv.Atoi(strings.TrimSpace(countText))
+		if _, known := rb.Type(chestType); !ok || err != nil || !known || count < 1 || count > app.MaxIssue {
+			return nil, fmt.Errorf("invalid chest grant %q", part)
+		}
+		grants = append(grants, app.Grant{Type: chestType, Count: count})
+	}
+	return grants, nil
 }
 
 func newUUID() (string, error) {
@@ -337,11 +392,11 @@ func newUUID() (string, error) {
 	return h[0:8] + "-" + h[8:12] + "-" + h[12:16] + "-" + h[16:20] + "-" + h[20:], nil
 }
 
-// newSeed picks a 32-bit seed: the client's appearance generator works on unsigned 32-bit seeds.
-func newSeed() (int64, error) {
+// newSeed picks a 32-bit seed: the client draws a chest's look from it on unsigned 32-bit seeds.
+func newSeed() (uint64, error) {
 	b := make([]byte, 4)
 	if _, err := rand.Read(b); err != nil {
 		return 0, err
 	}
-	return int64(binary.BigEndian.Uint32(b)), nil
+	return uint64(binary.BigEndian.Uint32(b)), nil
 }
