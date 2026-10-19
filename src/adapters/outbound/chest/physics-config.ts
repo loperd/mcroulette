@@ -13,7 +13,7 @@ export const PHYSICS_CONFIG = Object.freeze({
  * forward, and low enough that the fall is a thud, not a tumble.
  */
 export const SPAWN_POSE: Pose = Object.freeze({
-  position: Object.freeze({ x: 0, y: 2.6, z: 0 }),
+  position: Object.freeze({ x: 0, y: 3, z: 0 }),
   rotation: Object.freeze({ x: 0, y: 0, z: 0, w: 1 }),
 });
 

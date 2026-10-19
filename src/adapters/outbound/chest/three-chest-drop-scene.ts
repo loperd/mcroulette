@@ -26,6 +26,11 @@ import { ChestOpeningEffects } from './chest-opening-effects.ts';
 import { SPAWN_POSE } from './physics-config.ts';
 import { CHEST_WIDTH } from './chest-bounds.ts';
 
+/** The chest is a block and a half wide: bigger than the world's blocks, the thing that matters. */
+const BLOCKS_WIDE = 1.5;
+/** Its units to a block. */
+const UNIT = CHEST_WIDTH / BLOCKS_WIDE;
+
 /** How long to wait for a world to take the chest in before giving up. */
 const WORLD_WAIT_MS = 10_000;
 
@@ -104,7 +109,7 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
   /** What a world takes in: the chest's things, one block wide, in the chest's own look. */
   readonly guest: Guest = {
     root: this.root,
-    unit: CHEST_WIDTH,
+    unit: UNIT,
     // The three-quarter view it was made to be seen in: front and one side.
     front: [-5, -7],
     look: { toneMapping: ACESFilmicToneMapping, exposure: 1.1, srgb: true, shadows: true, clipping: true },
@@ -148,7 +153,7 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     if (!physics || this.world !== world) return;
     const carried = this.carried;
     this.carried = undefined;
-    this.worldPhysics = new WorldBodyPhysics(physics, world, CHEST_WIDTH);
+    this.worldPhysics = new WorldBodyPhysics(physics, world, UNIT);
     this.physics = this.worldPhysics;
     if (carried && this.assets) { this.physics.resetChest(this.assets.colliders, carried); this.syncPose(); }
     this.present = true;
@@ -186,8 +191,8 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     if (!world || !scene || !assets) return undefined;
     try {
       // Frame what lies around the chest (fragments, standing parts, debris), not crumbs far away.
-      // All in the world's units: the chest stands on the anchor, a block wide.
-      const block = 1 / CHEST_WIDTH, origin = assets.visual.getWorldPosition(new Vector3()), box = new Box3(), point = new Vector3();
+      // All in the world's units: the chest stands on the anchor, a block and a half wide.
+      const block = 1 / UNIT, origin = assets.visual.getWorldPosition(new Vector3()), box = new Box3(), point = new Vector3();
       origin.y = world.anchor[1];
       scene.traverse(object => {
         if (!(object instanceof Mesh) || object === this.floor) return;
@@ -419,8 +424,8 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
           // itself keeps its real size, so fragments are never larger than it was.
           const eased = 1 - (1 - progress) ** 3;
           assets.visual.position.copy(start);
-          // A fifth of the way in, the aim raised a third of a block: the chest fills more of the view.
-          this.world?.approach(0.2 * eased, 0.33 * eased);
+          // A fifth of the way in, the aim raised half a block: the chest fills more of the view.
+          this.world?.approach(0.2 * eased, 0.5 * eased);
           if (!destroyed) {
             mixer.update(delta);
             this.effects?.update(elapsed / (clipDuration + 0.3), reducedMotion);
