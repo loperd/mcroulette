@@ -13,7 +13,7 @@ import { Button } from './adapters/inbound/react/Button.tsx';
 import { ApiAuthGateway } from './adapters/outbound/data/api-auth-gateway.ts';
 import type { Player } from './application/ports/auth-gateway.ts';
 import { InventoryScreen } from './adapters/inbound/react/InventoryScreen.tsx';
-import { DemoInventoryStore } from './adapters/outbound/browser/demo-inventory-store.ts';
+import { ApiInventory } from './adapters/outbound/data/api-inventory.ts';
 import { ChestPreviewRenderer } from './adapters/outbound/chest/chest-preview-renderer.ts';
 import { withBreakageDamage } from './domain/chest-appearance.ts';
 import { demoBreakage } from './adapters/outbound/browser/demo-breakage.ts';
@@ -27,12 +27,12 @@ import { createApplication } from './composition/create-application.ts';
 import { CASES, type CaseDefinition } from './config/cases.ts';
 import { ThreeChestDropScene } from './adapters/outbound/chest/three-chest-drop-scene.ts';
 import { CanvasRoulette } from './adapters/outbound/browser/canvas-roulette.ts';
-import { RecentFindStore } from './adapters/outbound/browser/recent-find-store.ts';
+import { InventoryRecentFind } from './application/inventory-recent-find.ts';
 import { SoundSettings } from './adapters/outbound/browser/sound-settings.ts';
 import { ClickSound } from './adapters/outbound/browser/click-sound.ts';
 import { ScreenStorage } from './adapters/outbound/browser/screen-storage.ts';
 import { BrowserRouter } from './adapters/outbound/browser/browser-router.ts';
-import { BrowserSessionJournal } from './adapters/outbound/browser/browser-session-journal.ts';
+import { MemorySessionJournal } from './adapters/outbound/browser/memory-session-journal.ts';
 import { GameTransitions } from './adapters/outbound/browser/game-transitions.ts';
 import { browserFrameEnvironment } from './adapters/outbound/browser/frame-scheduler.ts';
 import { normalizeBaseUrl, resolvePublicAsset } from './adapters/outbound/data/asset-url.ts';
@@ -52,8 +52,17 @@ const navigation = new BrowserRouter(window, storage);
 const reporter = new ConsoleErrorReporter();
 const failsafe = new Failsafe({ document, reporter, goHome: () => navigation.go({ screen: 'inventory' }, true) });
 failsafe.install();
-const inventory = new DemoInventoryStore(storage);
-inventory.seedDemoStock(CASES);
+// The player's chests live on the server only: it issues them and owns their state.
+const inventory = new ApiInventory(baseUrl, CASES, error => reporter.capture(error, { code: 'INVENTORY_SYNC_FAILED' }));
+// Chests were once kept in the browser (a demo store); nothing of that is used any more.
+try {
+  const stale = /^voxel-vault:(demo-inventory-v2|demo-stock:|last-find:|session:)/;
+  for (const key of Object.keys(window.localStorage)) if (stale.test(key)) window.localStorage.removeItem(key);
+  for (const key of Object.keys(window.sessionStorage)) if (key.startsWith('wreck:')) window.sessionStorage.removeItem(key);
+} catch { /* No browser storage: nothing to clean. */ }
+/** Opening checkpoints by case runtime, for this page only (rebuilding a runtime keeps its place). */
+const journals = new Map<string, MemorySessionJournal>();
+const sessionJournals = (identity: string) => { let journal = journals.get(identity); if (!journal) journals.set(identity, journal = new MemorySessionJournal()); return journal; };
 let previews: ChestPreviewRenderer | undefined;
 let runtime: ReturnType<typeof createCaseRuntime> | undefined;
 let pendingOpenInstanceId: string | undefined;
@@ -89,16 +98,18 @@ function createCaseRuntime(definition: CaseDefinition, instance?: CaseInstance, 
   const effectColor = definition.presentation.theme.accent;
   const transitions = new GameTransitions(browserFrameEnvironment(window, document), roulette.element);
   transitions.element.style.background = `radial-gradient(ellipse, #ffffff, ${effectColor})`;
-  const journal = instance ? new BrowserSessionJournal(storage, identity) : undefined;
+  // In memory only: after a reload the server says the chest is being opened in its session, and
+  // the opening resumes from there (the server rolls the same prize for the same session).
+  const journal = instance ? sessionJournals(identity) : undefined;
   if (instance?.status === 'opening' && !journal!.load()) journal!.save({ stage: 'chest', sessionId: instance.sessionId! });
-  const application = createApplication({ baseUrl, catalogPath: definition.catalogPath, prizePath: definition.prizePath,
+  const application = createApplication({ baseUrl, catalogPath: definition.catalogPath, prizePath: definition.prizePath, instanceId: instance?.id,
     journal, ownership: instance ? {
       claim: sessionId => inventory.claim(instance.id, sessionId),
       complete: (sessionId, reward) => inventory.complete(instance.id, sessionId, reward),
       destroy: sessionId => inventory.destroy(instance.id, sessionId),
     } : undefined, destruction: breakage?.destroyed ? { moment: breakage.moment } : undefined,
     presentation: { chest: scene, roulette, transitions } });
-  const recentFind = new RecentFindStore(application.session!, definition.id, () => window.localStorage);
+  const recentFind = new InventoryRecentFind(inventory, definition.id);
   let initializing = true;
   const syncRoute = () => {
     if (initializing || runtime?.identity !== identity) return;
@@ -171,8 +182,18 @@ async function checkSession() {
   }
   renderRoute();
 }
+/** The player's chests are read from the server once signed in, before any screen shows them. */
+let inventoryLoad: Promise<void> | undefined;
+function loadInventory() {
+  inventoryLoad ??= inventory.load().catch(error => {
+    reporter.capture(error, { code: 'INVENTORY_LOAD_FAILED' });
+    inventoryLoad = undefined;
+    session = { state: 'unavailable' };
+  }).finally(renderRoute);
+}
 function renderGate(): boolean {
-  if (session.state === 'signed-in') return false;
+  if (session.state === 'signed-in' && inventory.isLoaded()) return false;
+  if (session.state === 'signed-in') loadInventory();
   root.render(<StrictMode>{session.state === 'signed-out'
     ? <LoginScreen auth={auth} onSignedIn={player => { session = { state: 'signed-in', player }; renderRoute(); }} />
     : <main className="page-shell">{session.state === 'unavailable'

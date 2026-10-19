@@ -17,6 +17,8 @@ type Config struct {
 	TelegramClientID string
 	TelegramSecret   string
 	TelegramRedirect string
+	// Chests every new player gets once, as "case:count,case:count".
+	StarterChests string
 }
 
 func Load() Config {
@@ -32,6 +34,7 @@ func Load() Config {
 		TelegramClientID: os.Getenv("TELEGRAM_CLIENT_ID"),
 		TelegramSecret:   os.Getenv("TELEGRAM_CLIENT_SECRET"),
 		TelegramRedirect: os.Getenv("TELEGRAM_REDIRECT_URL"),
+		StarterChests:    env("STARTER_CHESTS", "traveler:10,deep-mine:5,ender:5,dragon:3"),
 	}
 }
 

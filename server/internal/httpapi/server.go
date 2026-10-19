@@ -25,6 +25,7 @@ import (
 	"github.com/voxel-vault/api/internal/store"
 	"golang.org/x/oauth2"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const sessionCookie = "vv_session"
@@ -110,6 +111,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/me", s.requirePermission("/api/v1/me", "GET", s.me))
 	s.mux.HandleFunc("POST /api/v1/auth/logout", s.sameOrigin(s.requireUser(s.logout)))
 	s.mux.HandleFunc("POST /api/v1/access/users/{userID}/roles", s.sameOrigin(s.requireUser(s.assignRole)))
+	s.inventoryRoutes()
 }
 
 type itemDTO struct {
@@ -155,10 +157,11 @@ func (s *Server) rollLoot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var request struct {
-		SessionID string `json:"sessionId"`
+		SessionID  string `json:"sessionId"`
+		InstanceID string `json:"instanceId"`
 	}
-	if !decode(w, r, &request) || strings.TrimSpace(request.SessionID) == "" || len(request.SessionID) > 128 {
-		writeError(w, 400, "invalid sessionId")
+	if !decode(w, r, &request) || strings.TrimSpace(request.SessionID) == "" || len(request.SessionID) > 128 || strings.TrimSpace(request.InstanceID) == "" {
+		writeError(w, 400, "invalid sessionId or instanceId")
 		return
 	}
 	var existing store.CaseRoll
@@ -167,6 +170,25 @@ func (s *Server) rollLoot(w http.ResponseWriter, r *http.Request) {
 		return
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 		writeError(w, 500, "could not read roll")
+		return
+	}
+	// Only a chest the player owns, of this type, opened in this session gets a prize: it is
+	// reserved for the session here, in one step with the check.
+	err := s.db.WithContext(r.Context()).Transaction(func(tx *gorm.DB) error {
+		var chest store.ChestInstance
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&chest, "id = ? AND user_id = ? AND case_id = ?", request.InstanceID, user.ID, caseID).Error; err != nil {
+			return err
+		}
+		return claim(tx, &chest, request.SessionID)
+	})
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		writeError(w, 404, "chest not found")
+		return
+	} else if errors.Is(err, errChestUnavailable) {
+		writeError(w, 409, "chest is not available for this session")
+		return
+	} else if err != nil {
+		writeError(w, 500, "could not reserve chest")
 		return
 	}
 	var rows []store.LootItem

@@ -24,6 +24,8 @@ interface ApplicationOptions {
   readonly destruction?: { readonly moment: 'impact' | 'opening' };
   readonly catalogPath?: string;
   readonly prizePath?: string;
+  /** The player's chest being opened: the server rolls a prize only for a chest it issued. */
+  readonly instanceId?: string;
   readonly fetcher?: FetchJson;
   readonly random?: RandomSource;
   readonly createSessionId?: () => string;
@@ -56,8 +58,8 @@ export function createApplication(options: ApplicationOptions): Application {
     destruction: options.destruction,
     catalog: gateway,
     // API paths are rolled by the server; anything else is a static fixture (tests, previews).
-    prize: options.prizePath?.startsWith('api/')
-      ? new ApiPrizeGateway(options.baseUrl, options.prizePath, options.fetcher)
+    prize: options.prizePath?.startsWith('api/') && options.instanceId
+      ? new ApiPrizeGateway(options.baseUrl, options.prizePath, options.instanceId, options.fetcher)
       : new FixturePrizeGateway(options.baseUrl, options.fetcher, options.prizePath),
     ...options.presentation,
     random: options.random ?? browserRandom,

@@ -29,3 +29,40 @@ export function deferred() {
 }
 
 export const flush = () => new Promise(resolve => setImmediate(resolve));
+
+/**
+ * A stand-in for the server's inventory API (GET /api/v1/inventory, POST …/claim|complete|destroy,
+ * PUT …/appearance) holding chest DTOs as the server sends them; `rewards` maps a session to the
+ * item DTO the server rolled for it.
+ */
+export function inventoryServer(chests, rewards = {}) {
+  const rows = new Map(chests.map(chest => [chest.id, { status: 'available', seed: 1, ...chest }]));
+  const json = value => ({ ok: true, status: 200, json: async () => structuredClone(value) });
+  const fetcher = async (url, init = {}) => {
+    const path = new URL(url).pathname.replace(/^.*\/api\/v1\/inventory/, '');
+    if (!init.method || init.method === 'GET') return json([...rows.values()]);
+    const [, id, action] = path.split('/'), row = rows.get(decodeURIComponent(id)), body = JSON.parse(init.body);
+    if (!row) return { ok: false, status: 404, json: async () => ({}) };
+    if (action === 'claim') Object.assign(row, { status: 'opening', sessionId: body.sessionId });
+    if (action === 'complete') Object.assign(row, { status: 'opened', reward: rewards[body.sessionId] ?? { id: 'p1', title: 'Prize', image: '/p.png', type: 'primary', chance: 1 }, openedAt: new Date(0).toISOString() });
+    if (action === 'destroy') Object.assign(row, { status: 'destroyed' });
+    if (action === 'appearance') row.appearance = body.appearance;
+    return json(row);
+  };
+  return { fetcher, rows };
+}
+
+/** A server inventory for the given chest DTOs, read once, ready to use. */
+export async function loadedInventory(chests, rewards) {
+  const { ApiInventory } = await import('../src/adapters/outbound/data/api-inventory.ts');
+  const { CASES } = await import('../src/config/cases.ts');
+  const server = inventoryServer(chests, rewards), errors = [];
+  const inventory = new ApiInventory('https://example.test/', CASES, error => errors.push(error), server.fetcher);
+  await inventory.load();
+  return { inventory, server, errors };
+}
+
+/** Every case type stocked as the server would issue it: `count` chests each, varied seeds. */
+export function issuedStock(cases, count = 100) {
+  return cases.flatMap(definition => Array.from({ length: count }, (_, index) => ({ id: `${definition.id}-${index}`, caseId: definition.id, seed: (index * 2654435761) >>> 0 })));
+}

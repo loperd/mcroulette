@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { claimCase, completeCase, copyCaseInstance, destroyCase, isConsumed } from '../../src/domain/case-instance.ts';
 import { createChestAppearance } from '../../src/domain/chest-appearance.ts';
-import { decodeCheckpoint } from '../../src/adapters/outbound/browser/browser-session-journal.ts';
 import { item } from '../helpers.mjs';
 
 test('a destroyed case is consumed without a reward, idempotently, and cannot be reopened', () => {
@@ -17,5 +16,4 @@ test('a destroyed case is consumed without a reward, idempotently, and cannot be
   assert.throws(() => completeCase(destroyed, 's1', item('x')));
   assert.throws(() => copyCaseInstance({ ...destroyed, reward: item('x') }));
   assert.deepEqual(copyCaseInstance(JSON.parse(JSON.stringify(destroyed))), destroyed);
-  assert.deepEqual(decodeCheckpoint({ stage: 'destroyed', sessionId: 's1' }), { stage: 'destroyed', sessionId: 's1' });
 });

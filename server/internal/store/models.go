@@ -11,9 +11,11 @@ type User struct {
 	ID          string `gorm:"primaryKey;size:32"`
 	Handle      string `gorm:"uniqueIndex;size:80;not null"`
 	DisplayName string `gorm:"size:160;not null"`
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	Credentials []Credential `gorm:"foreignKey:UserID"`
+	// When the player got the starter chests (once per account; nil until the first inventory read).
+	StarterGrantedAt *time.Time
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+	Credentials      []Credential `gorm:"foreignKey:UserID"`
 }
 
 func (u *User) WebAuthnID() []byte          { return []byte(u.ID) }
@@ -98,4 +100,23 @@ type CaseRoll struct {
 	CaseID     string `gorm:"size:64;not null"`
 	LootItemID string `gorm:"size:96;not null"`
 	CreatedAt  time.Time
+}
+
+// ChestInstance is one chest a player owns. Only the server issues them (a starter grant, an
+// admin grant); the player can only open them: available → opening (one session) → opened with
+// the session's rolled reward, or destroyed with none.
+type ChestInstance struct {
+	ID     string `gorm:"primaryKey;size:36"`
+	UserID string `gorm:"index:idx_chest_owner_status,priority:1;size:32;not null"`
+	CaseID string `gorm:"size:64;not null"`
+	Status string `gorm:"index:idx_chest_owner_status,priority:2;size:16;not null"`
+	// Seed of the chest's look and fate, chosen at issue: the client derives the same appearance.
+	Seed int64 `gorm:"not null"`
+	// The look once it changed (damage from a landing); empty while it is the issued one.
+	Appearance []byte  `gorm:"type:jsonb"`
+	SessionID  *string `gorm:"size:128"`
+	RewardID   *string `gorm:"size:96"`
+	OpenedAt   *time.Time
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }

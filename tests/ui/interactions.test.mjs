@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { readFile } from 'node:fs/promises';
 import { createApplication } from '../../src/composition/create-application.ts';
-import { deferred, flush } from '../helpers.mjs';
+import { deferred, flush, issuedStock, loadedInventory } from '../helpers.mjs';
 import { frameEnvironment } from '../frame-environment.mjs';
 import { CanvasRoulette } from '../../src/adapters/outbound/browser/canvas-roulette.ts';
 import { canvasFactory } from '../canvas-harness.mjs';
@@ -274,10 +274,13 @@ test('sound toggle applies its preference and exposes an accessible current stat
 
 
 test('the home highlight shows the real last find and opens its story', async () => {
-  const { RecentFindStore } = await import('../../src/adapters/outbound/browser/recent-find-store.ts');
+  const { InventoryRecentFind } = await import('../../src/application/inventory-recent-find.ts');
   const selected = JSON.parse(await readFile(new URL('../../public/selected_prize.json', import.meta.url), 'utf8'));
   const noop = async () => {};
+  // The server rolls King for this opening and keeps it as the chest's reward.
+  const { inventory } = await loadedInventory([{ id: 'e1', caseId: 'ender', seed: 5 }], new Proxy({}, { get: () => selected }));
   const app = createApplication({ baseUrl: 'https://example.test/demo/',
+    ownership: { claim: id => inventory.claim('e1', id), complete: (id, reward) => inventory.complete('e1', id, reward) },
     presentation: {
       chest: { prepare: noop, preview: noop, drop: noop, open: noop, hide() {}, reset: noop, dispose() {} },
       roulette: { prepare: noop, spin: noop, reset() {}, dispose() {} },
@@ -285,7 +288,7 @@ test('the home highlight shows the real last find and opens its story', async ()
     },
     fetcher: async url => json(url.endsWith('items.json') ? items : selected),
   });
-  const recentFind = new RecentFindStore(app.session, 'ender', () => window.localStorage);
+  const recentFind = new InventoryRecentFind(inventory, 'ender');
   try {
     await mount(app, { recentFind });
     await act(async () => { await app.initialize(); });
@@ -348,11 +351,18 @@ test('item inspection is URL-driven and restored from a direct route', async () 
 
 test('inventory previews use individual metadata, selects an owned instance and remembers layout/filter state', async () => {
   const { InventoryScreen } = await import(new URL('adapters/inbound/react/InventoryScreen.js', build));
-  const { DemoInventoryStore } = await import('../../src/adapters/outbound/browser/demo-inventory-store.ts');
   const { ScreenStorage } = await import('../../src/adapters/outbound/browser/screen-storage.ts');
   const { BrowserRouter } = await import('../../src/adapters/outbound/browser/browser-router.ts');
   const { CASES } = await import('../../src/config/cases.ts');
-  const storage = new ScreenStorage(() => window.localStorage), inventory = new DemoInventoryStore(storage);
+  const { createChestAppearance: look, changeChestAppearance: changed } = await import('../../src/domain/chest-appearance.ts');
+  // Four chests as the server has them, each with its own look.
+  const { inventory } = await loadedInventory([
+    { id: 'demo-ender-1', caseId: 'ender', appearance: look(731) },
+    { id: 'demo-ender-2', caseId: 'ender', appearance: changed(look(302), { palette: { shell: '#3b2e49', panel: '#574260', accent: '#b76beb' }, modifications: [{ id: 'void-runes', intensity: .8 }] }) },
+    { id: 'demo-ender-3', caseId: 'ender', appearance: changed(look(818), { palette: { panel: '#355e52' }, modifications: [{ id: 'body-cracks', intensity: .7 }, { id: 'moss', intensity: .8 }] }) },
+    { id: 'demo-ender-4', caseId: 'ender', appearance: changed(look(1207), { palette: { accent: '#5ad1ff' }, modifications: [{ id: 'snow', intensity: .8 }] }) },
+  ]);
+  const storage = new ScreenStorage(() => window.localStorage);
   const navigation = new BrowserRouter(window, storage), seen = [];
   const renderer = { async render(definition, appearance) { seen.push(appearance); return document.createElement('canvas'); } };
   const props = { inventory, cases: CASES, navigation, storage, renderer };
@@ -410,14 +420,12 @@ test('case screen shows owned quantity and opens directly with one action', asyn
   assert.match(document.querySelector('.case-owned-count').textContent, /нет доступных для открытия/);
 });
 
-test('bulk demo inventory renders stacks with quantity, wear and palette; an opening leaves its stack', async () => {
+test('a server-issued stock renders stacks with quantity, wear and palette; an opening leaves its stack', async () => {
   const { InventoryScreen } = await import(new URL('adapters/inbound/react/InventoryScreen.js', build));
-  const { DemoInventoryStore } = await import('../../src/adapters/outbound/browser/demo-inventory-store.ts');
   const { ScreenStorage } = await import('../../src/adapters/outbound/browser/screen-storage.ts');
   const { BrowserRouter } = await import('../../src/adapters/outbound/browser/browser-router.ts');
   const { CASES } = await import('../../src/config/cases.ts');
-  const storage = new ScreenStorage(() => window.localStorage), inventory = new DemoInventoryStore(storage);
-  inventory.seedDemoStock(CASES);
+  const storage = new ScreenStorage(() => window.localStorage), { inventory } = await loadedInventory(issuedStock(CASES));
   const navigation = new BrowserRouter(window, storage);
   const renderer = { async render() { return document.createElement('canvas'); } };
   try {
@@ -451,11 +459,9 @@ test('case details show exact selected-instance wear and status', async () => {
 
 test('type directory shows owned available count, excluding consumed cases', async () => {
   const { CaseDirectory } = await import(new URL('adapters/inbound/react/CaseDirectory.js', build));
-  const { DemoInventoryStore } = await import('../../src/adapters/outbound/browser/demo-inventory-store.ts');
   const { ScreenStorage } = await import('../../src/adapters/outbound/browser/screen-storage.ts');
   const { CASES } = await import('../../src/config/cases.ts');
-  const storage = new ScreenStorage(() => window.localStorage), inventory = new DemoInventoryStore(storage);
-  inventory.seedDemoStock(CASES);
+  const storage = new ScreenStorage(() => window.localStorage), { inventory } = await loadedInventory(issuedStock(CASES));
   const first = inventory.getState().find(instance => instance.caseId === CASES[0].id && instance.status === 'available');
   const before = inventory.getState().filter(instance => instance.caseId === CASES[0].id && instance.status === 'available').length;
   inventory.claim(first.id, 'already-opening');
