@@ -84,6 +84,49 @@ func value(rb *rulebook.Rulebook, item Item, s rulebook.Situation) (float64, str
 	return rb.Value("item.value."+def.Rarity, s) * rb.Value("item.state."+item.State+".value", s), rb.Material(chestType), s
 }
 
+// Offers is what each workshop action would cost or bring for an item now. Repair is absent for
+// an intact item; MergeRepair is the chance a merge with its twin mends the item that stays.
+type Offers struct {
+	Repair        *wallet.Amount
+	Salvage, Sell wallet.Amount
+	MergeRepair   float64
+}
+
+// Quote prices an item for every workshop action without changing anything.
+func (inv *Inventory) Quote(rb *rulebook.Rulebook, id string, s rulebook.Situation) (Offers, error) {
+	i, err := inv.get(rb, id)
+	if err != nil {
+		return Offers{}, err
+	}
+	item := inv.items[i]
+	_, _, valued := value(rb, item, s)
+	o := Offers{Salvage: salvageGain(rb, item, s), Sell: sellGain(rb, item, s), MergeRepair: rb.Value("item.merge.repair", valued)}
+	if rb.StateRank(item.State) > 0 {
+		cost := repairCost(rb, item, s)
+		o.Repair = &cost
+	}
+	return o, nil
+}
+
+// repairCost is the item's base value in the material of its collection.
+func repairCost(rb *rulebook.Rulebook, item Item, s rulebook.Situation) wallet.Amount {
+	def, _, _ := rb.Item(item.Item)
+	_, material, s := value(rb, item, s)
+	return wallet.Amount{Resource: material, Value: whole(rb.Value("item.value."+def.Rarity, s))}
+}
+
+// salvageGain is the item's value in its state, in its collection's material.
+func salvageGain(rb *rulebook.Rulebook, item Item, s rulebook.Situation) wallet.Amount {
+	worth, material, _ := value(rb, item, s)
+	return wallet.Amount{Resource: material, Value: whole(worth)}
+}
+
+// sellGain is the item's value in its state × item.sellRate, in currency.
+func sellGain(rb *rulebook.Rulebook, item Item, s rulebook.Situation) wallet.Amount {
+	worth, _, s := value(rb, item, s)
+	return wallet.Amount{Resource: wallet.Currency, Value: whole(worth * rb.Value("item.sellRate", s))}
+}
+
 // Repair mends a damaged item by one step and charges its base value in the material of its
 // collection.
 func (inv *Inventory) Repair(rb *rulebook.Rulebook, w *wallet.Wallet, id string, s rulebook.Situation) (wallet.Amount, error) {
@@ -91,14 +134,11 @@ func (inv *Inventory) Repair(rb *rulebook.Rulebook, w *wallet.Wallet, id string,
 	if err != nil {
 		return wallet.Amount{}, err
 	}
-	item := inv.items[i]
-	rank := rb.StateRank(item.State)
+	rank := rb.StateRank(inv.items[i].State)
 	if rank <= 0 {
 		return wallet.Amount{}, ErrIntact
 	}
-	def, _, _ := rb.Item(item.Item)
-	_, material, s := value(rb, item, s)
-	cost := wallet.Amount{Resource: material, Value: whole(rb.Value("item.value."+def.Rarity, s))}
+	cost := repairCost(rb, inv.items[i], s)
 	if err := w.Debit(cost); err != nil {
 		return wallet.Amount{}, err
 	}
@@ -112,8 +152,7 @@ func (inv *Inventory) Salvage(rb *rulebook.Rulebook, w *wallet.Wallet, id string
 	if err != nil {
 		return wallet.Amount{}, err
 	}
-	worth, material, _ := value(rb, inv.items[i], s)
-	gain := wallet.Amount{Resource: material, Value: whole(worth)}
+	gain := salvageGain(rb, inv.items[i], s)
 	if err := w.Credit(gain); err != nil {
 		return wallet.Amount{}, err
 	}
@@ -127,8 +166,7 @@ func (inv *Inventory) Sell(rb *rulebook.Rulebook, w *wallet.Wallet, id string, s
 	if err != nil {
 		return wallet.Amount{}, err
 	}
-	worth, _, s := value(rb, inv.items[i], s)
-	gain := wallet.Amount{Resource: wallet.Currency, Value: whole(worth * rb.Value("item.sellRate", s))}
+	gain := sellGain(rb, inv.items[i], s)
 	if err := w.Credit(gain); err != nil {
 		return wallet.Amount{}, err
 	}

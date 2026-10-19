@@ -85,3 +85,30 @@ func TestReceiveRejectsUnknownItemsAndDuplicates(t *testing.T) {
 		t.Fatalf("duplicate: %v", err)
 	}
 }
+
+func TestQuoteIsWhatTheActionsThenDo(t *testing.T) {
+	rb, inv, w := setup(t, inventory.Item{ID: "1", Item: "item-i", State: "heavy"}, inventory.Item{ID: "2", Item: "item-i", State: "intact"})
+	intact, err := inv.Quote(rb, "2", nil)
+	if err != nil || intact.Repair != nil {
+		t.Fatalf("an intact item has no repair: %+v %v", intact, err)
+	}
+	offers, err := inv.Quote(rb, "1", nil)
+	if err != nil || offers.Repair == nil {
+		t.Fatalf("quote %+v %v", offers, err)
+	}
+	_ = w.Credit(wallet.Amount{Resource: "end-shards", Value: 100})
+	if cost, _ := inv.Repair(rb, w, "1", nil); cost != *offers.Repair {
+		t.Fatalf("repair cost %+v, quoted %+v", cost, *offers.Repair)
+	}
+	offers, _ = inv.Quote(rb, "1", nil)
+	if gain, _ := inv.Sell(rb, w, "1", nil); gain != offers.Sell {
+		t.Fatalf("sold for %+v, quoted %+v", gain, offers.Sell)
+	}
+	offers, _ = inv.Quote(rb, "2", nil)
+	if gain, _ := inv.Salvage(rb, w, "2", nil); gain != offers.Salvage {
+		t.Fatalf("salvaged for %+v, quoted %+v", gain, offers.Salvage)
+	}
+	if _, err := inv.Quote(rb, "2", nil); !errors.Is(err, inventory.ErrUnknownItem) {
+		t.Fatalf("quote of a gone item: %v", err)
+	}
+}

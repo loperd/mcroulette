@@ -14,6 +14,7 @@ import (
 
 	"github.com/voxel-vault/api/internal/app"
 	"github.com/voxel-vault/api/internal/app/apptest"
+	"github.com/voxel-vault/api/internal/domain/inventory"
 	"github.com/voxel-vault/api/internal/domain/rulebook"
 	"github.com/voxel-vault/api/internal/domain/rulebook/rulebooktest"
 	"github.com/voxel-vault/api/internal/rulebookjson"
@@ -121,5 +122,37 @@ func TestClaimLandsAndOpenDropsIntoTheItems(t *testing.T) {
 	}
 	if items := m.Items["p"]; len(items) != 1 || items[0].ID != opened.Item.ID {
 		t.Fatalf("items %+v", items)
+	}
+}
+
+func TestItemsAreListedWithTheirPricesAndWorkedForThem(t *testing.T) {
+	s, m := economyServer(t)
+	m.Items["p"] = []inventory.Item{{ID: "a", Item: "item-i", State: "heavy"}, {ID: "b", Item: "item-i", State: "intact"}, {ID: "gone", Item: "not-in-rulebook", State: "intact"}}
+	m.Balances["p"] = map[string]int64{"end-shards": 100}
+	var listed struct {
+		Items    []ownedItemDTO   `json:"items"`
+		Balances map[string]int64 `json:"balances"`
+	}
+	if code := call(t, s.listItems, "p", "", "", &listed); code != 200 || len(listed.Items) != 3 || listed.Balances["end-shards"] != 100 {
+		t.Fatalf("list %d %+v", code, listed)
+	}
+	damaged, intact, gone := listed.Items[0].Offers, listed.Items[1].Offers, listed.Items[2].Offers
+	if damaged == nil || damaged.Repair == nil || intact == nil || intact.Repair != nil || gone != nil {
+		t.Fatalf("offers %+v %+v %+v", damaged, intact, gone)
+	}
+	if damaged.MergeRepair <= 0 || damaged.MergeRepair > 100 {
+		t.Fatalf("merge chance in percent: %v", damaged.MergeRepair)
+	}
+	r := httptest.NewRequest("POST", "/", nil)
+	r.SetPathValue("itemID", "a")
+	r = r.WithContext(context.WithValue(r.Context(), userContextKey, store.User{ID: "p"}))
+	w := httptest.NewRecorder()
+	s.workItem(app.Repair)(w, r)
+	var paid amountDTO
+	if err := json.Unmarshal(w.Body.Bytes(), &paid); err != nil || w.Code != 200 || paid != *damaged.Repair {
+		t.Fatalf("repair %d %s, quoted %+v", w.Code, w.Body, damaged.Repair)
+	}
+	if m.Balances["p"]["end-shards"] != 100-paid.Value {
+		t.Fatalf("balance %d", m.Balances["p"]["end-shards"])
 	}
 }

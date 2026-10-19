@@ -81,7 +81,8 @@ owner, items [{ id, item, state: intact | slight | heavy | broken, origin: chest
 - **Инфраструктура (сделано):** `internal/rulebookjson` читает `server/config/economy.json` в свод (неизвестные поля — ошибка); `internal/store` хранит сундук (метаданные в jsonb рядом со старыми колонками), предметы (`inventory_items`) и балансы (`wallet_balances`, CHECK ≥ 0). `store.Transact` — одна транзакция; загрузка агрегата блокирует его, инвентарь и кошелёк — через строку игрока.
 - **App (сделано):** `internal/app.Economy` — `GrantStarter` (один раз), `Issue`, `Chests` (старые сундуки без метаданных перевыдаются из своего seed, их прошлый приз попадает в инвентарь), `Claim` (+ приземление), `Open` (дроп сразу в инвентарь), `MergeChests`, `Work` (`Repair`, `Salvage`, `Sell`), `MergeItems`, `Inventory`. Повтор с той же сессией ничего не меняет.
 - **HTTP (сделано):** контракт ниже; свод читается при старте из `ECONOMY_CONFIG` (по умолчанию `config/economy.json`, в образе `/config/economy.json`).
-- **Дальше:** UI предметов и кошелька (починка, разбор, продажа, мёрдж), мёрдж сундуков в UI, статистика игрока для ситуации (`player.opens`, pity), CLI-симулятор, справочник типов и предметов (`domain.Cases`, `LootItem`) — из свода.
+- **UI предметов и кошелька (сделано):** экран `#/items` — кошелёк, предметы с ценами из `offers` (`Inventory.Quote` — те же формулы, что у действий), починка (недоступна без материала), объединение с самым повреждённым близнецом, разбор и продажа со вторым подтверждением. Названия ресурсов — `src/config/resources.ts`.
+- **Дальше:** мёрдж сундуков в UI, статистика игрока для ситуации (`player.opens`, pity), CLI-симулятор, справочник типов и предметов (`domain.Cases`, `LootItem`) — из свода.
 
 ## HTTP
 
@@ -93,7 +94,7 @@ owner, items [{ id, item, state: intact | slight | heavy | broken, origin: chest
 | `POST /api/v1/inventory/{id}/claim` | `{sessionId}` | `{chest, landing: {damage?: trait, destroyed} \| null}`; `null` — повтор той же сессии |
 | `POST /api/v1/inventory/{id}/open` | `{sessionId}` | `{chest, item: ownedItem \| null}`; `null` — сундук разрушен |
 | `POST /api/v1/inventory/merge` | `{a, b}` | `chest` (новый) |
-| `GET /api/v1/inventory/items` | — | `{items: [ownedItem], balances: {resource: value}}` |
+| `GET /api/v1/inventory/items` | — | `{items: [ownedItem + offers], balances: {resource: value}}`; цены — на этот момент |
 | `POST /api/v1/inventory/items/{id}/repair\|salvage\|sell` | — | `{resource, value}` — цена или выручка |
 | `POST /api/v1/inventory/items/merge` | `{a, b}` | `ownedItem` (оставшийся) |
 | `GET /api/v1/cases/{type}/catalog` | — | `[item]` — весь пул типа, `chance` — доля веса в % |
@@ -104,6 +105,7 @@ chest      { id, caseId, status, seed, revision, rarity, condition,
              origin: { source, parents? }, sessionId?, drop?: { item, state }, destroyedAt?: impact|opening, openedAt? }
 item       { id, title, image, type: <редкость>, chance }   — chance содержимого — доля в % внутри сундука
 ownedItem  { id, item, state: intact|slight|heavy|broken, origin: <id сундука> }
+offers     { repair: amount | null, salvage: amount, sell: amount, mergeRepair: % } — нет у предмета, которого больше нет в своде
 ```
 
 Ошибки: 404 — нет такого сундука или предмета у игрока (чужой — то же самое), 409 — не то состояние (другая сессия, не пара для мёржа, предмет цел, не хватает ресурсов), 400 — плохое тело.

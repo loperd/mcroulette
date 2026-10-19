@@ -350,8 +350,17 @@ func (e *Economy) MergeItems(ctx context.Context, owner, idA, idB string) (inven
 	return kept, err
 }
 
-func (e *Economy) Inventory(ctx context.Context, owner string) ([]inventory.Item, map[string]int64, error) {
-	var items []inventory.Item
+// PricedItem is an owned item with what each workshop action would cost or bring now; Offers is
+// nil for an item the rulebook no longer knows.
+type PricedItem struct {
+	inventory.Item
+	Offers *inventory.Offers
+}
+
+// Inventory is the player's items, priced, and balances.
+func (e *Economy) Inventory(ctx context.Context, owner string) ([]PricedItem, map[string]int64, error) {
+	rb := e.Rulebook()
+	var items []PricedItem
 	var balances map[string]int64
 	err := e.Store.Transact(ctx, func(tx Tx) error {
 		inv, err := tx.Inventory(owner)
@@ -362,7 +371,16 @@ func (e *Economy) Inventory(ctx context.Context, owner string) ([]inventory.Item
 		if err != nil {
 			return err
 		}
-		items, balances = inv.Items(), w.Balances()
+		s := e.situation(rb)
+		for _, item := range inv.Items() {
+			priced := PricedItem{Item: item}
+			// An item the rulebook no longer knows cannot be priced; it is listed without offers.
+			if offers, err := inv.Quote(rb, item.ID, s); err == nil {
+				priced.Offers = &offers
+			}
+			items = append(items, priced)
+		}
+		balances = w.Balances()
 		return nil
 	})
 	return items, balances, err

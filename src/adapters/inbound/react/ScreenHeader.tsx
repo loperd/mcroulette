@@ -3,10 +3,11 @@ import type { SoundPreference } from './SoundControl.tsx';
 import { SoundControl } from './SoundControl.tsx';
 import { BrandMark } from './BrandMark.tsx';
 
-type Section = 'inventory' | 'archive' | 'catalog';
+type Section = 'inventory' | 'items' | 'archive' | 'catalog';
 
 const LINKS: readonly { readonly id: Section; readonly label: string; readonly route: ScreenRoute }[] = [
   { id: 'inventory', label: 'Инвентарь', route: { screen: 'inventory' } },
+  { id: 'items', label: 'Предметы', route: { screen: 'items' } },
   { id: 'catalog', label: 'Все кейсы', route: { screen: 'catalog' } },
   { id: 'archive', label: 'Архив', route: { screen: 'archive' } },
 ];

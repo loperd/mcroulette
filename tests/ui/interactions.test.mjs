@@ -402,6 +402,7 @@ test('owned item and reward routes retain the instance identity', async () => {
   ]) assert.deepEqual(parseRoute(routePath(route)),route);
   assert.deepEqual(parseRoute('/inventory'),{screen:'inventory'});
   assert.deepEqual(parseRoute(routePath({screen:'archive'})),{screen:'archive'});
+  assert.deepEqual(parseRoute(routePath({screen:'items'})),{screen:'items'});
 });
 
 test('case screen shows owned quantity and opens directly with one action', async () => {
@@ -473,4 +474,37 @@ test('reward screen keeps remaining stock visible', async () => {
   await act(async () => { root.render(createElement(PrizeScene, { prize:{ id:'p', title:'Prize', rarity:'rare', image:'/p.png' }, actionRef:null, onClose() {}, availableCaseCount:99, returnLabel:'Вернуться в инвентарь' })); });
   assert.equal(document.querySelector('.prize__remaining').textContent, 'Готово к открытию: 99 шт.');
   assert.match(document.querySelector('.prize__actions').textContent, /Вернуться в инвентарь/);
+});
+
+test('items screen: wallet, prices, a repair the wallet cannot afford, and sale asked twice', async () => {
+  const { ItemsScreen } = await import(new URL('adapters/inbound/react/ItemsScreen.js', build));
+  const item = { id: 'mine-pick', title: 'Кирка забойщика', image: '/pick.svg', rarity: 'rare', displayWeight: 0 };
+  const offers = { repair: { resource: 'deep-ore', value: 16 }, salvage: { resource: 'deep-ore', value: 8 }, sell: { resource: 'currency', value: 20 }, mergeRepair: 70 };
+  let state = { loaded: true, items: [
+    { id: 'a', item, state: 'heavy', origin: 'c', offers }, { id: 'b', item, state: 'slight', origin: 'c', offers },
+    { id: 'c', item: { ...item, id: 'mine-heart', title: 'Сердце жилы', rarity: 'legendary' }, state: 'intact', origin: 'c', offers: { ...offers, repair: undefined } },
+  ], balances: { 'deep-ore': 10, currency: 3 } };
+  const listeners = new Set(), calls = [];
+  const items = { getState: () => state, subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); }, async load() {},
+    async work(id, action) { calls.push([action, id]); state = { ...state, items: state.items.filter(entry => entry.id !== id) }; listeners.forEach(listener => listener()); return offers[action]; },
+    async merge(a, b) { calls.push(['merge', a, b]); return { kept: state.items[1], mended: false }; } };
+  await act(async () => { root.render(createElement(ItemsScreen, { items, navigation: { go() {} } })); });
+  const wallet = [...document.querySelectorAll('.wallet__entry')].map(entry => entry.textContent);
+  assert.ok(wallet.includes('◎Монеты3') && wallet.includes('◆Глубинная руда10') && wallet.includes('✦Осколки Края0'), wallet.join('|'));
+  const card = id => [...document.querySelectorAll('.item-card')][state.items.findIndex(entry => entry.id === id)];
+  const button = (id, label) => [...card(id).querySelectorAll('button')].find(entry => entry.textContent.startsWith(label));
+  assert.ok(button('a', 'Починить').disabled, 'a repair costing 16 with 10 in the wallet');
+  assert.equal(button('c', 'Починить'), undefined, 'an intact item has no repair');
+  assert.equal(button('c', 'Объединить'), undefined, 'and no twin');
+  assert.match(button('a', 'Объединить').textContent, /70%/);
+  await act(async () => { button('a', 'Объединить').click(); });
+  assert.deepEqual(calls.at(-1), ['merge', 'a', 'b']);
+  assert.match(document.querySelector('.items-screen__notice').textContent, /починить не удалось/);
+  await act(async () => { button('c', 'Продать').click(); });
+  assert.equal(calls.length, 1, 'the first press only asks');
+  assert.match(button('c', 'Точно').textContent, /\+20 Монеты/);
+  await act(async () => { button('c', 'Точно').click(); });
+  assert.deepEqual(calls.at(-1), ['sell', 'c']);
+  assert.match(document.querySelector('.items-screen__notice').textContent, /продано, \+20 Монеты/);
+  assert.equal(document.querySelectorAll('.item-card').length, 2);
 });

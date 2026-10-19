@@ -70,10 +70,20 @@ type landingDTO struct {
 }
 
 type ownedItemDTO struct {
-	ID     string  `json:"id"`
-	Item   itemDTO `json:"item"`
-	State  string  `json:"state"`
-	Origin string  `json:"origin"`
+	ID     string     `json:"id"`
+	Item   itemDTO    `json:"item"`
+	State  string     `json:"state"`
+	Origin string     `json:"origin"`
+	Offers *offersDTO `json:"offers,omitempty"`
+}
+
+// offersDTO is what each workshop action would cost or bring now; mergeRepair is the chance, in
+// percent, that merging with a twin mends the item that stays.
+type offersDTO struct {
+	Repair      *amountDTO `json:"repair"`
+	Salvage     amountDTO  `json:"salvage"`
+	Sell        amountDTO  `json:"sell"`
+	MergeRepair float64    `json:"mergeRepair"`
 }
 
 type amountDTO struct {
@@ -204,7 +214,15 @@ func (s *Server) listItems(w http.ResponseWriter, r *http.Request) {
 	rb := s.rulebook()
 	dtos := make([]ownedItemDTO, 0, len(items))
 	for _, item := range items {
-		dtos = append(dtos, toOwnedItemDTO(rb, item))
+		dto := toOwnedItemDTO(rb, item.Item)
+		if o := item.Offers; o != nil {
+			dto.Offers = &offersDTO{Salvage: toAmountDTO(o.Salvage), Sell: toAmountDTO(o.Sell), MergeRepair: math.Round(o.MergeRepair*1000) / 10}
+			if o.Repair != nil {
+				repair := toAmountDTO(*o.Repair)
+				dto.Offers.Repair = &repair
+			}
+		}
+		dtos = append(dtos, dto)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": dtos, "balances": balances})
 }
@@ -217,7 +235,7 @@ func (s *Server) workItem(action app.Workshop) http.HandlerFunc {
 			writeEconomyError(w, err)
 			return
 		}
-		writeJSON(w, http.StatusOK, amountDTO{Resource: amount.Resource, Value: amount.Value})
+		writeJSON(w, http.StatusOK, toAmountDTO(amount))
 	}
 }
 
@@ -324,6 +342,8 @@ func percent(weight, total float64) float64 {
 func toTraitDTO(t chest.Trait) traitDTO {
 	return traitDTO{ID: t.ID, Intensity: t.Intensity, Seed: t.Seed}
 }
+
+func toAmountDTO(a wallet.Amount) amountDTO { return amountDTO{Resource: a.Resource, Value: a.Value} }
 
 func toOwnedItemDTO(rb *rulebook.Rulebook, item inventory.Item) ownedItemDTO {
 	return ownedItemDTO{ID: item.ID, Item: rulebookItemDTO(rb, item.Item, 0), State: item.State, Origin: item.Origin}

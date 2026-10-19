@@ -14,6 +14,8 @@ import { ApiAuthGateway } from './adapters/outbound/data/api-auth-gateway.ts';
 import type { Player } from './application/ports/auth-gateway.ts';
 import { InventoryScreen } from './adapters/inbound/react/InventoryScreen.tsx';
 import { ApiInventory } from './adapters/outbound/data/api-inventory.ts';
+import { ApiItems } from './adapters/outbound/data/api-items.ts';
+import { ItemsScreen } from './adapters/inbound/react/ItemsScreen.tsx';
 import { ChestPreviewRenderer } from './adapters/outbound/chest/chest-preview-renderer.ts';
 import { NO_BREAKAGE } from './domain/chest-breakage.ts';
 import { destroyedBreakage } from './adapters/outbound/chest/destroyed-breakage.ts';
@@ -55,6 +57,8 @@ const failsafe = new Failsafe({ document, reporter, goHome: () => navigation.go(
 failsafe.install();
 // The player's chests live on the server only: it issues them and owns their state.
 const inventory = new ApiInventory(baseUrl, CASES, error => reporter.capture(error, { code: 'INVENTORY_SYNC_FAILED' }));
+// The items chests dropped and the wallet; read from the server whenever the items screen opens.
+const items = new ApiItems(baseUrl, error => reporter.capture(error, { code: 'ITEMS_SYNC_FAILED' }));
 // Chests were once kept in the browser (a demo store); nothing of that is used any more.
 try {
   const stale = /^voxel-vault:(demo-inventory-v2|demo-stock:|last-find:|session:)/;
@@ -225,6 +229,8 @@ function renderRoute() {
     if (route.screen === 'inventory' || route.screen === 'archive' || route.screen === 'catalog') previews ??= new ChestPreviewRenderer(document, baseUrl);
     root.render(<StrictMode><>{route.screen === 'inventory' || route.screen === 'archive'
       ? <InventoryScreen key={route.screen} mode={route.screen} inventory={inventory} cases={CASES} navigation={navigation} storage={storage} renderer={previews!} soundPreference={soundPreference} />
+      : route.screen === 'items'
+      ? <ItemsScreen items={items} navigation={navigation} archiveCount={inventory.getState().filter(isConsumed).length} soundPreference={soundPreference} />
       : route.screen === 'catalog'
       ? <CaseDirectory instances={inventory.getState()} cases={CASES} navigation={navigation} storage={storage} renderer={previews!} soundPreference={soundPreference} />
       : <><SoundControl preference={soundPreference} /><main className="page-shell case-directory"><div className="feedback"><h1>Сундук не найден</h1><p>Возможно, ссылка устарела.</p>

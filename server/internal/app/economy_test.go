@@ -53,7 +53,7 @@ func TestOpenPutsTheDropIntoTheInventoryOnce(t *testing.T) {
 		t.Fatalf("repeated open: %+v %v", again, err)
 	}
 	items, _, _ := e.Inventory(ctx, "p")
-	if len(items) != 1 || items[0].Item != first.Chest.Drop.Item {
+	if len(items) != 1 || items[0].Item.Item != first.Chest.Drop.Item {
 		t.Fatalf("inventory %+v", items)
 	}
 	if _, _, err := e.Claim(ctx, "q", id, "s2"); !errors.Is(err, app.ErrNotFound) {

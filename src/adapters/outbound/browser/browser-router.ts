@@ -4,6 +4,7 @@ import type { ScreenStorage } from './screen-storage.ts';
 export function routePath(route: ScreenRoute): string {
   if (route.screen === 'inventory') return '/inventory';
   if (route.screen === 'archive') return '/archive';
+  if (route.screen === 'items') return '/items';
   if (route.screen === 'catalog') return '/cases';
   if (route.screen === 'not-found') return '/not-found';
   let base = `/cases/${encodeURIComponent(route.caseId)}`;
@@ -19,6 +20,7 @@ export function parseRoute(path: string): ScreenRoute {
     const parts = pathname!.split('/').filter(Boolean).map(decodeURIComponent);
     if (parts.length === 0 || parts.length === 1 && parts[0] === 'inventory') return { screen: 'inventory' };
     if (parts.length === 1 && parts[0] === 'archive') return { screen: 'archive' };
+    if (parts.length === 1 && parts[0] === 'items') return { screen: 'items' };
     if (parts.length === 1 && parts[0] === 'cases') return { screen: 'catalog' };
     if (parts[0] !== 'cases' || !parts[1] || parts[1].length > 128) return { screen: 'not-found' };
     const owned = parts[2] === 'instances';
