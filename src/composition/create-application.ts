@@ -12,20 +12,21 @@ import type { SessionJournal } from '../application/ports/session-journal.ts';
 import type { RandomSource } from '../domain/random-source.ts';
 import { browserRandom, createBrowserSessionId } from '../adapters/outbound/browser/identity.ts';
 import { FixtureCatalogGateway } from '../adapters/outbound/data/fixture-catalog-gateway.ts';
-import { FixturePrizeGateway } from '../adapters/outbound/data/fixture-prize-gateway.ts';
-import { ApiPrizeGateway } from '../adapters/outbound/data/api-prize-gateway.ts';
+import { FixtureOutcomeGateway } from '../adapters/outbound/data/fixture-outcome-gateway.ts';
+import type { OutcomeGateway } from '../application/ports/outcome-gateway.ts';
+import type { CatalogGateway } from '../application/ports/catalog-gateway.ts';
+import { copyCatalog, type Item } from '../domain/item.ts';
 import type { FetchJson } from '../adapters/outbound/data/request-json.ts';
 
 interface ApplicationOptions {
   readonly baseUrl: string | URL;
   readonly journal?: SessionJournal;
   readonly ownership?: CaseOwnership;
-  /** Server-decided: the chest does not survive this opening. */
-  readonly destruction?: { readonly moment: 'impact' | 'opening' };
+  /** Who decides how an opening ends; without one, a static fixture prize (previews, tests). */
+  readonly outcome?: OutcomeGateway;
   readonly catalogPath?: string;
-  readonly prizePath?: string;
-  /** The player's chest being opened: the server rolls a prize only for a chest it issued. */
-  readonly instanceId?: string;
+  /** The chest's own contents: the catalog and the roulette show exactly these. */
+  readonly contents?: readonly Item[];
   readonly fetcher?: FetchJson;
   readonly random?: RandomSource;
   readonly createSessionId?: () => string;
@@ -49,18 +50,16 @@ export function createApplication(options: ApplicationOptions): Application {
   if (options.chestPreview && options.presentation) {
     throw new Error('Preview and gameplay must not both own a chest scene.');
   }
-  const gateway = new FixtureCatalogGateway(options.baseUrl, options.fetcher, options.catalogPath);
+  const gateway: CatalogGateway & { dispose(): void } = options.contents?.length
+    ? staticCatalog(options.contents)
+    : new FixtureCatalogGateway(options.baseUrl, options.fetcher, options.catalogPath);
   const catalog = new CatalogController(gateway);
   const preview = options.chestPreview ? new ChestPreviewController(options.chestPreview) : undefined;
   const session = options.presentation ? new RouletteController({
     journal: options.journal,
     ownership: options.ownership,
-    destruction: options.destruction,
     catalog: gateway,
-    // API paths are rolled by the server; anything else is a static fixture (tests, previews).
-    prize: options.prizePath?.startsWith('api/') && options.instanceId
-      ? new ApiPrizeGateway(options.baseUrl, options.prizePath, options.instanceId, options.fetcher)
-      : new FixturePrizeGateway(options.baseUrl, options.fetcher, options.prizePath),
+    outcome: options.outcome ?? new FixtureOutcomeGateway(options.baseUrl, options.fetcher),
     ...options.presentation,
     random: options.random ?? browserRandom,
     createSessionId: options.createSessionId ?? createBrowserSessionId,
@@ -85,4 +84,9 @@ export function createApplication(options: ApplicationOptions): Application {
       if (errors.length > 0) throw new AggregateError(errors, 'Failed to dispose the application.');
     },
   };
+}
+
+function staticCatalog(items: readonly Item[]): CatalogGateway & { dispose(): void } {
+  const catalog = copyCatalog(items);
+  return { load: async signal => { signal.throwIfAborted(); return catalog; }, dispose() {} };
 }

@@ -1,25 +1,25 @@
 import type { CaseDefinition } from '../../../config/cases.ts';
-import { issuedAppearance } from '../../../config/issued-appearance.ts';
-import { claimCase, completeCase, copyCaseInstance, destroyCase, type CaseInstance } from '../../../domain/case-instance.ts';
-import { copyChestAppearance, type ChestAppearance } from '../../../domain/chest-appearance.ts';
-import type { Item } from '../../../domain/item.ts';
+import { chestLook } from '../../../config/chest-look.ts';
+import { claimCase, copyCaseInstance, type CaseInstance } from '../../../domain/case-instance.ts';
 import type { PlayerInventory } from '../../../application/ports/player-inventory.ts';
+import type { ChestOutcome } from '../../../application/ports/outcome-gateway.ts';
 import { normalizeBaseUrl, resolvePublicAsset } from './asset-url.ts';
 import { DataError } from './data-error.ts';
 import { decodeItem } from './item-dto.ts';
 import { browserFetch, type FetchJson } from './request-json.ts';
 
 /**
- * The player's chests, as the server has them. The server alone issues chests and owns their
- * state; nothing about them is kept in the browser. This mirrors the server's list and asks it for
- * every change: a change shows at once, and if the server refuses it, the list is read again from
- * the server and the refusal reported. Changes to one chest go out in order.
+ * The player's chests, as the server has them. The server alone issues chests and decides what
+ * happens to them; nothing about them is kept in the browser. Opening one claims it for a session
+ * (the server lands it) and opens it (the server breaks it or drops an item). The answer is held
+ * until the outcome is on screen, so no list shows the prize before the roulette does. A refused
+ * request is reported and the list read again from the server.
  */
 export class ApiInventory implements PlayerInventory {
   private state: readonly CaseInstance[] = Object.freeze([]);
   private loaded = false;
   private readonly listeners = new Set<() => void>();
-  private readonly queues = new Map<string, Promise<void>>();
+  private readonly held = new Map<string, CaseInstance>();
   private readonly baseUrl: URL;
   private readonly cases: readonly CaseDefinition[];
   private readonly fetcher: FetchJson;
@@ -42,54 +42,57 @@ export class ApiInventory implements PlayerInventory {
     const value: unknown = await response.json();
     if (!Array.isArray(value) || value.length > 10_000) throw new DataError('INVALID_DTO', 'The inventory must be a list.');
     this.state = Object.freeze(value.flatMap(entry => { const chest = this.decode(entry); return chest ? [chest] : []; }));
+    this.held.clear();
     this.loaded = true;
     this.publish();
   }
 
-  claim(instanceId: string, sessionId: string): void {
-    this.change(instanceId, item => claimCase(item, sessionId), 'POST', 'claim', { sessionId });
-  }
-
-  /** The server records the reward it rolled for the session; the item is shown meanwhile. */
-  complete(instanceId: string, sessionId: string, reward: Item): void {
-    this.change(instanceId, item => completeCase(item, sessionId, reward), 'POST', 'complete', { sessionId });
-  }
-
-  destroy(instanceId: string, sessionId: string): void {
-    this.change(instanceId, item => destroyCase(item, sessionId), 'POST', 'destroy', { sessionId });
-  }
-
-  updateAppearance(instanceId: string, appearance: ChestAppearance): void {
-    const copy = copyChestAppearance(appearance);
-    this.change(instanceId, item => copyCaseInstance({ ...item, appearance: copy }), 'PUT', 'appearance', { appearance: copy });
-  }
-
-  private change(id: string, action: (item: CaseInstance) => CaseInstance, method: 'POST' | 'PUT', path: string, body: unknown): void {
-    const current = this.state.find(item => item.id === id);
+  async open(instanceId: string, sessionId: string, signal?: AbortSignal): Promise<ChestOutcome> {
+    const current = this.state.find(item => item.id === instanceId);
     if (!current) throw new Error('Case does not belong to this inventory.');
-    const next = action(current);
-    // Idempotent transitions (the same session again) change nothing: no request, no notification.
-    if (next === current) return;
-    this.state = Object.freeze(this.state.map(item => item.id === id ? next : item)); this.publish();
-    const previous = this.queues.get(id) ?? Promise.resolve();
-    const sent = previous.then(async () => {
-      const response = await this.fetcher(resolvePublicAsset(`api/v1/inventory/${encodeURIComponent(id)}/${path}`, this.baseUrl), {
-        method, cache: 'no-store', credentials: 'same-origin', body: JSON.stringify(body),
-        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-      });
-      if (!response.ok) throw new DataError('HTTP_ERROR', `The chest ${path} request failed with HTTP ${response.status}.`);
-      const chest = this.decode(await response.json());
-      if (chest) { this.state = Object.freeze(this.state.map(item => item.id === id ? chest : item)); this.publish(); }
-    }).catch(async error => {
-      this.onError(error);
-      // The server is the truth: show what it has.
-      try { await this.load(); } catch (reloadError) { this.onError(reloadError); }
-    });
-    this.queues.set(id, sent);
-    void sent.finally(() => { if (this.queues.get(id) === sent) this.queues.delete(id); });
+    const claimed = claimCase(current, sessionId);
+    if (claimed !== current) this.replace(claimed);
+    try {
+      await this.post(instanceId, 'claim', sessionId, signal);
+      const answer = await this.post(instanceId, 'open', sessionId, signal);
+      const chest = answer && typeof answer === 'object' ? this.decode((answer as Record<string, unknown>).chest) : undefined;
+      if (!chest) throw new DataError('INVALID_DTO', 'The opening answer has no chest of a known type.');
+      if (chest.status === 'destroyed') { this.held.set(instanceId, chest); return { destroyed: chest.destroyedAt ?? 'opening' }; }
+      if (chest.status !== 'opened' || !chest.reward) throw new DataError('INVALID_DTO', 'The opening answer is neither a prize nor a destruction.');
+      this.held.set(instanceId, chest);
+      return { prize: chest.reward };
+    } catch (error) {
+      if (!signal?.aborted) {
+        this.onError(error);
+        // The server is the truth: show what it has.
+        void this.load().catch(reloadError => this.onError(reloadError));
+      }
+      throw error;
+    }
   }
 
-  /** A chest from the server; its look derives from the seed the server chose, unless it changed since. */
+  reveal(instanceId: string): void {
+    const chest = this.held.get(instanceId);
+    if (!chest) return;
+    this.held.delete(instanceId);
+    this.replace(chest);
+  }
+
+  private async post(id: string, action: 'claim' | 'open', sessionId: string, signal?: AbortSignal): Promise<unknown> {
+    const response = await this.fetcher(resolvePublicAsset(`api/v1/inventory/${encodeURIComponent(id)}/${action}`, this.baseUrl), {
+      method: 'POST', signal, cache: 'no-store', credentials: 'same-origin', body: JSON.stringify({ sessionId }),
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    });
+    if (!response.ok) throw new DataError('HTTP_ERROR', `The chest ${action} request failed with HTTP ${response.status}.`);
+    return response.json();
+  }
+
+  private replace(chest: CaseInstance): void {
+    this.state = Object.freeze(this.state.map(item => item.id === chest.id ? chest : item));
+    this.publish();
+  }
+
+  /** A chest from the server; its look is the traits the server froze. */
   private decode(value: unknown): CaseInstance | undefined {
     if (!value || typeof value !== 'object') throw new DataError('INVALID_DTO', 'A chest must be an object.');
     const dto = value as Record<string, unknown>;
@@ -97,12 +100,17 @@ export class ApiInventory implements PlayerInventory {
     // A type this client does not know yet is skipped, not fatal.
     if (!definition) return undefined;
     if (typeof dto.seed !== 'number' || !Number.isSafeInteger(dto.seed)) throw new DataError('INVALID_DTO', 'A chest seed must be an integer.');
-    const appearance = dto.appearance && typeof dto.appearance === 'object' ? copyChestAppearance(dto.appearance) : issuedAppearance(definition, dto.seed);
+    if (!Array.isArray(dto.contents) || !Array.isArray(dto.traits)) throw new DataError('INVALID_DTO', 'A chest needs its contents and traits.');
+    const traits = dto.traits as CaseInstance['traits'];
+    const drop = dto.drop && typeof dto.drop === 'object' ? dto.drop as Record<string, unknown> : undefined;
     return copyCaseInstance({
-      id: dto.id, caseId: dto.caseId, status: dto.status, appearance,
-      ...(typeof dto.sessionId === 'string' ? { sessionId: dto.sessionId } : {}),
-      ...(dto.reward ? { reward: decodeItem(dto.reward, this.baseUrl) } : {}),
+      id: dto.id, caseId: dto.caseId, status: dto.status, appearance: chestLook(definition, dto.seed, traits),
+      contents: dto.contents.map(slot => ({ item: decodeItem((slot as Record<string, unknown>)?.item, this.baseUrl), weight: (slot as Record<string, unknown>)?.weight })),
+      traits, condition: dto.condition, ...(typeof dto.rarity === 'string' && dto.rarity ? { rarity: dto.rarity } : {}),
+      ...(typeof dto.sessionId === 'string' && dto.sessionId ? { sessionId: dto.sessionId } : {}),
+      ...(drop ? { reward: decodeItem(drop.item, this.baseUrl), rewardState: drop.state } : {}),
       ...(typeof dto.openedAt === 'string' ? { openedAt: dto.openedAt } : {}),
+      ...(typeof dto.destroyedAt === 'string' && dto.destroyedAt ? { destroyedAt: dto.destroyedAt } : {}),
     });
   }
 

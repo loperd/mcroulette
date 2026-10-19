@@ -1,14 +1,14 @@
 import { CanvasRoulette } from '../adapters/outbound/browser/canvas-roulette.ts';
 import { browserFrameEnvironment } from '../adapters/outbound/browser/frame-scheduler.ts';
 import { FixtureCatalogGateway } from '../adapters/outbound/data/fixture-catalog-gateway.ts';
-import { FixturePrizeGateway } from '../adapters/outbound/data/fixture-prize-gateway.ts';
+import { FixtureOutcomeGateway } from '../adapters/outbound/data/fixture-outcome-gateway.ts';
 import { buildStrip, ensureTarget } from '../domain/strip.ts';
 import { createSpinPlan } from '../domain/spin-plan.ts';
 import type { Item } from '../domain/item.ts';
 
 // Standalone development page: exercises the real renderer without Three.js/Rapier or React.
 const baseUrl = new URL('.', document.baseURI);
-const catalog = new FixtureCatalogGateway(baseUrl), prize = new FixturePrizeGateway(baseUrl);
+const catalog = new FixtureCatalogGateway(baseUrl), prize = new FixtureOutcomeGateway(baseUrl);
 const environment = browserFrameEnvironment(window, document);
 const costs: number[] = [];
 const roulette = new CanvasRoulette(document, { environment: {
@@ -30,7 +30,9 @@ async function spin(): Promise<void> {
   operation?.abort(); operation = new AbortController();
   const current = operation; costs.length = 0; button.disabled = true; status.textContent = 'Крутим…';
   try {
-    const winner = await prize.select(crypto.randomUUID(), current.signal);
+    const decided = await prize.decide(crypto.randomUUID(), current.signal);
+    if (!('prize' in decided)) return;
+    const winner = decided.prize;
     const selection = ensureTarget(buildStrip(items, 40, random), winner, random);
     await roulette.spin(selection, createSpinPlan(selection, random), current.signal);
     if (operation === current) status.textContent = `Выпало: ${winner.title}`;

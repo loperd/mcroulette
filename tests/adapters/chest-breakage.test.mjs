@@ -5,7 +5,7 @@ import { Box3, BoxGeometry, Group, Matrix4, Mesh, MeshStandardMaterial, PlaneGeo
 import { buildFragment, fractureCells } from '../../src/adapters/outbound/chest/chest-fracture-geometry.ts';
 import { random } from '../../src/adapters/outbound/chest/chest-surface-patterns.ts';
 import { BURST_AT, ChestBreakageEffects } from '../../src/adapters/outbound/chest/chest-breakage-effects.ts';
-import { demoBreakage } from '../../src/adapters/outbound/browser/demo-breakage.ts';
+import { destroyedBreakage } from '../../src/adapters/outbound/chest/destroyed-breakage.ts';
 import { copyChestBreakage } from '../../src/domain/chest-breakage.ts';
 import { changeChestAppearance, createChestAppearance } from '../../src/domain/chest-appearance.ts';
 import { ENDER_CASE } from '../../src/config/cases.ts';
@@ -99,21 +99,22 @@ test('opening breakage charges, then bursts at its moment; a fallen part keeps i
   effects.dispose(); overlay.material.dispose(); dispose();
 });
 
-test('demo fate: pristine chests never break, the same instance always breaks the same way', () => {
-  const pristine = { id: 'a', caseId: 'ender', status: 'available', appearance: createChestAppearance() };
-  assert.deepEqual(demoBreakage(pristine, profile).parts, []);
+test('a destroyed chest is drawn coming apart at the server\'s moment, the same chest always the same way', () => {
+  const pristine = { id: 'a', caseId: 'ender', status: 'destroyed', appearance: createChestAppearance() };
+  for (const moment of ['impact', 'opening']) {
+    const wreck = destroyedBreakage(pristine, profile, moment);
+    assert.equal(wreck.moment, moment); assert.equal(wreck.destroyed, true);
+    assert.ok(wreck.parts.some(item => item.part === 'body' && item.detached), 'even a sound chest the server broke loses its body');
+    assert.deepEqual(destroyedBreakage(pristine, profile, moment), wreck);
+  }
   const worn = { ...pristine, id: 'b', appearance: changeChestAppearance(createChestAppearance(), { modifications: [
     { id: 'body-cracks', intensity: .95 }, { id: 'lid-cracks', intensity: .9 }, { id: 'latch-rust', intensity: .9 }] }) };
-  const fate = demoBreakage(worn, profile);
-  assert.deepEqual(demoBreakage(worn, profile), fate);
-  assert.ok(fate.parts.length >= 1);
-  assert.ok(fate.parts.every(item => item.detached), 'a decrepit chest comes apart entirely');
-  assert.equal(fate.destroyed, true, 'a decrepit chest never survives');
-  // Even when only the lid is decrepit, the whole chest gives way.
-  const lidOnly = { ...pristine, id: 'c', appearance: changeChestAppearance(createChestAppearance(), { modifications: [{ id: 'lid-cracks', intensity: .9 }] }) };
-  const lidFate = demoBreakage(lidOnly, profile);
-  assert.equal(lidFate.destroyed, true); assert.ok(lidFate.parts.some(item => item.part === 'body' && item.detached));
-  assert.ok(fate.parts.every(item => item.part !== 'body' || item.pattern !== 'fall'), 'the carrier never falls off whole');
+  const wreck = destroyedBreakage(worn, profile, 'opening');
+  assert.equal(wreck.parts.length, profile.parts.length);
+  assert.ok(wreck.parts.every(item => item.detached), 'a decrepit chest comes apart entirely');
+  assert.ok(wreck.parts.every(item => item.part !== 'body' || item.pattern !== 'fall'), 'the carrier never falls off whole');
+  assert.ok(destroyedBreakage(worn, profile, 'impact').parts.every(item => item.pattern !== 'shatter' || !item.detached || item.part !== 'body'),
+    'an impact breaks the body mechanically');
 });
 
 test('the beam tears loose growth off the top and throws it up; the chest itself stays put', () => {

@@ -128,7 +128,7 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
   private impactEffects?: ChestImpactEffects;
   private fractureEffects?: ChestFractureEffects;
   private breakageEffects?: ChestBreakageEffects;
-  private readonly breakage: ChestBreakage;
+  private breakage: ChestBreakage;
   private impactTriggered = false;
   private readonly impactCorner = new Vector3();
   private landing?: { advance(delta: number): void; cancel(error: unknown): void };
@@ -281,6 +281,22 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     return () => { this.errors.delete(listener); };
   }
 
+  /**
+   * How the chest breaks, as the server decided it for this opening; drawn by the next fall and
+   * opening. Set before the drop.
+   */
+  setBreakage(breakage: ChestBreakage): void {
+    this.breakage = breakage;
+    if (!this.scene || !this.assets) return;
+    this.breakageEffects?.dispose();
+    this.breakageEffects = this.createBreakageEffects(this.scene);
+  }
+
+  private createBreakageEffects(scene: Scene): ChestBreakageEffects {
+    return new ChestBreakageEffects(scene, this.assets!.visual, this.modelDefinition.modifications,
+      this.assets!.appearance, this.breakage, '#' + this.effectColor.toString(16).padStart(6, '0'), 0, gameAudio);
+  }
+
   async prepare(signal: AbortSignal): Promise<void> {
     this.assertAlive(signal);
     if (this.prepared) return;
@@ -306,8 +322,7 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
       this.effects = new ChestOpeningEffects(this.assets.visual, effectColor);
       this.effects.setMuted(this.soundMuted);
       this.impactEffects = new ChestImpactEffects(scene, effectColor);
-      this.breakageEffects = new ChestBreakageEffects(scene, this.assets.visual, this.modelDefinition.modifications,
-        this.assets.appearance, this.breakage, '#' + effectColor.toString(16).padStart(6, '0'), 0, gameAudio);
+      this.breakageEffects = this.createBreakageEffects(scene);
       this.mixer = new AnimationMixer(this.assets.animationRoot);
       scene.add(new HemisphereLight(0xffffff, 0x435846, 2));
       const light = new DirectionalLight(0xffffff, 3);

@@ -4,7 +4,8 @@
  * debris landing, and the outcome stings. Muted together with the rest through SoundSettings.
  * Everything is optional: no context, a suspended context or an error simply means silence.
  */
-export type RewardRarity = 'default' | 'primary' | 'legendary';
+export type { Rarity as RewardRarity } from '../../../domain/item.ts';
+import type { Rarity as RewardRarity } from '../../../domain/item.ts';
 
 class GameAudio {
   private context?: AudioContext;
@@ -77,7 +78,8 @@ class GameAudio {
 
   /** Outcome: a rising arpeggio, brighter for rarer rewards. */
   reward(rarity: RewardRarity): void {
-    const notes = { default: [523, 659, 784], primary: [587, 740, 880, 1175], legendary: [659, 831, 988, 1319, 1661] }[rarity];
+    const notes = { common: [523, 659, 784], uncommon: [523, 659, 784, 1047], rare: [587, 740, 880, 1175], epic: [622, 784, 932, 1245, 1568],
+      legendary: [659, 831, 988, 1319, 1661] }[rarity];
     notes.forEach((note, index) => this.later(index * .09, () => { this.tone(note, note, .45, .05, 'triangle'); this.tone(note * 2, note * 2, .3, .012, 'sine'); }));
   }
 

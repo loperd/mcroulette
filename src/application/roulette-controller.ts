@@ -11,7 +11,8 @@ import { buildStrip, ensureTarget, type StripSlot } from '../domain/strip.ts';
 import { waitFor } from './cancellation.ts';
 import type { CatalogGateway } from './ports/catalog-gateway.ts';
 import type { ChestPresentationPort } from './ports/chest-presentation.ts';
-import type { PrizeGateway } from './ports/prize-gateway.ts';
+import type { ChestOutcome, OutcomeGateway } from './ports/outcome-gateway.ts';
+import { BREAK_MOMENTS } from '../domain/chest-breakage.ts';
 import type { RoulettePresentationPort } from './ports/roulette-presentation.ts';
 import type { RouletteSession } from './ports/roulette-session.ts';
 import type { TransitionPresentationPort } from './ports/transition-presentation.ts';
@@ -23,18 +24,14 @@ export interface ControllerDependencies {
   readonly journal?: SessionJournal;
   readonly ownership?: CaseOwnership;
   readonly catalog: CatalogGateway;
-  readonly prize: PrizeGateway;
+  /** The server's decision for a session: the prize, or that the chest breaks and when. */
+  readonly outcome: OutcomeGateway;
   readonly chest: ChestPresentationPort;
   readonly roulette: RoulettePresentationPort;
   readonly transitions: TransitionPresentationPort;
   readonly random: RandomSource;
   /** Must return a unique, nonempty id for each new opening. */
   readonly createSessionId: () => string;
-  /**
-   * Server-decided fate of this chest: when it does not survive (on the impact after the fall or
-   * while opening), the session shows the destruction instead of a roulette and gives no reward.
-   */
-  readonly destruction?: { readonly moment: 'impact' | 'opening' };
 }
 
 export interface ControllerSettings {
@@ -58,7 +55,7 @@ export class RouletteController implements RouletteSession {
   private readonly listeners = new Set<() => void>();
   private operation?: Operation;
   private sessionId?: string;
-  private selectedPrize?: Item;
+  private outcome?: ChestOutcome;
   private readonly unsubscribeErrors?: () => void;
 
   constructor(dependencies: ControllerDependencies, settings: ControllerSettings = {}) {
@@ -96,7 +93,7 @@ export class RouletteController implements RouletteSession {
     const checkpoint = this.dependencies.journal?.load();
     this.catalog = EMPTY;
     this.slots = EMPTY;
-    this.selectedPrize = undefined;
+    this.outcome = undefined;
     this.sessionId = undefined;
     await this.run('loading', 'initialize', async operation => {
       const [items] = await Promise.all([
@@ -119,11 +116,11 @@ export class RouletteController implements RouletteSession {
       if (checkpoint.stage === 'destroyed') {
         // Already decided and shown: restore the outcome, never replay it as a new roll.
         this.dependencies.chest.hide();
-        this.dependencies.ownership?.destroy?.(checkpoint.sessionId);
+        this.dependencies.ownership?.reveal(checkpoint.sessionId);
         this.publish({ phase: 'destroyed', sessionId: checkpoint.sessionId });
         return;
       }
-      this.selectedPrize = checkpoint.stage === 'chest' ? checkpoint.prize : checkpoint.selection.prize;
+      this.outcome = checkpoint.stage === 'chest' ? checkpoint.outcome : { prize: checkpoint.selection.prize };
       if (checkpoint.stage === 'chest') await this.startOpening(false);
       else {
         this.slots = checkpoint.selection.slots;
@@ -136,7 +133,7 @@ export class RouletteController implements RouletteSession {
 
   async openChest(): Promise<void> {
     if (this.state.phase !== 'ready') return;
-    this.selectedPrize = undefined;
+    this.outcome = undefined;
     this.sessionId = this.dependencies.createSessionId();
     if (!this.sessionId.trim()) throw new Error('The session id must be nonempty.');
     await this.startOpening(false);
@@ -168,7 +165,7 @@ export class RouletteController implements RouletteSession {
     this.operation = undefined;
     this.catalog = EMPTY;
     this.slots = EMPTY;
-    this.selectedPrize = undefined;
+    this.outcome = undefined;
     this.sessionId = undefined;
     const errors: unknown[] = [];
     try { this.publish({ phase: 'disposed' }); } catch (error) { errors.push(error); }
@@ -179,56 +176,53 @@ export class RouletteController implements RouletteSession {
     if (errors.length > 0) throw new AggregateError(errors, 'Failed to dispose presentation resources.');
   }
 
+  /**
+   * The server's outcome comes first, while the screen clears: the fall and the opening are drawn
+   * from it (a chest that breaks on impact never opens; one that breaks while opening bursts
+   * instead of spinning a roulette).
+   */
   private async startOpening(replay: boolean): Promise<void> {
     const sessionId = this.sessionId;
     if (!sessionId) return;
     await this.run('clearing', 'open', async operation => {
-      this.dependencies.ownership?.claim(sessionId);
       if (replay) {
         this.dependencies.roulette.reset();
         await this.invoke(operation, () => this.dependencies.chest.reset(operation.abort.signal));
       }
-      const presentation = async () => {
-        await Promise.all([
-          this.invoke(operation, () => this.dependencies.transitions.clearContent(operation.abort.signal)),
-          this.dependencies.chest.stageForDrop
-            ? this.invoke(operation, () => this.dependencies.chest.stageForDrop!(operation.abort.signal))
-            : Promise.resolve(),
-        ]);
-        if (!this.isCurrent(operation)) return;
-        this.publish({ phase: 'dropping', sessionId });
-        await this.invoke(operation, () => this.dependencies.chest.drop(operation.abort.signal));
-        if (!this.isCurrent(operation)) return;
-        // Destroyed on landing: nothing is left to open.
-        if (this.dependencies.destruction?.moment === 'impact') return;
-        this.publish({ phase: 'opening', sessionId });
-        await this.invoke(operation, () => this.dependencies.chest.open(operation.abort.signal));
-      };
-      if (this.dependencies.destruction) {
-        await presentation();
-        if (!this.isCurrent(operation)) return;
-        this.dependencies.ownership?.destroy?.(sessionId);
-        this.publish({ phase: 'destroyed', sessionId });
-        return;
-      }
-      const prizeTask = this.selectedPrize ? Promise.resolve(this.selectedPrize)
-        : this.invoke(operation, () => this.dependencies.prize.select(sessionId, operation.abort.signal))
-          .then(item => {
-            const prize = copyItem(item);
-            if (this.isCurrent(operation)) { this.selectedPrize = prize; this.saveCheckpoint(); }
-            return prize;
+      const outcomeTask = this.outcome ? Promise.resolve(this.outcome)
+        : this.invoke(operation, () => this.dependencies.outcome.decide(sessionId, operation.abort.signal))
+          .then(value => {
+            const outcome = copyOutcome(value);
+            if (this.isCurrent(operation)) { this.outcome = outcome; this.saveCheckpoint(); }
+            return outcome;
           });
-      const [prize] = await Promise.all([
-        prizeTask,
-        presentation(),
+      const [outcome] = await Promise.all([
+        outcomeTask,
+        this.invoke(operation, () => this.dependencies.transitions.clearContent(operation.abort.signal)),
+        this.dependencies.chest.stageForDrop
+          ? this.invoke(operation, () => this.dependencies.chest.stageForDrop!(operation.abort.signal))
+          : Promise.resolve(),
       ]);
       if (!this.isCurrent(operation)) return;
-      const selection = ensureTarget(this.slots, prize, this.dependencies.random);
+      this.publish({ phase: 'dropping', sessionId });
+      await this.invoke(operation, () => this.dependencies.chest.drop(operation.abort.signal));
+      if (!this.isCurrent(operation)) return;
+      // Destroyed on landing: nothing is left to open.
+      if ('destroyed' in outcome && outcome.destroyed === 'impact') { this.showDestroyed(sessionId); return; }
+      this.publish({ phase: 'opening', sessionId });
+      await this.invoke(operation, () => this.dependencies.chest.open(operation.abort.signal));
+      if (!this.isCurrent(operation)) return;
+      if ('destroyed' in outcome) { this.showDestroyed(sessionId); return; }
+      const selection = ensureTarget(this.slots, outcome.prize, this.dependencies.random);
       const plan = createSpinPlan(selection, this.dependencies.random, this.spinSettings);
       this.slots = selection.slots;
-      const payload = { sessionId, selection, plan };
-      await this.presentRoulette(operation, payload);
+      await this.presentRoulette(operation, { sessionId, selection, plan });
     });
+  }
+
+  private showDestroyed(sessionId: string): void {
+    this.dependencies.ownership?.reveal(sessionId);
+    this.publish({ phase: 'destroyed', sessionId });
   }
 
   private async presentRoulette(operation: Operation, payload: { sessionId: string; selection: import('../domain/strip.ts').TargetSelection; plan: import('../domain/spin-plan.ts').SpinPlan }): Promise<void> {
@@ -252,7 +246,7 @@ export class RouletteController implements RouletteSession {
       this.publish({ phase: 'revealing', ...payload });
       await this.invoke(operation, () => this.dependencies.transitions.revealPrize(operation.abort.signal));
       if (this.isCurrent(operation)) {
-        this.dependencies.ownership?.complete(payload.sessionId, selection.prize);
+        this.dependencies.ownership?.reveal(payload.sessionId);
         this.publish({ phase: 'prize-visible', ...payload });
       }
   }
@@ -269,7 +263,7 @@ export class RouletteController implements RouletteSession {
       if (chest.preview) await this.invoke(operation, () => chest.preview!(operation.abort.signal));
       else chest.hide();
       if (!this.isCurrent(operation)) return;
-      this.selectedPrize = undefined;
+      this.outcome = undefined;
       this.sessionId = undefined;
       this.publish({ phase: 'ready' });
     });
@@ -322,7 +316,7 @@ export class RouletteController implements RouletteSession {
     else if ('selection' in state) checkpoint = { stage: state.phase === 'prize-visible' ? 'prize' : 'roulette',
       sessionId: this.sessionId, selection: state.selection, plan: state.plan };
     else checkpoint = { stage: 'chest', sessionId: this.sessionId,
-      ...(this.selectedPrize ? { prize: this.selectedPrize } : {}) };
+      ...(this.outcome ? { outcome: this.outcome } : {}) };
     this.dependencies.journal.save(checkpoint);
   }
 
@@ -331,4 +325,12 @@ export class RouletteController implements RouletteSession {
     if (!['idle', 'loading', 'ready', 'resetting', 'disposed'].includes(details.phase)) this.saveCheckpoint();
     for (const listener of [...this.listeners]) listener();
   }
+}
+
+function copyOutcome(value: ChestOutcome): ChestOutcome {
+  if (value && typeof value === 'object' && 'prize' in value) return Object.freeze({ prize: copyItem(value.prize) });
+  if (value && typeof value === 'object' && 'destroyed' in value && BREAK_MOMENTS.includes(value.destroyed)) {
+    return Object.freeze({ destroyed: value.destroyed });
+  }
+  throw new DomainError('INVALID_OUTCOME', 'An opening ends in a prize or a destruction.');
 }

@@ -280,7 +280,7 @@ test('the home highlight shows the real last find and opens its story', async ()
   // The server rolls King for this opening and keeps it as the chest's reward.
   const { inventory } = await loadedInventory([{ id: 'e1', caseId: 'ender', seed: 5 }], new Proxy({}, { get: () => selected }));
   const app = createApplication({ baseUrl: 'https://example.test/demo/',
-    ownership: { claim: id => inventory.claim('e1', id), complete: (id, reward) => inventory.complete('e1', id, reward) },
+    outcome: { decide: (id, signal) => inventory.open('e1', id, signal) }, ownership: { reveal: () => inventory.reveal('e1') },
     presentation: {
       chest: { prepare: noop, preview: noop, drop: noop, open: noop, hide() {}, reset: noop, dispose() {} },
       roulette: { prepare: noop, spin: noop, reset() {}, dispose() {} },
@@ -354,13 +354,12 @@ test('inventory previews use individual metadata, selects an owned instance and 
   const { ScreenStorage } = await import('../../src/adapters/outbound/browser/screen-storage.ts');
   const { BrowserRouter } = await import('../../src/adapters/outbound/browser/browser-router.ts');
   const { CASES } = await import('../../src/config/cases.ts');
-  const { createChestAppearance: look, changeChestAppearance: changed } = await import('../../src/domain/chest-appearance.ts');
-  // Four chests as the server has them, each with its own look.
+  // Four chests as the server has them, each with its own traits.
   const { inventory } = await loadedInventory([
-    { id: 'demo-ender-1', caseId: 'ender', appearance: look(731) },
-    { id: 'demo-ender-2', caseId: 'ender', appearance: changed(look(302), { palette: { shell: '#3b2e49', panel: '#574260', accent: '#b76beb' }, modifications: [{ id: 'void-runes', intensity: .8 }] }) },
-    { id: 'demo-ender-3', caseId: 'ender', appearance: changed(look(818), { palette: { panel: '#355e52' }, modifications: [{ id: 'body-cracks', intensity: .7 }, { id: 'moss', intensity: .8 }] }) },
-    { id: 'demo-ender-4', caseId: 'ender', appearance: changed(look(1207), { palette: { accent: '#5ad1ff' }, modifications: [{ id: 'snow', intensity: .8 }] }) },
+    { id: 'demo-ender-1', caseId: 'ender', seed: 731 },
+    { id: 'demo-ender-2', caseId: 'ender', seed: 302, traits: [{ id: 'void-runes', intensity: .8, seed: 1 }] },
+    { id: 'demo-ender-3', caseId: 'ender', seed: 818, traits: [{ id: 'body-cracks', intensity: .7, seed: 2 }, { id: 'moss', intensity: .8, seed: 3 }] },
+    { id: 'demo-ender-4', caseId: 'ender', seed: 1207, traits: [{ id: 'snow', intensity: .8, seed: 4 }] },
   ]);
   const storage = new ScreenStorage(() => window.localStorage);
   const navigation = new BrowserRouter(window, storage), seen = [];
@@ -372,7 +371,7 @@ test('inventory previews use individual metadata, selects an owned instance and 
     assert.equal(document.querySelectorAll('.inventory-card button').length, 4);
     assert.equal(document.querySelector('.inventory-card__action'), null);
     assert.equal(new Set(seen.map(value => value.seed)).size, 4);
-    assert.equal(new Set(seen.map(value => value.palette.panel)).size, 3);
+    assert.equal(new Set(seen.map(value => JSON.stringify(value.modifications))).size, 4);
     assert.ok(seen.some(value => value.modifications.some(item => item.id === 'body-cracks')));
     await act(async () => { document.querySelectorAll('.inventory-card__inspect')[1].click(); });
     assert.equal(navigation.getState().instanceId, 'demo-ender-2');
@@ -380,7 +379,7 @@ test('inventory previews use individual metadata, selects an owned instance and 
     await act(async () => { document.querySelector('.inventory__density').click(); });
     assert.ok(document.querySelector('.inventory--compact'));
     const owned = inventory.getState()[0];
-    await act(async () => { inventory.claim(owned.id, 's1'); inventory.complete(owned.id, 's1', { id:'p1', title:'Prize', rarity:'primary', image:'/p.png', displayWeight:1 }); });
+    await act(async () => { await inventory.open(owned.id, 's1'); inventory.reveal(owned.id); });
     // The opened chest leaves the inventory for the archive; the other three stay.
     assert.equal(document.querySelectorAll('.inventory-card').length,3);
     await act(async () => { root.render(createElement(InventoryScreen, { ...props, mode:'archive', key:'archive' })); });
@@ -440,7 +439,7 @@ test('a server-issued stock renders stacks with quantity, wear and palette; an o
     assert.ok(available.length >= CASES.length * 100, 'every case type is stocked');
     await act(async () => { document.querySelector('.inventory-card__inspect').click(); });
     assert.ok(inventory.getState().some(item => item.id === navigation.getState().instanceId), 'inspecting opens one owned instance');
-    await act(async () => { inventory.claim(available[0].id, 'stack-test'); });
+    await act(async () => { void inventory.open(available[0].id, 'stack-test').catch(() => {}); });
     assert.equal(sum([...document.querySelectorAll('.inventory-card--available .inventory-card__quantity')].map(node => Number.parseInt(node.textContent, 10))), available.length - 1);
     assert.equal(document.querySelector('.inventory-card--opening .inventory-card__quantity').textContent, '1 шт.', 'an opening leaves its stack');
   } finally { navigation.dispose(); }
@@ -464,14 +463,14 @@ test('type directory shows owned available count, excluding consumed cases', asy
   const storage = new ScreenStorage(() => window.localStorage), { inventory } = await loadedInventory(issuedStock(CASES));
   const first = inventory.getState().find(instance => instance.caseId === CASES[0].id && instance.status === 'available');
   const before = inventory.getState().filter(instance => instance.caseId === CASES[0].id && instance.status === 'available').length;
-  inventory.claim(first.id, 'already-opening');
+  void inventory.open(first.id, 'already-opening').catch(() => {});
   await act(async () => { root.render(createElement(CaseDirectory, { cases:CASES, instances:inventory.getState(), storage, navigation:{ go() {} }, renderer:{ async render() { return document.createElement('canvas'); } } })); });
   assert.equal(document.querySelector('.case-card__owned strong').textContent, `${before - 1} шт.`, 'a chest being opened is not counted as ready');
 });
 
 test('reward screen keeps remaining stock visible', async () => {
   const { PrizeScene } = await import(new URL('adapters/inbound/react/PrizeScene.js', build));
-  await act(async () => { root.render(createElement(PrizeScene, { prize:{ id:'p', title:'Prize', rarity:'primary', image:'/p.png' }, actionRef:null, onClose() {}, availableCaseCount:99, returnLabel:'Вернуться в инвентарь' })); });
+  await act(async () => { root.render(createElement(PrizeScene, { prize:{ id:'p', title:'Prize', rarity:'rare', image:'/p.png' }, actionRef:null, onClose() {}, availableCaseCount:99, returnLabel:'Вернуться в инвентарь' })); });
   assert.equal(document.querySelector('.prize__remaining').textContent, 'Готово к открытию: 99 шт.');
   assert.match(document.querySelector('.prize__actions').textContent, /Вернуться в инвентарь/);
 });

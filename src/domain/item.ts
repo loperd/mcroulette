@@ -1,5 +1,7 @@
 export type ItemId = string;
-export type Rarity = 'default' | 'primary' | 'legendary';
+/** The rulebook's item rarities, lowest first. */
+export const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary'] as const;
+export type Rarity = typeof RARITIES[number];
 
 export interface Item {
   readonly id: ItemId;
@@ -23,7 +25,7 @@ export function assertItem(value: unknown): asserts value is Item {
     }
   }
 
-  if (typeof item.rarity !== 'string' || !['default', 'primary', 'legendary'].includes(item.rarity)) {
+  if (typeof item.rarity !== 'string' || !(RARITIES as readonly string[]).includes(item.rarity)) {
     throw new DomainError('INVALID_ITEM', 'Item rarity is not supported.');
   }
   if (typeof item.displayWeight !== 'number'

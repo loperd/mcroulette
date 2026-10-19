@@ -1,5 +1,7 @@
 .item-details { --item-accent: #80b9ff; width: min(860px, calc(100vw - 40px)); max-height: calc(100svh - 40px); padding: 0; color: #eef4f1; border: 1px solid #86ead02a; border-radius: 6px; background: #111d22; box-shadow: 0 30px 100px #0009; overflow: auto; }
-.item-details--primary { --item-accent: #c69aef; }
+.item-details--common { --item-accent: #b4c2ba; }
+.item-details--rare { --item-accent: #c69aef; }
+.item-details--epic { --item-accent: #ea93e4; }
 .item-details--legendary { --item-accent: #edce8e; }
 .item-details::backdrop { background: #03090de8; }
 .item-details__panel { display: grid; grid-template-columns: .95fr 1.05fr; }

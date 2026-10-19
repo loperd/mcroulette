@@ -11,7 +11,7 @@ export function canvasFactory(document) {
       clip(rule) { this.clipped = rule !== 'evenodd'; this.region = rule === 'evenodd' ? 'outside' : 'lens'; },
       save() { this.stack.push({ clipped: this.clipped, region: this.region, globalAlpha: this.globalAlpha, scaleX: this.scaleX, scaleY: this.scaleY }); },
       restore() { Object.assign(this, this.stack.pop()); },
-      clearRect() { this.draws = []; }, fillRect() {},
+      clearRect() { this.draws = []; }, fillRect() {}, strokeRect() {},
       createLinearGradient() { return { addColorStop() {} }; },
       drawImage(source, x, y, width, height) {
         canvas.imageUrl = source.imageUrl ?? source.src;

@@ -17,7 +17,9 @@ function harness(overrides = {}) {
     journal: overrides.journal,
     ownership: overrides.ownership,
     catalog: { load: method('load', async () => legacyCatalog()) },
-    prize: { select: method('select', async () => legacyCatalog()[13], 1) },
+    // A stub answering an item means the server dropped that prize.
+    outcome: { decide: (...args) => Promise.resolve(method('select', async () => legacyCatalog()[13], 1)(...args))
+      .then(value => value && typeof value === 'object' && ('prize' in value || 'destroyed' in value) ? value : { prize: value }) },
     chest: {
       subscribeErrors: overrides.subscribeErrors,
       prepare: method('prepareChest', async () => {}),
@@ -47,7 +49,6 @@ function harness(overrides = {}) {
     },
     random: overrides.random ?? constantRandom(),
     createSessionId: () => `session-${++sequence}`,
-    destruction: overrides.destruction,
   };
   return { controller: new RouletteController(dependencies), calls, signals };
 }
@@ -100,32 +101,31 @@ test('the initial screen shows a floating preview and restores it after Close wi
   assert.equal(h.controller.getState().phase, 'ready'); h.controller.dispose();
 });
 
-test('opening waits for both response and clips regardless of which finishes first', async t => {
-  for (const first of ['prize', 'clips']) await t.test(first, async () => {
-    const prize = deferred();
-    const clips = deferred();
-    const h = harness({ select: () => prize.promise, open: () => clips.promise });
-    await h.controller.initialize();
-    const phases = [];
-    h.controller.subscribe(() => phases.push(h.controller.getState().phase));
-    const opening = h.controller.openChest();
-    await h.controller.openChest();
-    await flush();
-    assert.equal(h.calls.select.length, 1);
-    assert.equal(h.calls.open.length, 1);
-    (first === 'prize' ? prize : clips).resolve(first === 'prize' ? legacyCatalog()[13] : undefined);
-    await flush();
-    assert.equal(h.controller.getState().phase, 'opening');
-    assert.equal(h.calls.spin, undefined);
-    (first === 'prize' ? clips : prize).resolve(first === 'prize' ? undefined : legacyCatalog()[13]);
-    await opening;
-    assert.deepEqual(phases, ['clearing', 'dropping', 'opening', 'flashing', 'spinning', 'settling', 'revealing', 'prize-visible']);
-    const state = h.controller.getState();
-    assert.equal(state.selection.prize.id, '14');
-    assert.equal(state.selection.slots[state.selection.targetIndex].item.id, '14');
-    assert.equal(state.slots.length, 40);
-    h.controller.dispose();
-  });
+test('the fall waits for the server\'s outcome, the roulette for the opening clips', async () => {
+  const outcome = deferred();
+  const clips = deferred();
+  const h = harness({ select: () => outcome.promise, open: () => clips.promise });
+  await h.controller.initialize();
+  const phases = [];
+  h.controller.subscribe(() => phases.push(h.controller.getState().phase));
+  const opening = h.controller.openChest();
+  await h.controller.openChest();
+  await flush();
+  assert.equal(h.calls.select.length, 1);
+  assert.equal(h.calls.clearContent.length, 1, 'the screen clears while the server decides');
+  assert.equal(h.calls.drop, undefined, 'nothing falls before the server has decided');
+  outcome.resolve(legacyCatalog()[13]);
+  await flush(); await flush();
+  assert.equal(h.controller.getState().phase, 'opening');
+  assert.equal(h.calls.spin, undefined);
+  clips.resolve();
+  await opening;
+  assert.deepEqual(phases, ['clearing', 'dropping', 'opening', 'flashing', 'spinning', 'settling', 'revealing', 'prize-visible']);
+  const state = h.controller.getState();
+  assert.equal(state.selection.prize.id, '14');
+  assert.equal(state.selection.slots[state.selection.targetIndex].item.id, '14');
+  assert.equal(state.slots.length, 40);
+  h.controller.dispose();
 });
 
 test('stopped strip and prize reveal are independently awaited', async () => {
@@ -418,14 +418,14 @@ test('reload during the chest scene preserves session id and an already selected
   const opening = first.controller.openChest(); await flush();
   const checkpoint = journal.load();
   assert.equal(checkpoint.stage, 'chest');
-  assert.equal(checkpoint.prize.id, legacyCatalog()[13].id);
+  assert.equal(checkpoint.outcome.prize.id, legacyCatalog()[13].id);
   first.controller.dispose(); await opening;
   const restored = harness({ journal });
   await restored.controller.initialize();
   assert.equal(restored.controller.getState().phase, 'prize-visible');
   assert.equal(restored.controller.getState().sessionId, checkpoint.sessionId);
   assert.equal(restored.calls.select, undefined);
-  assert.equal(restored.controller.getState().selection.prize.id, checkpoint.prize.id);
+  assert.equal(restored.controller.getState().selection.prize.id, checkpoint.outcome.prize.id);
   restored.controller.dispose();
 });
 
@@ -464,53 +464,60 @@ test('revealed reward survives reload and Close clears the recovery journal', as
 });
 
 
-test('owned opening reserves exactly its session and completes only when the prize is revealed', async () => {
-  const events = [], spin = deferred();
-  const h = harness({ spin: () => spin.promise, ownership: {
-    claim: id => events.push(['claim',id]), complete: (id,prize) => events.push(['complete',id,prize.id]),
-  }});
+test('the owner hears when the outcome is on screen, not before', async () => {
+  const revealed = [], spin = deferred();
+  const h = harness({ spin: () => spin.promise, ownership: { reveal: id => revealed.push(id) } });
   await h.controller.initialize(); const opening = h.controller.openChest(); await flush();
-  assert.deepEqual(events,[['claim','session-1']]);
+  assert.deepEqual(revealed, [], 'the roulette is still spinning');
   spin.resolve(); await opening;
-  assert.deepEqual(events[1],['complete','session-1',legacyCatalog()[13].id]);
+  assert.deepEqual(revealed, ['session-1']);
   h.controller.dispose();
 });
 
-test('denied ownership never requests a prize or starts physical opening', async () => {
-  const h = harness({ ownership: { claim() { throw new Error('Not owned'); }, complete() { throw new Error('Unexpected completion'); } } });
+test('a refused opening never starts the fall', async () => {
+  const h = harness({ select: async () => { throw new Error('Not owned'); } });
   await h.controller.initialize(); await h.controller.openChest();
   assert.equal(h.controller.getState().phase, 'failed');
-  assert.equal(h.calls.select, undefined); assert.equal(h.calls.drop, undefined);
+  assert.equal(h.calls.drop, undefined);
   h.controller.dispose();
 });
 
 test('a chest destroyed on impact ends the session after the fall: no opening, no prize, no roulette', async () => {
-  const destroyed = [];
-  const h = harness({ destruction: { moment: 'impact' }, ownership: { claim() {}, complete() { throw new Error('no reward'); }, destroy: id => destroyed.push(id) } });
+  const revealed = [];
+  const h = harness({ select: async () => ({ destroyed: 'impact' }), ownership: { reveal: id => revealed.push(id) } });
   await h.controller.initialize();
   await h.controller.openChest();
   assert.equal(h.controller.getState().phase, 'destroyed');
   assert.equal(h.calls.drop.length, 1);
   assert.equal(h.calls.open, undefined, 'nothing is left to open');
-  assert.equal(h.calls.select, undefined, 'no prize is drawn for a destroyed chest');
   assert.equal(h.calls.spin, undefined);
-  assert.deepEqual(destroyed, ['session-1']);
+  assert.deepEqual(revealed, ['session-1']);
   await h.controller.closePrize();
   assert.equal(h.controller.getState().phase, 'ready');
 });
 
-test('a chest destroyed while opening bursts first, then shows the destruction; the journal restores it without a new roll', async () => {
+test('a chest destroyed while opening bursts first, then shows the destruction; the journal restores it without asking again', async () => {
   let saved;
   const journal = { load: () => saved, save: value => { saved = value; }, clear: () => { saved = undefined; } };
-  const h = harness({ destruction: { moment: 'opening' }, journal });
+  const h = harness({ select: async () => ({ destroyed: 'opening' }), journal });
   await h.controller.initialize();
   await h.controller.openChest();
   assert.equal(h.controller.getState().phase, 'destroyed');
   assert.equal(h.calls.open.length, 1, 'the energy burst plays during the opening');
-  assert.equal(h.calls.select, undefined);
+  assert.equal(h.calls.spin, undefined);
   assert.deepEqual(saved, { stage: 'destroyed', sessionId: 'session-1' });
-  const restored = harness({ destruction: { moment: 'opening' }, journal });
+  const restored = harness({ journal });
   await restored.controller.initialize();
   assert.equal(restored.controller.getState().phase, 'destroyed');
   assert.equal(restored.calls.drop, undefined, 'a decided destruction is shown, not replayed');
+  assert.equal(restored.calls.select, undefined);
+});
+
+test('an outcome that is neither a prize nor a destruction never starts the fall', async () => {
+  const h = harness({ select: async () => ({ destroyed: 'sideways' }) });
+  await h.controller.initialize(); await h.controller.openChest();
+  assert.equal(h.controller.getState().phase, 'failed');
+  assert.equal(h.controller.getState().failure.code, 'INVALID_OUTCOME');
+  assert.equal(h.calls.drop, undefined);
+  h.controller.dispose();
 });

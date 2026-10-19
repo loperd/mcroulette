@@ -15,8 +15,9 @@ import type { Player } from './application/ports/auth-gateway.ts';
 import { InventoryScreen } from './adapters/inbound/react/InventoryScreen.tsx';
 import { ApiInventory } from './adapters/outbound/data/api-inventory.ts';
 import { ChestPreviewRenderer } from './adapters/outbound/chest/chest-preview-renderer.ts';
-import { withBreakageDamage } from './domain/chest-appearance.ts';
-import { demoBreakage } from './adapters/outbound/browser/demo-breakage.ts';
+import { NO_BREAKAGE } from './domain/chest-breakage.ts';
+import { destroyedBreakage } from './adapters/outbound/chest/destroyed-breakage.ts';
+import type { OutcomeGateway } from './application/ports/outcome-gateway.ts';
 import { isConsumed, nextOwnedCase, type CaseInstance } from './domain/case-instance.ts';
 import { CaseDirectory } from './adapters/inbound/react/CaseDirectory.tsx';
 import { CasePresentationContext } from './adapters/inbound/react/case-presentation.ts';
@@ -81,17 +82,14 @@ function createCaseRuntime(definition: CaseDefinition, instance?: CaseInstance, 
   const identity = `${definition.id}:${instance?.id ?? 'browse'}:${returnTo ?? 'normal'}`;
   failsafe.noteRebuild(identity);
   const routeBase = { caseId: definition.id, ...(instance ? { instanceId: instance.id } : {}), ...(returnTo ? { returnTo } : {}) };
-  // Server stand-in: this chest's fate. The scene draws it; the session skips the roulette if it is destroyed.
-  const breakage = instance ? demoBreakage(instance, definition.model.modifications) : undefined;
-  const scene = new ThreeChestDropScene(baseUrl, document, definition.model, instance?.appearance ?? definition.appearance, () => {
-    if (!instance) return;
-    const current = inventory.getState().find(item => item.id === instance.id);
-    if (!current) return;
-    // Only what the decided break actually did on landing is kept; an intact chest stays intact.
-    if (breakage?.moment !== 'impact' || !breakage.parts.length) return;
-    const damaged = withBreakageDamage(current.appearance, definition.model.modifications, breakage.parts);
-    if (damaged !== current.appearance) inventory.updateAppearance(instance.id, damaged);
-  }, breakage, Number.parseInt(definition.presentation.theme.accent.slice(1), 16));
+  const scene = new ThreeChestDropScene(baseUrl, document, definition.model, instance?.appearance ?? definition.appearance, undefined,
+    NO_BREAKAGE, Number.parseInt(definition.presentation.theme.accent.slice(1), 16));
+  // The server lands and opens the chest; the scene draws what it decided before the chest falls.
+  const outcome: OutcomeGateway | undefined = instance ? { async decide(sessionId, signal) {
+    const decided = await inventory.open(instance.id, sessionId, signal);
+    scene.setBreakage('destroyed' in decided ? destroyedBreakage(instance, definition.model.modifications, decided.destroyed) : NO_BREAKAGE);
+    return decided;
+  } } : undefined;
   const sound = new ClickSound(resolvePublicAsset('audio/click.wav', baseUrl));
   sound.setMuted(soundPreference.isMuted()); scene.setSoundMuted(soundPreference.isMuted());
   const roulette = new CanvasRoulette(document, { sound, theme });
@@ -102,12 +100,9 @@ function createCaseRuntime(definition: CaseDefinition, instance?: CaseInstance, 
   // the opening resumes from there (the server rolls the same prize for the same session).
   const journal = instance ? sessionJournals(identity) : undefined;
   if (instance?.status === 'opening' && !journal!.load()) journal!.save({ stage: 'chest', sessionId: instance.sessionId! });
-  const application = createApplication({ baseUrl, catalogPath: definition.catalogPath, prizePath: definition.prizePath, instanceId: instance?.id,
-    journal, ownership: instance ? {
-      claim: sessionId => inventory.claim(instance.id, sessionId),
-      complete: (sessionId, reward) => inventory.complete(instance.id, sessionId, reward),
-      destroy: sessionId => inventory.destroy(instance.id, sessionId),
-    } : undefined, destruction: breakage?.destroyed ? { moment: breakage.moment } : undefined,
+  // An owned chest's catalog and roulette are its own contents, not everything its type can hold.
+  const application = createApplication({ baseUrl, catalogPath: definition.catalogPath, contents: instance?.contents.map(slot => slot.item),
+    journal, outcome, ownership: instance ? { reveal: () => inventory.reveal(instance.id) } : undefined,
     presentation: { chest: scene, roulette, transitions } });
   const recentFind = new InventoryRecentFind(inventory, definition.id);
   let initializing = true;

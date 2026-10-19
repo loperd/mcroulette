@@ -5,7 +5,7 @@ import { Button } from './Button.tsx';
 import { storyFor } from './item-stories.ts';
 import { useCasePresentation } from './case-presentation.ts';
 
-export const rarityLabels = { default: 'Обычный', primary: 'Редкий', legendary: 'Легендарный' } as const;
+export const rarityLabels = { common: 'Обычный', uncommon: 'Необычный', rare: 'Редкий', epic: 'Эпический', legendary: 'Легендарный' } as const;
 
 /** Native modal supplies focus containment, Escape handling and an inert background. */
 export function ItemDetails({ item, onClose, browse }: {

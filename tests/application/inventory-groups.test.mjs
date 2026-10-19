@@ -10,13 +10,13 @@ test('100 equal cases stack without losing unique identities or seeds', () => {
   assert.equal(groups.length, 1); assert.equal(groups[0].instances.length, 100);
   assert.equal(groups[0].representative, items[0]); assert.deepEqual(groups[0].instances, items);
 });
-test('type, every palette zone, each modification and lifecycle separate stacks', () => {
+test('type, class, every palette zone, each modification and lifecycle separate stacks', () => {
   const base = make('base');
-  const variants = [{ ...base, id: 'type', caseId: 'other' }, { ...base, id: 'status', status: 'opened' },
+  const variants = [{ ...base, id: 'type', caseId: 'other' }, { ...base, id: 'status', status: 'opened' }, { ...base, id: 'class', rarity: 'epic' },
     ...['shell', 'panel', 'metal', 'accent'].map(zone => make(zone, changeChestAppearance(base.appearance, { palette: { [zone]: '#ff0000' } }))),
     make('body', changeChestAppearance(base.appearance, { modifications: [{ id: 'body-cracks', intensity: .3 }] })),
     make('lid', changeChestAppearance(base.appearance, { modifications: [{ id: 'lid-cracks', intensity: .3 }] }))];
-  assert.equal(groupInventory([base, ...variants]).length, 9);
+  assert.equal(groupInventory([base, ...variants]).length, 10);
   const worn = [.26, .49].map((damage, index) => make(String(index), changeChestAppearance(base.appearance, { modifications: [{ id: 'body-cracks', intensity: damage }] })));
   assert.equal(groupInventory(worn).length, 1);
   assert.equal(groupInventory([base, ...worn]).length, 2);

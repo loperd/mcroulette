@@ -33,7 +33,7 @@ export const CASE_RARITY_PALETTES: Readonly<Record<CaseRarity, CaseRarityPalette
 export interface CaseDefinition {
   readonly rarity: CaseRarity; readonly appearance: ChestAppearance;
   readonly id: string; readonly collectionId: string; readonly presentation: CasePresentation;
-  readonly model: ChestModelDefinition; readonly catalogPath: string; readonly prizePath: string;
+  readonly model: ChestModelDefinition; readonly catalogPath: string;
   readonly poster: string;
 }
 const MODEL: ChestModelDefinition = Object.freeze({ revision: 'ender-reference', path: 'models/ender-chest.glb', body: 'Chest_bottom', lid: 'Chest_top',
@@ -41,12 +41,13 @@ const MODEL: ChestModelDefinition = Object.freeze({ revision: 'ender-reference',
   modifications: copyModificationProfile(ENDER_REFERENCE_MODIFICATIONS) });
 
 function makeCase(id: string, collectionId: string, rarity: CaseRarity, collection: string, title: string,
-  description: string, palette: { shell: string; panel: string; metal: string; accent: string }, theme: CaseVisualTheme, world: WorldId): CaseDefinition {
+  description: string, palette: { shell: string; panel: string; metal: string; accent: string }, theme: CaseVisualTheme, world: WorldId,
+  backgroundPath = 'images/cases/ender-environment.png'): CaseDefinition {
   return Object.freeze({
     appearance: changeChestAppearance(createChestAppearance(id.length * 173), { palette }), id, collectionId, rarity,
     presentation: Object.freeze({ brand: 'Voxel Vault', collection, title, description,
-      backgroundPath: 'images/cases/ender-environment.png', world, theme: Object.freeze(theme) }),
-    model: MODEL, catalogPath: `api/v1/cases/${id}/catalog`, prizePath: `api/v1/cases/${id}/roll`,
+      backgroundPath, world, theme: Object.freeze(theme) }),
+    model: MODEL, catalogPath: `api/v1/cases/${id}/catalog`,
     poster: 'images/cases/ender.png',
   });
 }
@@ -62,14 +63,15 @@ export const ENDER_CASE: CaseDefinition = Object.freeze({
     description: 'Тайны другого измерения. Открой сундук и найди свой артефакт.', backgroundPath: 'images/cases/ender-environment.png', world: 'end',
     theme: Object.freeze({ accent: '#59a9ef', highlight: '#a2d5ff', deep: '#174d79', glow: '#59a9ef66' }) }),
   model: MODEL,
-  catalogPath: 'api/v1/cases/ender/catalog', prizePath: 'api/v1/cases/ender/roll', poster: 'images/cases/ender.png',
+  catalogPath: 'api/v1/cases/ender/catalog', poster: 'images/cases/ender.png',
 });
 const COMMON_CASE = makeCase('traveler', 'overworld', 'common', 'Дороги Верхнего мира', 'Сундук Путника',
   'Дорожные трофеи, простые инструменты и находки после долгих странствий.',
   { shell: '#493a2b', panel: '#72583a', metal: '#928267', accent: '#9aa9a0' }, rarityTheme('common'), 'overworld');
 const UNCOMMON_CASE = makeCase('deep-mine', 'deep-mines', 'uncommon', 'Глубинные шахты', 'Кладовая Шахтёра',
   'Снаряжение и редкие минералы из забытых подземных залов.',
-  { shell: '#343c3b', panel: '#405c58', metal: '#7b8984', accent: '#5fc78e' }, rarityTheme('uncommon'), 'deep-mine');
+  { shell: '#343c3b', panel: '#405c58', metal: '#7b8984', accent: '#5fc78e' }, rarityTheme('uncommon'), 'deep-mine',
+  'images/cases/deep-mine-fortress.webp');
 const EPIC_CASE = makeCase('dragon', 'dragon-reach', 'epic', 'Предел Дракона', 'Казна Драконоборца',
   'Реликвии древней битвы, пропитанные энергией Края.',
   { shell: '#3a293f', panel: '#58406a', metal: '#9782a0', accent: '#b887ed' }, rarityTheme('epic'), 'dragon');

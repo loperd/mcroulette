@@ -4,8 +4,10 @@ import { Button } from './Button.tsx';
 import { useCasePresentation } from './case-presentation.ts';
 
 const rarityPresentation = {
-  default: { label: 'Обычный предмет', color: '#80b9ff' },
-  primary: { label: 'Редкий предмет', color: '#c69aef' },
+  common: { label: 'Обычный предмет', color: '#b4c2ba' },
+  uncommon: { label: 'Необычный предмет', color: '#80b9ff' },
+  rare: { label: 'Редкий предмет', color: '#c69aef' },
+  epic: { label: 'Эпический предмет', color: '#ea93e4' },
   legendary: { label: 'Легендарный предмет', color: '#edce8e' },
 } as const;
 

@@ -9,7 +9,7 @@ import { rouletteThemes, type RouletteTheme } from './roulette-theme.ts';
 import type { ClickSound } from './click-sound.ts';
 
 const STRIDE = 155, CARD_WIDTH = 150, CARD_HEIGHT = 100, BLUR_PAD = 15, ZOOM = 1.2;
-const COLORS = { default: ['#005bff', '#0c5399'], primary: ['#8846c7', '#671ab4'], legendary: ['#da3217', '#9a1616'] } as const;
+const COLORS = { common: ['#5e7482', '#3d4f5b'], uncommon: ['#005bff', '#0c5399'], rare: ['#8846c7', '#671ab4'], epic: ['#c22ec9', '#86178c'], legendary: ['#da3217', '#9a1616'] } as const;
 type Card = { normal: HTMLCanvasElement; blurred: HTMLCanvasElement };
 
 export interface CanvasRouletteOptions {

@@ -1,6 +1,7 @@
 import { ChestIndicators } from './ChestIndicators.tsx';
 import { isConsumed } from '../../../domain/case-instance.ts';
 import { partConditions } from '../../../domain/chest-appearance.ts';
+import { RARITIES } from '../../../domain/item.ts';
 import { damageLevel, groupInventory } from '../../../application/inventory-groups.ts';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { CASE_RARITY_LABELS, type CaseDefinition, type CaseRarity } from '../../../config/cases.ts';
@@ -39,9 +40,10 @@ export function InventoryScreen({ inventory, cases, navigation, storage, rendere
   }, [storage, rarity, density, mode]);
   const available = instances.filter(item => item.status === 'available');
   const screenInstances = instances.filter(item => mode === 'archive' ? isConsumed(item) : !isConsumed(item));
-  const visible = screenInstances.filter(item => !rarity || rarity === 'all' || cases.find(def => def.id === item.caseId)?.rarity === rarity);
+  // A chest's class is its own rarity, frozen by the server from what it holds, not its type's.
+  const visible = screenInstances.filter(item => !rarity || rarity === 'all' || item.rarity === rarity);
   const groups = mode === 'archive' ? visible.map(instance => ({ key: instance.id, instances: [instance], representative: instance })) : groupInventory(visible);
-  const rarities = [...new Set(cases.map(definition => definition.rarity))] as CaseRarity[];
+  const rarities = RARITIES as readonly CaseRarity[];
   return <main className={`page-shell inventory inventory--${density} inventory--${mode}`} ref={page}><div className="inventory__content page-container">
     <ScreenHeader navigation={navigation} active={mode} archiveCount={instances.filter(isConsumed).length} soundPreference={soundPreference} />
     <div className="inventory__intro"><div><p className="eyebrow">{mode === 'archive' ? 'Открытия и награды' : 'Твои находки. Твои истории.'}</p><h1>{mode === 'archive' ? 'Архив' : 'Инвентарь'} <span>{mode === 'archive' ? screenInstances.length : available.length}</span></h1>
@@ -49,7 +51,7 @@ export function InventoryScreen({ inventory, cases, navigation, storage, rendere
     </div>
     <nav className="inventory__rarities" aria-label="Редкость сундука">
       <button type="button" aria-pressed={rarity === 'all'} onClick={() => setRarity('all')}>Все классы</button>
-      {rarities.map(value => <button type="button" key={value} className={`case-rarity case-rarity--${value}`} aria-pressed={rarity === value} onClick={() => setRarity(value)}>{CASE_RARITY_LABELS[value]}<span>{screenInstances.filter(instance => cases.find(def => def.id === instance.caseId)?.rarity === value).length}</span></button>)}
+      {rarities.map(value => <button type="button" key={value} className={`case-rarity case-rarity--${value}`} aria-pressed={rarity === value} onClick={() => setRarity(value)}>{CASE_RARITY_LABELS[value]}<span>{screenInstances.filter(instance => instance.rarity === value).length}</span></button>)}
     </nav>
     <div className="inventory__toolbar"><div className="inventory__tools"><button type="button" className="inventory__density" aria-pressed={density === 'compact'} onClick={() => setDensity(density === 'compact' ? 'comfortable' : 'compact')}>{density === 'compact' ? 'Крупные карточки' : 'Компактный вид'}</button></div></div>
     <section className="inventory__grid" aria-label="Мои сундуки">

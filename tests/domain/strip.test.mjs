@@ -94,7 +94,7 @@ test('invalid catalog data is rejected before constructing a strip', () => {
   assert.throws(() => copyCatalog([item('a'), item('a')]), { code: 'DUPLICATE_ITEM' });
   for (const patch of [{id: ''}, {title: ' '}, {image: ''}, {displayWeight: '25'},
     {displayWeight: -1}, {displayWeight: NaN}, {displayWeight: Infinity},
-    {rarity: 'rare'}, {rarity: {toString: () => 'legendary'}}]) {
+    {rarity: 'primary'}, {rarity: {toString: () => 'legendary'}}]) {
     assert.throws(() => copyItem(item('a', 0, patch)), { code: 'INVALID_ITEM' });
   }
   assert.throws(() => copyCatalog(Array(1)), { code: 'INVALID_ITEM' });

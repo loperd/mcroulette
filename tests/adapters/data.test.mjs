@@ -2,8 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { FixtureCatalogGateway } from '../../src/adapters/outbound/data/fixture-catalog-gateway.ts';
-import { FixturePrizeGateway } from '../../src/adapters/outbound/data/fixture-prize-gateway.ts';
-import { ApiPrizeGateway } from '../../src/adapters/outbound/data/api-prize-gateway.ts';
+import { FixtureOutcomeGateway } from '../../src/adapters/outbound/data/fixture-outcome-gateway.ts';
 import { decodeCatalog, decodeItem } from '../../src/adapters/outbound/data/item-dto.ts';
 import { normalizeBaseUrl, resolvePublicAsset } from '../../src/adapters/outbound/data/asset-url.ts';
 import { buildStrip, ensureTarget } from '../../src/domain/strip.ts';
@@ -151,11 +150,11 @@ test('an already aborted caller cannot start a request or read the catalog cache
 
 test('each prize selection makes a fresh no-store request, including the same session retry', async () => {
   const calls = [];
-  const gateway = new FixturePrizeGateway(base, async (url,init) => {
+  const gateway = new FixtureOutcomeGateway(base, async (url,init) => {
     calls.push({url,init}); return response({...selected,title:`Result ${calls.length}`});
   });
   for (const [index,id] of ['session-a','session-a','session-b'].entries()) {
-    const prize = await gateway.select(id,signal());
+    const { prize } = await gateway.decide(id,signal());
     assert.equal(prize.title,`Result ${index+1}`);
     assert.equal(prize.id,'14');
   }
@@ -164,25 +163,11 @@ test('each prize selection makes a fresh no-store request, including the same se
   assert.ok(calls.every(call => call.init.cache === 'no-store'));
 });
 
-test('the API roll is a same-origin POST carrying the opening session id and the chest being opened', async () => {
-  const calls = [];
-  const gateway = new ApiPrizeGateway(base, 'api/v1/cases/ender/roll', 'chest-7', async (url, init) => { calls.push({ url, init }); return response(selected); });
-  const prize = await gateway.select('session-a', signal());
-  assert.equal(prize.id, '14');
-  assert.equal(calls[0].url, 'https://example.test/game/api/v1/cases/ender/roll');
-  assert.equal(calls[0].init.method, 'POST');
-  assert.equal(calls[0].init.credentials, 'same-origin');
-  assert.equal(calls[0].init.cache, 'no-store');
-  assert.deepEqual(JSON.parse(calls[0].init.body), { sessionId: 'session-a', instanceId: 'chest-7' });
-  const failing = new ApiPrizeGateway(base, 'api/v1/cases/ender/roll', 'chest-7', async () => ({ ok: false, status: 401, json: async () => ({}) }));
-  await assert.rejects(failing.select('session-b', signal()), error => error.code === 'HTTP_ERROR');
-});
-
 test('canceling a prize response body settles immediately instead of producing a result', async () => {
   const body = deferred();
-  const gateway = new FixturePrizeGateway(base, async () => ({ok:true,json:()=>body.promise}));
+  const gateway = new FixtureOutcomeGateway(base, async () => ({ok:true,json:()=>body.promise}));
   const abort = new AbortController();
-  const selection = gateway.select('session',abort.signal);
+  const selection = gateway.decide('session',abort.signal);
   await flush(); abort.abort();
   await assert.rejects(selection,{name:'AbortError'});
   body.resolve(selected); await flush();

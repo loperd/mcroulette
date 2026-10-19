@@ -1,6 +1,6 @@
 export function item(id, displayWeight = 0, overrides = {}) {
   return { id: String(id), title: `Item ${id}`, image: `/items/${id}.png`,
-    rarity: 'default', displayWeight, ...overrides };
+    rarity: 'common', displayWeight, ...overrides };
 }
 
 // The legacy catalog's exact percentages. Round(40 * weight / 100) totals 39.
@@ -9,7 +9,7 @@ export function legacyCatalog() {
     'Caesar', 'Baron', 'Hero', 'Sentinel', 'Emperor', 'Ruler', 'King'];
   return [25, 15, 10, 7, 7, 6, 5, 5, 5, 5, 3, 3, 3, 1].map((weight, index) =>
     item(index + 1, weight, {title: names[index],
-      rarity: index < 7 ? 'default' : index < 12 ? 'primary' : 'legendary'}));
+      rarity: index < 7 ? 'common' : index < 12 ? 'rare' : 'legendary'}));
 }
 
 export const constantRandom = (value = 0.5) => ({ next: () => value });
@@ -31,38 +31,55 @@ export function deferred() {
 export const flush = () => new Promise(resolve => setImmediate(resolve));
 
 /**
- * A stand-in for the server's inventory API (GET /api/v1/inventory, POST …/claim|complete|destroy,
- * PUT …/appearance) holding chest DTOs as the server sends them; `rewards` maps a session to the
- * item DTO the server rolled for it.
+ * A stand-in for the server's inventory API (GET /api/v1/inventory, POST …/claim|open) holding
+ * chest DTOs as the server sends them. `outcomes` maps a session to what the server decides for
+ * it: an item DTO (the drop) or { destroyed: 'impact' | 'opening' }.
  */
-export function inventoryServer(chests, rewards = {}) {
-  const rows = new Map(chests.map(chest => [chest.id, { status: 'available', seed: 1, ...chest }]));
+export function inventoryServer(chests, outcomes = {}) {
+  const rows = new Map(chests.map(chest => [chest.id, { status: 'available', seed: 1, contents: [], traits: [], condition: 1, ...chest }]));
   const json = value => ({ ok: true, status: 200, json: async () => structuredClone(value) });
+  const conflict = { ok: false, status: 409, json: async () => ({}) };
+  const requests = [];
   const fetcher = async (url, init = {}) => {
     const path = new URL(url).pathname.replace(/^.*\/api\/v1\/inventory/, '');
     if (!init.method || init.method === 'GET') return json([...rows.values()]);
     const [, id, action] = path.split('/'), row = rows.get(decodeURIComponent(id)), body = JSON.parse(init.body);
+    requests.push([action, decodeURIComponent(id), body.sessionId]);
     if (!row) return { ok: false, status: 404, json: async () => ({}) };
-    if (action === 'claim') Object.assign(row, { status: 'opening', sessionId: body.sessionId });
-    if (action === 'complete') Object.assign(row, { status: 'opened', reward: rewards[body.sessionId] ?? { id: 'p1', title: 'Prize', image: '/p.png', type: 'primary', chance: 1 }, openedAt: new Date(0).toISOString() });
-    if (action === 'destroy') Object.assign(row, { status: 'destroyed' });
-    if (action === 'appearance') row.appearance = body.appearance;
-    return json(row);
+    const outcome = outcomes[body.sessionId] ?? { id: 'p1', title: 'Prize', image: '/p.png', type: 'rare', chance: 1 };
+    if (action === 'claim') {
+      if (row.sessionId === body.sessionId && row.status !== 'available') return json({ chest: row, landing: null });
+      if (row.status !== 'available') return conflict;
+      Object.assign(row, { status: 'opening', sessionId: body.sessionId });
+      if (outcome.destroyed === 'impact') Object.assign(row, { status: 'destroyed', destroyedAt: 'impact' });
+      return json({ chest: row, landing: { destroyed: outcome.destroyed === 'impact' } });
+    }
+    if (action === 'open') {
+      if (row.sessionId !== body.sessionId) return conflict;
+      if (row.status === 'opening') {
+        if (outcome.destroyed) Object.assign(row, { status: 'destroyed', destroyedAt: outcome.destroyed });
+        else Object.assign(row, { status: 'opened', drop: { item: outcome, state: 'intact' }, openedAt: new Date(0).toISOString() });
+      }
+      return json({ chest: row, item: row.drop ? { id: `item-${id}`, item: row.drop.item, state: row.drop.state, origin: id } : null });
+    }
+    return conflict;
   };
-  return { fetcher, rows };
+  return { fetcher, rows, requests };
 }
 
 /** A server inventory for the given chest DTOs, read once, ready to use. */
-export async function loadedInventory(chests, rewards) {
+export async function loadedInventory(chests, outcomes) {
   const { ApiInventory } = await import('../src/adapters/outbound/data/api-inventory.ts');
   const { CASES } = await import('../src/config/cases.ts');
-  const server = inventoryServer(chests, rewards), errors = [];
+  const server = inventoryServer(chests, outcomes), errors = [];
   const inventory = new ApiInventory('https://example.test/', CASES, error => errors.push(error), server.fetcher);
   await inventory.load();
   return { inventory, server, errors };
 }
 
-/** Every case type stocked as the server would issue it: `count` chests each, varied seeds. */
+/** Every case type stocked as the server would issue it: `count` chests each, varied seeds and traits. */
 export function issuedStock(cases, count = 100) {
-  return cases.flatMap(definition => Array.from({ length: count }, (_, index) => ({ id: `${definition.id}-${index}`, caseId: definition.id, seed: (index * 2654435761) >>> 0 })));
+  const traits = index => [index % 3 === 0 && { id: 'moss', intensity: .6, seed: index }, index % 5 === 0 && { id: 'body-cracks', intensity: .4, seed: index }].filter(Boolean);
+  return cases.flatMap(definition => Array.from({ length: count }, (_, index) => ({ id: `${definition.id}-${index}`, caseId: definition.id,
+    seed: (index * 2654435761) >>> 0, traits: traits(index) })));
 }

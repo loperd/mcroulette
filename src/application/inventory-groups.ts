@@ -7,11 +7,11 @@ export function damageLevel(value: number) {
   return { rank, label: ['Нетронутый', 'Лёгкий износ', 'Потёртый', 'Повреждённый', 'Расколотый'][rank]! };
 }
 
-/** What makes two owned chests "the same" to a player: type and look (palette, modifications by band). */
+/** What makes two owned chests "the same" to a player: type, class and look (palette, modifications by band). */
 export function variantKey(instance: CaseInstance): string {
   const { palette, modifications } = instance.appearance;
   const visible = [...modifications].sort((a, b) => a.id.localeCompare(b.id)).map(item => [item.id, damageLevel(item.intensity).rank]);
-  return JSON.stringify([instance.caseId, palette.shell, palette.panel, palette.metal, palette.accent, visible]);
+  return JSON.stringify([instance.caseId, instance.rarity ?? null, palette.shell, palette.panel, palette.metal, palette.accent, visible]);
 }
 
 /** Stack by meaningful visual/lifecycle properties, preserving each owned instance. */
