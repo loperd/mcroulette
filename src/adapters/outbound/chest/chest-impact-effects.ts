@@ -37,7 +37,7 @@ export class ChestImpactEffects {
   approach(x: number, y: number, z: number, reduced: boolean): void {
     if (reduced) return;
     this.root.position.set(x, 0.035, z); this.root.visible = true;
-    this.ring.visible = false; this.points.visible = true;
+    this.ring.visible = false; this.points.visible = true; this.groundGlow.visible = true;
     this.groundGlow.material.uniforms.strength!.value = 0.15 + 0.3 * Math.max(0, 1 - y / 3.3);
     this.material.opacity = 0.28;
     for (let i = 0; i < 40; i++) {
@@ -50,10 +50,14 @@ export class ChestImpactEffects {
     this.geometry.getAttribute('position').needsUpdate = true;
   }
 
+  /**
+   * Touchdown: dust thrown out along the ground. The glow under the falling chest goes out here,
+   * and no ring runs out: in a world the chest lands on real ground with a real shadow.
+   */
   trigger(x: number, z: number, reduced: boolean): void {
     this.age = 0; this.reduced = reduced;
     this.root.position.set(x, 0.035, z); this.root.visible = true;
-    this.points.visible = !reduced; this.ring.visible = !reduced;
+    this.points.visible = !reduced; this.ring.visible = false; this.groundGlow.visible = false;
     this.update(0);
   }
 

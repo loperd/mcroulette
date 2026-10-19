@@ -378,6 +378,8 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     this.scheduler!.stop();
     this.detachAbort?.(); this.detachAbort = undefined;
     this.mode = 'opening';
+    // Whatever the landing left on the ground is over: its frames ran out with the fall.
+    this.impactEffects?.reset();
     // A chest that will be destroyed never opens: no lid swing, no light from inside, only the
     // energy building up until it bursts.
     const destroyed = this.breakage.destroyed;
