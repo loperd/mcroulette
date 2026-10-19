@@ -37,11 +37,11 @@ const id = (name: string) => BLOCKS.id(name);
 const SX = 112, SY = 40, SZ = 150, OX = -56, OZ = -110, GROUND = 10;
 /**
  * Where the chest lands: on the grass by the road (it is a block and a half wide). The camera
- * stands 10.5 blocks off, a little above eye height, looking at it: the chest stands above the page's
+ * stands 9 blocks off, a little above eye height, looking at it: the chest stands above the page's
  * label with the meadow, the hills and the sky behind it. The camera moves in when it opens.
  */
 const CHEST = [-1.5, GROUND + 1, 6.5] as const;
-const EYE = [CHEST[0], CHEST[1] + 2.85, CHEST[2] + 10.5] as const;
+const EYE = [CHEST[0], CHEST[1] + 2.45, CHEST[2] + 9] as const;
 /** The sky light at dusk: warm on the lit side of the world, as the game tints it at sunset. */
 const DUSK: [number, number, number] = [1, .78, .64];
 /** The low evening sun (from where its square hangs, a little higher so shadows stay readable). */
