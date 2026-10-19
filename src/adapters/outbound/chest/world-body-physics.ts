@@ -20,6 +20,7 @@ export class WorldBodyPhysics implements PhysicsWorldPort {
   private readonly back: Quaternion;
   private body?: Body;
   private last?: { colliders: readonly BoxCollider[]; pose: Pose };
+  private moving = true;
 
   constructor(physics: WorldPhysics, world: GuestWorld, unit: number) {
     this.physics = physics; this.world = world; this.anchor = world.anchor; this.unit = unit;
@@ -35,6 +36,7 @@ export class WorldBodyPhysics implements PhysicsWorldPort {
       pose: this.toWorld(pose), restitution: .3, friction: 1,
     });
     this.last = { colliders, pose };
+    this.moving = true;
   }
 
   /** Bring the world's simulation up to now; the step length is the world's business. */
@@ -45,6 +47,7 @@ export class WorldBodyPhysics implements PhysicsWorldPort {
   setChestMoving(moving: boolean): void {
     if (!this.body) throw new Error('The chest body has not been created.');
     this.body.hold(!moving);
+    this.moving = moving;
   }
 
   readChestPose(): Pose {
@@ -59,8 +62,11 @@ export class WorldBodyPhysics implements PhysicsWorldPort {
 
   diagnostics(): { bodies: number; colliders: number } { return { bodies: this.body ? 1 : 0, colliders: this.last?.colliders.length ?? 0 }; }
 
-  /** The chest moves to another world: the same body, where it was, in the new one. */
-  carryOver(): Pose | undefined { return this.body ? this.readChestPose() : this.last?.pose; }
+  /** The chest moves to another world: where it was, and whether it hung or moved, in the new one. */
+  carryOver(): { pose: Pose; moving: boolean } | undefined {
+    const pose = this.body ? this.readChestPose() : this.last?.pose;
+    return pose && { pose, moving: this.moving };
+  }
 
   dispose(): void { this.body?.remove(); this.body = undefined; }
 

@@ -83,3 +83,15 @@ test('a held body hangs in the air: no gravity, no blast moves it; let go, it fa
     assert.ok(Math.abs(rotation[0]) < .01 && Math.abs(rotation[2]) < .01, 'level');
   } finally { physics.dispose(); }
 });
+
+test('the chest carried into another world keeps hanging if it hung', async () => {
+  const physics = await WorldPhysics.create({ floor: 0 });
+  try {
+    const chest = new WorldBodyPhysics(physics, { sync() {}, anchor: [0, 0, 0], turn: 0 }, 1.7);
+    chest.resetChest([{ center: { x: 0, y: 0, z: 0 }, halfExtents: { x: .85, y: .85, z: .85 } }], { position: { x: 0, y: 3, z: 0 }, rotation: { x: 0, y: 0, z: 0, w: 1 } });
+    chest.setChestMoving(false);
+    assert.equal(chest.carryOver().moving, false);
+    chest.setChestMoving(true);
+    assert.equal(chest.carryOver().moving, true);
+  } finally { physics.dispose(); }
+});

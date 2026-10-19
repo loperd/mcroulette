@@ -66,7 +66,7 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
   /** Whether `arrival` has been kept: a world came and its physics is ready. */
   private present = false;
   /** Where the chest was when its world went away: it stands there in the next one. */
-  private carried?: Pose;
+  private carried?: { pose: Pose; moving: boolean };
   private arrival: Promise<void>;
   private generation = 0;
   private initialPose = false;
@@ -155,7 +155,14 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     this.carried = undefined;
     this.worldPhysics = new WorldBodyPhysics(physics, world, UNIT);
     this.physics = this.worldPhysics;
-    if (carried && this.assets) { this.physics.resetChest(this.assets.colliders, carried); this.syncPose(); }
+    // A chest that hung keeps hanging in the new world; only one that was falling goes on falling.
+    if (carried && this.assets) {
+      this.physics.resetChest(this.assets.colliders, carried.pose);
+      this.physics.setChestMoving(carried.moving);
+      this.syncPose();
+    }
+    // Its frames stopped with the old world: whatever it was doing goes on.
+    if (this.mode !== 'stopped' && !this.view.matchMedia('(prefers-reduced-motion: reduce)').matches) this.scheduler?.start();
     this.present = true;
     this.arrived?.();
     this.render();
