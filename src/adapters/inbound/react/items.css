@@ -36,3 +36,33 @@
 @media (max-width: 720px) { .items-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 420px) { .items-grid { grid-template-columns: 1fr; } }
 @media (forced-colors: active) { .item-card__actions button:focus-visible { outline: 2px solid Highlight; } }
+
+/* Inventory tabs: chests and the items they dropped. */
+.inventory-tabs { display: flex; gap: 4px; margin: -8px 0 22px; border-bottom: 1px solid #ffffff0c; }
+.inventory-tabs button { position: relative; min-height: 42px; padding: 10px 16px; border: 0; background: transparent; color: #7f9990; font: inherit; font-size: 14px; cursor: pointer; }
+.inventory-tabs button span { margin-left: 8px; padding: 2px 7px; border-radius: 3px; background: #8ce8bb0c; color: #789a88; font-size: 12px; font-variant-numeric: tabular-nums; }
+.inventory-tabs button[aria-selected='true'] { color: #d6eadf; }
+.inventory-tabs button[aria-selected='true']::after { content: ''; position: absolute; inset: auto 8px -1px; height: 2px; background: var(--case-accent, #8ce8bb); }
+.inventory-tabs button:focus-visible { outline: 2px solid #8ce8bb80; outline-offset: -2px; }
+@media (hover: hover) and (pointer: fine) { .inventory-tabs button:hover { color: #c3dfd0; } }
+
+/* Header: the wallet and the player. */
+.header-popover { position: relative; }
+.header-chip { display: inline-flex; align-items: center; gap: 8px; min-height: 38px; padding: 6px 10px; border: 1px solid #ffffff12; border-radius: 3px; background: #ffffff04; color: #91a69b; font: inherit; font-size: 12px; cursor: pointer; }
+.header-chip:hover, .header-chip[aria-expanded='true'] { color: #dce8e1; background: #ffffff08; }
+.header-chip--wallet { border-color: #e0c68e2e; }
+.header-chip--wallet > span { color: #edd9a8; font-size: 15px; }
+.header-chip--wallet strong { color: #f1e2bd; font-weight: 600; font-variant-numeric: tabular-nums; }
+.header-chip__avatar { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #8ce8bb1c; color: #b8e8d0; font-size: 12px; font-weight: 650; }
+.header-chip__name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.header-popover__panel { position: absolute; z-index: 20; top: calc(100% + 8px); right: 0; min-width: 220px; padding: 14px; border: 1px solid #8ce8bb22; border-radius: 4px; background: #101c1df7; box-shadow: 0 18px 40px #0009; color: #dce8e1; font-size: 12px; }
+.header-wallet { display: grid; gap: 8px; margin: 0 0 12px; }
+.header-wallet > div { display: flex; justify-content: space-between; gap: 16px; }
+.header-wallet dt { color: #91a69b; }
+.header-wallet dd { margin: 0; color: #e7f1ea; font-variant-numeric: tabular-nums; }
+.header-popover__hint { margin: 0 0 12px; color: #7d9487; }
+.header-popover__action { width: 100%; min-height: 34px; border: 1px solid #8ce8bb2a; border-radius: 3px; background: #8ce8bb0c; color: #c3dfd0; font: inherit; font-size: 12px; cursor: pointer; }
+.header-popover__action:hover { background: #8ce8bb18; }
+.header-profile__name { margin: 0; font-size: 14px; font-weight: 550; }
+.header-profile__handle { margin: 4px 0 12px; color: #7d9487; }
+@media (max-width: 560px) { .header-chip__name { display: none; } }

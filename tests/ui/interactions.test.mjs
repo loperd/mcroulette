@@ -508,3 +508,25 @@ test('items screen: wallet, prices, a repair the wallet cannot afford, and sale 
   assert.match(document.querySelector('.items-screen__notice').textContent, /продано, \+20 Монеты/);
   assert.equal(document.querySelectorAll('.item-card').length, 2);
 });
+
+test('the header shows the coins and the player; the wallet lists materials, the profile signs out', async () => {
+  const { ScreenHeader } = await import(new URL('adapters/inbound/react/ScreenHeader.js', build));
+  const { AccountContext } = await import(new URL('adapters/inbound/react/AccountContext.js', build));
+  const state = { loaded: true, items: [], balances: { currency: 120, 'deep-ore': 7 } };
+  const went = [], player = { id: 'u', handle: 'miner', displayName: 'Шахтёр', roles: [] };
+  let signedOut = 0;
+  const account = { player, items: { getState: () => state, subscribe: () => () => {} }, signOut: () => signedOut++ };
+  await act(async () => { root.render(createElement(AccountContext.Provider, { value: account },
+    createElement(ScreenHeader, { navigation: { go: route => went.push(route.screen) }, active: 'inventory' }))); });
+  assert.ok(![...document.querySelectorAll('.screen-header__nav button')].some(button => button.textContent.startsWith('Предметы')), 'items live inside the inventory');
+  const wallet = document.querySelector('.header-chip--wallet');
+  assert.equal(wallet.textContent, '◎120');
+  await act(async () => { wallet.click(); });
+  assert.match(document.querySelector('.header-wallet').textContent, /Глубинная руда7/);
+  await act(async () => { document.querySelector('.header-popover__action').click(); });
+  assert.deepEqual(went, ['items']);
+  await act(async () => { document.querySelector('.header-chip--profile').click(); });
+  assert.match(document.querySelector('.header-profile__handle').textContent, /@miner/);
+  await act(async () => { [...document.querySelectorAll('.header-popover__action')].find(button => button.textContent === 'Выйти').click(); });
+  assert.equal(signedOut, 1);
+});

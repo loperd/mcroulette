@@ -2,12 +2,12 @@ import type { Navigation, ScreenRoute } from '../../../application/ports/navigat
 import type { SoundPreference } from './SoundControl.tsx';
 import { SoundControl } from './SoundControl.tsx';
 import { BrandMark } from './BrandMark.tsx';
+import { ProfileChip, WalletChip } from './AccountContext.tsx';
 
-type Section = 'inventory' | 'items' | 'archive' | 'catalog';
+type Section = 'inventory' | 'archive' | 'catalog';
 
 const LINKS: readonly { readonly id: Section; readonly label: string; readonly route: ScreenRoute }[] = [
   { id: 'inventory', label: 'Инвентарь', route: { screen: 'inventory' } },
-  { id: 'items', label: 'Предметы', route: { screen: 'items' } },
   { id: 'catalog', label: 'Все кейсы', route: { screen: 'catalog' } },
   { id: 'archive', label: 'Архив', route: { screen: 'archive' } },
 ];
@@ -33,6 +33,8 @@ export function ScreenHeader({ navigation, active, archiveCount, soundPreference
         <span aria-hidden="true">⌕</span><span>Поиск</span><kbd>⌘K</kbd>
       </button>
       {soundPreference && <SoundControl preference={soundPreference} />}
+      <WalletChip onOpenItems={() => navigation?.go({ screen: 'items' })} />
+      <ProfileChip />
     </div>
   </header>;
 }

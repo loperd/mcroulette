@@ -6,6 +6,7 @@ import type { PlayerItems, WorkshopAction } from '../../../application/ports/pla
 import { ITEM_STATE_LABELS, RESOURCES, resourceGlyph, resourceTitle } from '../../../config/resources.ts';
 import { rarityLabels } from './ItemDetails.tsx';
 import { ScreenHeader } from './ScreenHeader.tsx';
+import { InventoryTabs } from './InventoryTabs.tsx';
 import type { SoundPreference } from './SoundControl.tsx';
 import { useObservableState } from './use-observable-state.ts';
 
@@ -28,8 +29,8 @@ function walletResources(balances: Readonly<Record<string, number>>, items: read
  * destroy the item, so they ask once more. Every price is the server's; the list is the
  * server's after every action.
  */
-export function ItemsScreen({ items, navigation, archiveCount, soundPreference }: {
-  readonly items: PlayerItems; readonly navigation: Navigation;
+export function ItemsScreen({ items, navigation, archiveCount, chestCount, soundPreference }: {
+  readonly items: PlayerItems; readonly navigation: Navigation; readonly chestCount?: number;
   readonly archiveCount?: number; readonly soundPreference?: SoundPreference;
 }) {
   const state = useObservableState(items);
@@ -67,10 +68,11 @@ export function ItemsScreen({ items, navigation, archiveCount, soundPreference }
   const visible = state.items.filter(item => filter === 'all' || isDamaged(item));
   const damagedCount = state.items.filter(isDamaged).length;
   return <main className="page-shell inventory items-screen"><div className="inventory__content page-container">
-    <ScreenHeader navigation={navigation} active="items" archiveCount={archiveCount} soundPreference={soundPreference} />
-    <div className="inventory__intro"><div><p className="eyebrow">Добыча из сундуков</p><h1>Предметы <span>{state.items.length}</span></h1>
+    <ScreenHeader navigation={navigation} active="inventory" archiveCount={archiveCount} soundPreference={soundPreference} />
+    <div className="inventory__intro"><div><p className="eyebrow">Твои находки. Твои истории.</p><h1>Инвентарь</h1>
       <p>Повреждённое можно починить материалом своей коллекции, объединить с таким же, разобрать на материал или продать.</p></div>
     </div>
+    <InventoryTabs navigation={navigation} active="items" chests={chestCount} items={state.items.length} />
     <section className="wallet" aria-label="Кошелёк">
       {walletResources(state.balances, state.items).map(id => <div key={id} className={`wallet__entry${id === CURRENCY ? ' wallet__entry--currency' : ''}`}>
         <span aria-hidden="true">{resourceGlyph(id)}</span><span>{resourceTitle(id)}</span><strong>{state.balances[id] ?? 0}</strong>

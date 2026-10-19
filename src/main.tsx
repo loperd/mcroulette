@@ -16,6 +16,7 @@ import { InventoryScreen } from './adapters/inbound/react/InventoryScreen.tsx';
 import { ApiInventory } from './adapters/outbound/data/api-inventory.ts';
 import { ApiItems } from './adapters/outbound/data/api-items.ts';
 import { ItemsScreen } from './adapters/inbound/react/ItemsScreen.tsx';
+import { AccountContext, type Account } from './adapters/inbound/react/AccountContext.tsx';
 import { ChestPreviewRenderer } from './adapters/outbound/chest/chest-preview-renderer.ts';
 import { NO_BREAKAGE } from './domain/chest-breakage.ts';
 import { destroyedBreakage } from './adapters/outbound/chest/destroyed-breakage.ts';
@@ -183,6 +184,17 @@ async function checkSession() {
 }
 /** The player's chests are read from the server once signed in, before any screen shows them. */
 let inventoryLoad: Promise<void> | undefined;
+/** The header's wallet and profile; the wallet is read once signed in and again by the items screen. */
+let account: Account | undefined;
+function accountOf(player: Player): Account {
+  if (account?.player !== player) {
+    account = { player, items, signOut() {
+      void auth.signOut().catch(error => reporter.capture(error, { code: 'SIGN_OUT_FAILED' })).finally(() => window.location.reload());
+    } };
+    void items.load().catch(error => reporter.capture(error, { code: 'ITEMS_LOAD_FAILED' }));
+  }
+  return account;
+}
 function loadInventory() {
   inventoryLoad ??= inventory.load().catch(error => {
     reporter.capture(error, { code: 'INVENTORY_LOAD_FAILED' });
@@ -204,6 +216,7 @@ function renderGate(): boolean {
   return true;
 }
 
+const signedIn = () => session.state === 'signed-in' ? accountOf(session.player) : undefined;
 function renderRoute() {
   if (renderGate()) return;
   const route = navigation.getState();
@@ -227,15 +240,16 @@ function renderRoute() {
   if (import.meta.env.DEV) (window as unknown as { __caseRuntime?: unknown }).__caseRuntime = runtime;
   if (!definition) {
     if (route.screen === 'inventory' || route.screen === 'archive' || route.screen === 'catalog') previews ??= new ChestPreviewRenderer(document, baseUrl);
-    root.render(<StrictMode><>{route.screen === 'inventory' || route.screen === 'archive'
+    root.render(<StrictMode><AccountContext.Provider value={signedIn()}>{route.screen === 'inventory' || route.screen === 'archive'
       ? <InventoryScreen key={route.screen} mode={route.screen} inventory={inventory} cases={CASES} navigation={navigation} storage={storage} renderer={previews!} soundPreference={soundPreference} />
       : route.screen === 'items'
-      ? <ItemsScreen items={items} navigation={navigation} archiveCount={inventory.getState().filter(isConsumed).length} soundPreference={soundPreference} />
+      ? <ItemsScreen items={items} navigation={navigation} archiveCount={inventory.getState().filter(isConsumed).length}
+        chestCount={inventory.getState().filter(item => item.status === 'available').length} soundPreference={soundPreference} />
       : route.screen === 'catalog'
       ? <CaseDirectory instances={inventory.getState()} cases={CASES} navigation={navigation} storage={storage} renderer={previews!} soundPreference={soundPreference} />
       : <><SoundControl preference={soundPreference} /><main className="page-shell case-directory"><div className="feedback"><h1>Сундук не найден</h1><p>Возможно, ссылка устарела.</p>
         <button className="btn btn-transparent" onClick={() => navigation.go({ screen: 'inventory' }, true)}>К сундукам</button></div></main></>}
-      <GlobalSearch navigation={navigation} cases={CASES} inventory={inventory} baseUrl={baseUrl} /></></StrictMode>);
+      <GlobalSearch navigation={navigation} cases={CASES} inventory={inventory} baseUrl={baseUrl} /></AccountContext.Provider></StrictMode>);
     return;
   }
   const current = runtime!;
@@ -245,7 +259,7 @@ function renderRoute() {
     : caseOpenAction(inventory.getState(), definition.id, current.instanceId);
   const state = current.application.session!.getState();
   if (!fresh && route.screen === 'case' && state.phase === 'prize-visible') void current.application.session!.closePrize();
-  root.render(<StrictMode><NavigationContext.Provider value={{ navigation, storage }}>
+  root.render(<StrictMode><AccountContext.Provider value={signedIn()}><NavigationContext.Provider value={{ navigation, storage }}>
     <GlobalSearch navigation={navigation} cases={CASES} inventory={inventory} baseUrl={baseUrl} />
     <CasePresentationContext.Provider value={definition.presentation}>
       <App captureWreck={() => { const state = current.application.session!.getState(); return 'sessionId' in state ? loadWreck(state.sessionId) : undefined; }} inspectedCase={instance} casePalette={definition.presentation.theme} availableCaseCount={action.availableCount} archiveCount={inventory.getState().filter(isConsumed).length} archiveView={archiveView}
@@ -265,7 +279,7 @@ function renderRoute() {
         onRetryInitialization={current.application.initialize} backgroundUrl={resolvePublicAsset(definition.presentation.backgroundPath, baseUrl)}
         world={{ id: definition.presentation.world, chest: current.scene.handles, guest: current.scene.guest }} />
     </CasePresentationContext.Provider>
-  </NavigationContext.Provider></StrictMode>);
+  </NavigationContext.Provider></AccountContext.Provider></StrictMode>);
   if (fresh) current.initialize();
 }
 let lastScreen = navigation.getState().screen;

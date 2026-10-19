@@ -3,7 +3,7 @@ import { isConsumed } from '../../../domain/case-instance.ts';
 import { partConditions } from '../../../domain/chest-appearance.ts';
 import { RARITIES } from '../../../domain/item.ts';
 import { damageLevel, groupInventory } from '../../../application/inventory-groups.ts';
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useContext, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { CASE_RARITY_LABELS, type CaseDefinition, type CaseRarity } from '../../../config/cases.ts';
 import type { Navigation } from '../../../application/ports/navigation.ts';
 import type { PlayerInventory } from '../../../application/ports/player-inventory.ts';
@@ -12,7 +12,11 @@ import type { ChestPreviewRenderer } from '../../outbound/chest/chest-preview-re
 import { useObservableState } from './use-observable-state.ts';
 import { ChestThumbnail } from './ChestThumbnail.tsx';
 import { ScreenHeader } from './ScreenHeader.tsx';
+import { InventoryTabs } from './InventoryTabs.tsx';
+import { AccountContext } from './AccountContext.tsx';
 import type { SoundPreference } from './SoundControl.tsx';
+
+const NO_ITEMS = { getState: () => undefined, subscribe: () => () => {} };
 
 export function InventoryScreen({ inventory, cases, navigation, storage, renderer, soundPreference, mode = 'inventory' }: {
   readonly soundPreference?: SoundPreference;
@@ -21,6 +25,8 @@ export function InventoryScreen({ inventory, cases, navigation, storage, rendere
   readonly storage: ScreenStorage; readonly renderer: Pick<ChestPreviewRenderer, 'render'>;
 }) {
   const instances = useObservableState(inventory);
+  const account = useContext(AccountContext);
+  const owned = useObservableState(account?.items ?? NO_ITEMS);
   const saved = useRef(storage.read(mode === 'archive' ? 'screen:archive' : 'screen:inventory', value => {
     const v = value && typeof value === 'object' ? value as Record<string, unknown> : {};
     return { rarity: typeof v.rarity === 'string' && ['common','uncommon','rare','epic','legendary'].includes(v.rarity) ? v.rarity : 'all',
@@ -49,6 +55,7 @@ export function InventoryScreen({ inventory, cases, navigation, storage, rendere
     <div className="inventory__intro"><div><p className="eyebrow">{mode === 'archive' ? 'Открытия и награды' : 'Твои находки. Твои истории.'}</p><h1>{mode === 'archive' ? 'Архив' : 'Инвентарь'} <span>{mode === 'archive' ? screenInstances.length : available.length}</span></h1>
       <p>{mode === 'archive' ? 'Открытые сундуки и найденные в них предметы.' : 'Сундуки собраны по типу, окраске, повреждениям и состоянию.'}</p></div>
     </div>
+    {mode === 'inventory' && <InventoryTabs navigation={navigation} active="chests" chests={available.length} items={owned?.loaded ? owned.items.length : undefined} />}
     <nav className="inventory__rarities" aria-label="Редкость сундука">
       <button type="button" aria-pressed={rarity === 'all'} onClick={() => setRarity('all')}>Все классы</button>
       {rarities.map(value => <button type="button" key={value} className={`case-rarity case-rarity--${value}`} aria-pressed={rarity === value} onClick={() => setRarity(value)}>{CASE_RARITY_LABELS[value]}<span>{screenInstances.filter(instance => instance.rarity === value).length}</span></button>)}
