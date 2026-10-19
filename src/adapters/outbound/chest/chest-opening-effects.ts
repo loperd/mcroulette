@@ -1,7 +1,7 @@
 import {
   AdditiveBlending, Color, Box3, BufferGeometry, Float32BufferAttribute, Group,
   Mesh, MeshBasicMaterial, PlaneGeometry, PointLight, Points, PointsMaterial,
-  DataTexture, RGBAFormat, ShaderMaterial, Sprite, SpriteMaterial, DoubleSide,
+  ShaderMaterial, DoubleSide,
   type Object3D,
 } from 'three';
 
@@ -26,8 +26,6 @@ export class ChestOpeningEffects {
     }`,
     transparent: true, depthWrite: false, side: DoubleSide, blending: AdditiveBlending, toneMapped: false,
   });
-  private readonly haloTexture: DataTexture;
-  private readonly halo: Sprite;
   private readonly positions = new Float32Array(80 * 3);
   private readonly geometry = new BufferGeometry();
   private readonly material = new PointsMaterial({ color: 0x7effdb, size: 0.055,
@@ -60,18 +58,7 @@ export class ChestOpeningEffects {
       beam.position.y = 1.4; beam.rotation.y = i * Math.PI / 5;
       this.beams.add(beam);
     }
-    const pixels = new Uint8Array(32 * 32 * 4);
-    for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
-      const i = (y * 32 + x) * 4;
-      pixels[i] = pixels[i + 1] = pixels[i + 2] = 255;
-      pixels[i + 3] = Math.round(Math.max(0, 1 - Math.hypot((x - 15.5) / 15.5, (y - 15.5) / 15.5)) ** 2 * 255);
-    }
-    this.haloTexture = new DataTexture(pixels, 32, 32, RGBAFormat);
-    this.haloTexture.needsUpdate = true;
-    this.halo = new Sprite(new SpriteMaterial({ map: this.haloTexture, color,
-      transparent: true, opacity: 0, depthWrite: false, blending: AdditiveBlending, toneMapped: false }));
-    this.halo.position.y = 0.25;
-    this.root.add(this.light, this.glow, this.particles, this.beams, this.halo);
+    this.root.add(this.light, this.glow, this.particles, this.beams);
     this.root.visible = false;
     chest.add(this.root);
   }
@@ -112,8 +99,6 @@ export class ChestOpeningEffects {
     this.light.intensity = reducedMotion ? 2 : 5 + reveal * 22 + Math.sin(burst * Math.PI) * 12;
     this.light.position.y = 0.25 + burst * 0.35;
     this.glow.material.opacity = reducedMotion ? 0.15 : 0.2 + reveal * 0.55;
-    this.halo.material.opacity = reducedMotion ? 0.12 : reveal * 0.8;
-    this.halo.scale.setScalar(1 + burst * 3.5);
     this.beams.visible = !reducedMotion;
     this.beamMaterial.uniforms.energy!.value = reveal * 0.95;
     this.beams.scale.setScalar(0.35 + reveal * 0.65);
@@ -142,7 +127,7 @@ export class ChestOpeningEffects {
     this.stop(); this.root.removeFromParent();
     this.geometry.dispose(); this.material.dispose();
     this.beamGeometry.dispose(); this.beamMaterial.dispose();
-    this.halo.material.dispose(); this.haloTexture.dispose();
+   
     this.glow.geometry.dispose(); this.glow.material.dispose(); this.light.dispose();
     if (this.context) void this.context.close().catch(() => {});
   }
