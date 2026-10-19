@@ -299,6 +299,25 @@ func (e *Economy) MergeChests(ctx context.Context, owner, idA, idB string) (ches
 	return merged, err
 }
 
+// MergeOdds tells what merging two of the owner's chests would likely make; nothing changes.
+func (e *Economy) MergeOdds(ctx context.Context, owner, idA, idB string) (chest.MergeOdds, error) {
+	rb := e.Rulebook()
+	var odds chest.MergeOdds
+	err := e.Store.Transact(ctx, func(tx Tx) error {
+		a, err := tx.Chest(owner, idA)
+		if err != nil {
+			return err
+		}
+		b, err := tx.Chest(owner, idB)
+		if err != nil {
+			return err
+		}
+		odds, err = chest.Odds(rb, a, b, e.situation(rb))
+		return err
+	})
+	return odds, err
+}
+
 // Workshop is what a player does with an item for a price: repair, salvage, sell.
 type Workshop func(inv *inventory.Inventory, rb *rulebook.Rulebook, w *wallet.Wallet, id string, s rulebook.Situation) (wallet.Amount, error)
 

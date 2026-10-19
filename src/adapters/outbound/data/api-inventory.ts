@@ -1,7 +1,7 @@
 import type { CaseDefinition } from '../../../config/cases.ts';
 import { chestLook } from '../../../config/chest-look.ts';
 import { claimCase, copyCaseInstance, type CaseInstance } from '../../../domain/case-instance.ts';
-import type { PlayerInventory } from '../../../application/ports/player-inventory.ts';
+import type { MergeOdds, PlayerInventory } from '../../../application/ports/player-inventory.ts';
 import type { ChestOutcome } from '../../../application/ports/outcome-gateway.ts';
 import { normalizeBaseUrl, resolvePublicAsset } from './asset-url.ts';
 import { DataError } from './data-error.ts';
@@ -78,6 +78,32 @@ export class ApiInventory implements PlayerInventory {
     this.replace(chest);
   }
 
+  async mergeOdds(a: string, b: string, signal?: AbortSignal): Promise<MergeOdds> {
+    const url = `${resolvePublicAsset('api/v1/inventory/merge', this.baseUrl)}?${new URLSearchParams({ a, b })}`;
+    const response = await this.fetcher(url, { signal, cache: 'no-store', credentials: 'same-origin', headers: { Accept: 'application/json' } });
+    if (!response.ok) throw new DataError('HTTP_ERROR', `The merge odds request failed with HTTP ${response.status}.`);
+    return decodeOdds(await response.json());
+  }
+
+  async merge(a: string, b: string): Promise<CaseInstance> {
+    try {
+      const response = await this.fetcher(resolvePublicAsset('api/v1/inventory/merge', this.baseUrl), {
+        method: 'POST', cache: 'no-store', credentials: 'same-origin', body: JSON.stringify({ a, b }),
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      });
+      if (!response.ok) throw new DataError('HTTP_ERROR', `The chest merge request failed with HTTP ${response.status}.`);
+      const chest = this.decode(await response.json());
+      if (!chest) throw new DataError('INVALID_DTO', 'The merge answer has no chest of a known type.');
+      return chest;
+    } catch (error) {
+      this.onError(error);
+      throw error;
+    } finally {
+      // Two chests are spent and one is new, or nothing changed: the server says which.
+      await this.load().catch(error => this.onError(error));
+    }
+  }
+
   private async post(id: string, action: 'claim' | 'open', sessionId: string, signal?: AbortSignal): Promise<unknown> {
     const response = await this.fetcher(resolvePublicAsset(`api/v1/inventory/${encodeURIComponent(id)}/${action}`, this.baseUrl), {
       method: 'POST', signal, cache: 'no-store', credentials: 'same-origin', body: JSON.stringify({ sessionId }),
@@ -115,4 +141,27 @@ export class ApiInventory implements PlayerInventory {
   }
 
   private publish(): void { for (const listener of [...this.listeners]) listener(); }
+}
+
+const percent = (value: unknown) => {
+  if (typeof value !== 'number' || !(value >= 0 && value <= 100)) throw new DataError('INVALID_DTO', 'A merge chance is a percent.');
+  return value;
+};
+const count = (value: unknown) => {
+  if (!Number.isSafeInteger(value) || (value as number) < 0) throw new DataError('INVALID_DTO', 'A merge count is a whole number.');
+  return value as number;
+};
+
+function decodeOdds(value: unknown): MergeOdds {
+  const dto = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  const contents = dto.contents && typeof dto.contents === 'object' ? dto.contents as Record<string, unknown> : undefined;
+  if (!Array.isArray(dto.traits) || dto.traits.length > 64 || !contents) throw new DataError('INVALID_DTO', 'The merge odds need traits and contents.');
+  return Object.freeze({
+    traits: Object.freeze(dto.traits.map(entry => {
+      const trait = entry && typeof entry === 'object' ? entry as Record<string, unknown> : {};
+      if (typeof trait.id !== 'string' || !trait.id) throw new DataError('INVALID_DTO', 'A merge trait needs an id.');
+      return Object.freeze({ id: trait.id, keep: percent(trait.keep), upgrade: percent(trait.upgrade) });
+    })),
+    contents: Object.freeze({ total: count(contents.total), kept: count(contents.kept), keep: percent(contents.keep) }),
+  });
 }

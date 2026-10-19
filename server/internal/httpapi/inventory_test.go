@@ -156,3 +156,39 @@ func TestItemsAreListedWithTheirPricesAndWorkedForThem(t *testing.T) {
 		t.Fatalf("balance %d", m.Balances["p"]["end-shards"])
 	}
 }
+
+func TestMergeOddsComeBeforeTheMerge(t *testing.T) {
+	s, _ := economyServer(t)
+	issued, err := s.economy.Issue(context.Background(), "p", "ender", "admin", 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, b := issued[0].ID, issued[1].ID
+	odds := func(player string) (int, mergeOddsDTO) {
+		r := httptest.NewRequest("GET", "/?a="+a+"&b="+b, nil)
+		r = r.WithContext(context.WithValue(r.Context(), userContextKey, store.User{ID: player}))
+		w := httptest.NewRecorder()
+		s.mergeOdds(w, r)
+		var dto mergeOddsDTO
+		if w.Code == 200 {
+			if err := json.Unmarshal(w.Body.Bytes(), &dto); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return w.Code, dto
+	}
+	code, dto := odds("p")
+	if code != 200 || dto.Traits == nil || dto.Contents.Kept != 8 || dto.Contents.Total < 8 || dto.Contents.Keep != percent(8, float64(dto.Contents.Total)) {
+		t.Fatalf("odds %d %+v", code, dto)
+	}
+	if code, _ := odds("q"); code != 404 {
+		t.Fatalf("odds of another player's chests: %d", code)
+	}
+	var merged chestDTO
+	if code := call(t, s.mergeChests, "p", "", fmt.Sprintf(`{"a":%q,"b":%q}`, a, b), &merged); code != 201 || merged.Origin.Source != "merge" {
+		t.Fatalf("merge %d %+v", code, merged)
+	}
+	if code, _ := odds("p"); code != 409 {
+		t.Fatalf("odds of spent chests: %d", code)
+	}
+}

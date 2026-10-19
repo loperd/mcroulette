@@ -82,7 +82,7 @@ owner, items [{ id, item, state: intact | slight | heavy | broken, origin: chest
 - **App (сделано):** `internal/app.Economy` — `GrantStarter` (один раз), `Issue`, `Chests` (старые сундуки без метаданных перевыдаются из своего seed, их прошлый приз попадает в инвентарь), `Claim` (+ приземление), `Open` (дроп сразу в инвентарь), `MergeChests`, `Work` (`Repair`, `Salvage`, `Sell`), `MergeItems`, `Inventory`. Повтор с той же сессией ничего не меняет.
 - **HTTP (сделано):** контракт ниже; свод читается при старте из `ECONOMY_CONFIG` (по умолчанию `config/economy.json`, в образе `/config/economy.json`).
 - **UI предметов и кошелька (сделано):** экран `#/items` — кошелёк, предметы с ценами из `offers` (`Inventory.Quote` — те же формулы, что у действий), починка (недоступна без материала), объединение с самым повреждённым близнецом, разбор и продажа со вторым подтверждением. Названия ресурсов — `src/config/resources.ts`.
-- **Дальше:** мёрдж сундуков в UI, статистика игрока для ситуации (`player.opens`, pity), CLI-симулятор, справочник типов и предметов (`domain.Cases`, `LootItem`) — из свода.
+- **Дальше:** статистика игрока для ситуации (`player.opens`, pity), CLI-симулятор, справочник типов и предметов (`domain.Cases`, `LootItem`) — из свода.
 
 ## HTTP
 
@@ -93,7 +93,8 @@ owner, items [{ id, item, state: intact | slight | heavy | broken, origin: chest
 | `GET /api/v1/inventory` | — | `[chest]`; при первом чтении — стартовый набор |
 | `POST /api/v1/inventory/{id}/claim` | `{sessionId}` | `{chest, landing: {damage?: trait, destroyed} \| null}`; `null` — повтор той же сессии |
 | `POST /api/v1/inventory/{id}/open` | `{sessionId}` | `{chest, item: ownedItem \| null}`; `null` — сундук разрушен |
-| `POST /api/v1/inventory/merge` | `{a, b}` | `chest` (новый) |
+| `GET /api/v1/inventory/merge?a=&b=` | — | `mergeOdds` — шансы для этой пары, ничего не меняет |
+| `POST /api/v1/inventory/merge` | `{a, b}` | `chest` (новый, 201) |
 | `GET /api/v1/inventory/items` | — | `{items: [ownedItem + offers], balances: {resource: value}}`; цены — на этот момент |
 | `POST /api/v1/inventory/items/{id}/repair\|salvage\|sell` | — | `{resource, value}` — цена или выручка |
 | `POST /api/v1/inventory/items/merge` | `{a, b}` | `ownedItem` (оставшийся) |
@@ -106,11 +107,14 @@ chest      { id, caseId, status, seed, revision, rarity, condition,
 item       { id, title, image, type: <редкость>, chance }   — chance содержимого — доля в % внутри сундука
 ownedItem  { id, item, state: intact|slight|heavy|broken, origin: <id сундука> }
 offers     { repair: amount | null, salvage: amount, sell: amount, mergeRepair: % } — нет у предмета, которого больше нет в своде
+mergeOdds  { traits: [{ id, keep: %, upgrade: % }], contents: { total, kept, keep: % } }
+           — черты обоих сундуков: шанс остаться и (есть у обоих) подняться на ступень, до выбора
+             между взаимоисключающими; повреждения — 0. Из total разных предметов пары остаются kept.
 ```
 
 Ошибки: 404 — нет такого сундука или предмета у игрока (чужой — то же самое), 409 — не то состояние (другая сессия, не пара для мёржа, предмет цел, не хватает ресурсов), 400 — плохое тело.
 
-Клиент: открытие = `claim` + `open` до падения, пока экран очищается; исход держится до показа (рулетка, разрушение), чтобы список не выдал приз раньше. Внешний вид сундука — его `traits` (id черт совпадают с модификациями модели), рулетка крутится по `contents`, фильтр и стопки инвентаря — по `rarity` сундука. Как именно разлетается разрушенный сундук, рисует клиент (`destroyedBreakage`) по моменту от сервера.
+Клиент: открытие = `claim` + `open` до падения, пока экран очищается; исход держится до показа (рулетка, разрушение), чтобы список не выдал приз раньше. Мёрдж — на карточке инвентаря: игрок выбирает пару одного типа, видит `mergeOdds` от сервера, после `merge` список перечитывается. Внешний вид сундука — его `traits` (id черт совпадают с модификациями модели), рулетка крутится по `contents`, фильтр и стопки инвентаря — по `rarity` сундука. Как именно разлетается разрушенный сундук, рисует клиент (`destroyedBreakage`) по моменту от сервера.
 
 ## Что ушло из старого кода
 

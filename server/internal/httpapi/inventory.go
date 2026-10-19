@@ -103,6 +103,7 @@ func (s *Server) inventoryRoutes() {
 	player("GET", "/api/v1/inventory", s.listInventory)
 	player("POST", "/api/v1/inventory/{instanceID}/claim", s.claimChest)
 	player("POST", "/api/v1/inventory/{instanceID}/open", s.openChest)
+	player("GET", "/api/v1/inventory/merge", s.mergeOdds)
 	player("POST", "/api/v1/inventory/merge", s.mergeChests)
 	player("GET", "/api/v1/inventory/items", s.listItems)
 	player("POST", "/api/v1/inventory/items/merge", s.mergeItems)
@@ -203,6 +204,44 @@ func (s *Server) mergeChests(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, toChestDTO(s.rulebook(), merged))
+}
+
+// mergeOddsDTO is, in percent, what merging two chests would likely make: each trait's chance to
+// stay and to rise a tier, and of the items the two hold together, how many the new one keeps.
+type mergeOddsDTO struct {
+	Traits   []traitOddsDTO  `json:"traits"`
+	Contents contentsOddsDTO `json:"contents"`
+}
+
+type traitOddsDTO struct {
+	ID      string  `json:"id"`
+	Keep    float64 `json:"keep"`
+	Upgrade float64 `json:"upgrade"`
+}
+
+type contentsOddsDTO struct {
+	Total int     `json:"total"`
+	Kept  int     `json:"kept"`
+	Keep  float64 `json:"keep"`
+}
+
+func (s *Server) mergeOdds(w http.ResponseWriter, r *http.Request) {
+	a, b := r.URL.Query().Get("a"), r.URL.Query().Get("b")
+	if a == "" || b == "" || len(a) > 128 || len(b) > 128 {
+		writeError(w, 400, "invalid pair")
+		return
+	}
+	odds, err := s.economy.MergeOdds(r.Context(), userFrom(r.Context()).ID, a, b)
+	if err != nil {
+		writeEconomyError(w, err)
+		return
+	}
+	dto := mergeOddsDTO{Traits: make([]traitOddsDTO, len(odds.Traits)),
+		Contents: contentsOddsDTO{Total: odds.Contents, Kept: odds.Size, Keep: percent(float64(odds.Size), float64(odds.Contents))}}
+	for i, trait := range odds.Traits {
+		dto.Traits[i] = traitOddsDTO{ID: trait.ID, Keep: percent(trait.Keep, 1), Upgrade: percent(trait.Upgrade, 1)}
+	}
+	writeJSON(w, http.StatusOK, dto)
 }
 
 func (s *Server) listItems(w http.ResponseWriter, r *http.Request) {

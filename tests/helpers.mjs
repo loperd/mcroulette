@@ -42,6 +42,7 @@ export function inventoryServer(chests, outcomes = {}) {
   const requests = [];
   const fetcher = async (url, init = {}) => {
     const path = new URL(url).pathname.replace(/^.*\/api\/v1\/inventory/, '');
+    if (path === '/merge') return merge(new URL(url), init);
     if (!init.method || init.method === 'GET') return json([...rows.values()]);
     const [, id, action] = path.split('/'), row = rows.get(decodeURIComponent(id)), body = JSON.parse(init.body);
     requests.push([action, decodeURIComponent(id), body.sessionId]);
@@ -63,6 +64,23 @@ export function inventoryServer(chests, outcomes = {}) {
       return json({ chest: row, item: row.drop ? { id: `item-${id}`, item: row.drop.item, state: row.drop.state, origin: id } : null });
     }
     return conflict;
+  };
+  // Merge: odds for a pair, then the pair spent into a new chest; one of a pair that is not two
+  // available chests of one type is refused.
+  let merges = 0;
+  const merge = (url, init) => {
+    const { a, b } = init.method === 'POST' ? JSON.parse(init.body) : Object.fromEntries(url.searchParams);
+    requests.push([init.method === 'POST' ? 'merge' : 'odds', a, b]);
+    const first = rows.get(a), second = rows.get(b);
+    if (!first || !second) return { ok: false, status: 404, json: async () => ({}) };
+    if (a === b || first.caseId !== second.caseId || first.status !== 'available' || second.status !== 'available') return conflict;
+    if (init.method !== 'POST') return json({ traits: [...first.traits, ...second.traits].map(trait => ({ id: trait.id, keep: trait.id.includes('cracks') ? 0 : 40, upgrade: 0 })),
+      contents: { total: 12, kept: 8, keep: 66.67 } });
+    first.status = second.status = 'merged';
+    rows.delete(a); rows.delete(b);
+    const chest = { id: `merged-${++merges}`, caseId: first.caseId, status: 'available', seed: first.seed + second.seed, contents: [], traits: [], condition: 1, origin: { source: 'merge', parents: [a, b] } };
+    rows.set(chest.id, chest);
+    return { ok: true, status: 201, json: async () => structuredClone(chest) };
   };
   return { fetcher, rows, requests };
 }

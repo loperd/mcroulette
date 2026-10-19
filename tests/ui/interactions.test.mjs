@@ -368,7 +368,8 @@ test('inventory previews use individual metadata, selects an owned instance and 
   try {
     await act(async () => { root.render(createElement(StrictMode, null, createElement(InventoryScreen, props))); });
     assert.equal(document.querySelectorAll('.inventory-card').length, 4);
-    assert.equal(document.querySelectorAll('.inventory-card button').length, 4);
+    assert.equal(document.querySelectorAll('.inventory-card__inspect').length, 4);
+    assert.equal(document.querySelectorAll('.inventory-card__merge').length, 4, 'four of one type: each can merge');
     assert.equal(document.querySelector('.inventory-card__action'), null);
     assert.equal(new Set(seen.map(value => value.seed)).size, 4);
     assert.equal(new Set(seen.map(value => JSON.stringify(value.modifications))).size, 4);
@@ -390,6 +391,45 @@ test('inventory previews use individual metadata, selects an owned instance and 
     assert.ok(document.querySelector('.inventory--compact'), 'the chosen density survives a remount');
     assert.equal(document.querySelectorAll('.inventory-card').length,3);
     assert.match(document.querySelector('[aria-current="page"]').textContent,/^Инвентарь/);
+  } finally { navigation.dispose(); }
+});
+
+test('merging two chests: the server odds for the chosen pair, then a new chest in their place', async () => {
+  const { InventoryScreen } = await import(new URL('adapters/inbound/react/InventoryScreen.js', build));
+  const { ScreenStorage } = await import('../../src/adapters/outbound/browser/screen-storage.ts');
+  const { BrowserRouter } = await import('../../src/adapters/outbound/browser/browser-router.ts');
+  const { CASES } = await import('../../src/config/cases.ts');
+  const { inventory, server } = await loadedInventory([
+    { id: 'e1', caseId: 'ender', seed: 731, traits: [{ id: 'moss', intensity: .8, seed: 3 }] },
+    { id: 'e2', caseId: 'ender', seed: 302, traits: [{ id: 'body-cracks', intensity: .7, seed: 2 }] },
+    { id: 'e3', caseId: 'ender', seed: 818 },
+    { id: 't1', caseId: 'traveler', seed: 5 },
+  ]);
+  const storage = new ScreenStorage(() => window.localStorage), navigation = new BrowserRouter(window, storage);
+  const renderer = { async render() { return document.createElement('canvas'); } };
+  const pressed = () => [...document.querySelectorAll('.chest-merge__pick [aria-pressed="true"]')].map(node => node.querySelector('.chest-merge__name').textContent);
+  try {
+    await act(async () => { root.render(createElement(InventoryScreen, { inventory, cases: CASES, navigation, storage, renderer })); });
+    assert.equal(document.querySelectorAll('.inventory-card__merge').length, 3, 'a lone traveler has nothing to merge with');
+    await act(async () => { document.querySelector('.inventory-card__merge').click(); await flush(); });
+    const dialog = document.querySelector('dialog.chest-merge');
+    assert.ok(dialog.open);
+    assert.equal(dialog.querySelectorAll('.chest-merge__pick li').length, 3, 'only chests of the same type');
+    assert.deepEqual(pressed(), ['Сундук 1 · выбранный', 'Сундук 2']);
+    assert.match(dialog.querySelector('.chest-merge__odds').textContent, /Замшелостьостанется 40%/);
+    assert.match(dialog.querySelector('.chest-merge__odds').textContent, /исчезнет/);
+    assert.match(dialog.querySelector('.chest-merge__contents').textContent, /Из 12 разных предметов в новом сундуке останутся 8/);
+    // A third pick replaces the first; the odds are asked for the new pair.
+    await act(async () => { dialog.querySelectorAll('.chest-merge__pick button')[2].click(); await flush(); });
+    assert.deepEqual(pressed(), ['Сундук 2', 'Сундук 3']);
+    assert.deepEqual(server.requests.filter(request => request[0] === 'odds').map(request => request.slice(1)), [['e1', 'e2'], ['e2', 'e3']]);
+    await act(async () => { [...dialog.querySelectorAll('.chest-merge__footer button')].find(button => button.textContent === 'Объединить').click(); await flush(); await flush(); });
+    assert.deepEqual(server.requests.at(-1), ['merge', 'e2', 'e3']);
+    assert.equal(document.querySelector('dialog.chest-merge'), null);
+    assert.deepEqual(inventory.getState().map(chest => chest.id), ['e1', 't1', 'merged-1']);
+    assert.match(document.querySelector('.inventory__notice').textContent, /Новый сундук готов/);
+    await act(async () => { document.querySelector('.inventory__notice button').click(); });
+    assert.equal(navigation.getState().instanceId, 'merged-1');
   } finally { navigation.dispose(); }
 });
 

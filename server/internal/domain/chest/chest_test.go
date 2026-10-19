@@ -256,6 +256,50 @@ func TestMerge(t *testing.T) {
 	}
 }
 
+func TestOddsAreWhatMergesThenDo(t *testing.T) {
+	rb := rulebooktest.Build(t)
+	sa, sb := issue(t, rb, "a", 1).State(), issue(t, rb, "b", 2).State()
+	sa.Traits = []chest.Trait{{ID: "body-cracks", Intensity: .9}, {ID: "moss", Intensity: .5}, {ID: "void-runes", Intensity: .4}}
+	sb.Traits = []chest.Trait{{ID: "moss", Intensity: .7}, {ID: "snow", Intensity: .2}}
+	odds, err := chest.Odds(rb, chest.Restore(sa), chest.Restore(sb), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []chest.TraitOdds{{ID: "body-cracks"}, {ID: "moss", Keep: .85, Upgrade: .85 * .25}, {ID: "void-runes", Keep: .2}, {ID: "snow", Keep: .4}}
+	if !reflect.DeepEqual(odds.Traits, want) || odds.Size != 8 || odds.Contents < 8 {
+		t.Fatalf("odds %+v", odds)
+	}
+	const runs = 4000
+	kept, upgraded := map[string]int{}, 0
+	for seed := range uint64(runs) {
+		m, err := chest.Merge(rb, chest.Restore(sa), chest.Restore(sb), chest.MergeRequest{ID: "m", Seed: seed})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(m.State().Contents) != odds.Size {
+			t.Fatalf("merged %d items, odds say %d", len(m.State().Contents), odds.Size)
+		}
+		for _, trait := range m.State().Traits {
+			kept[trait.ID]++
+			if trait.ID == "moss" && trait.Intensity > .7 {
+				upgraded++
+			}
+		}
+	}
+	for _, o := range want {
+		if got := float64(kept[o.ID]) / runs; math.Abs(got-o.Keep) > .03 {
+			t.Fatalf("%s stayed in %.3f of merges, odds say %.3f", o.ID, got, o.Keep)
+		}
+	}
+	if got := float64(upgraded) / runs; math.Abs(got-odds.Traits[1].Upgrade) > .03 {
+		t.Fatalf("moss rose a tier in %.3f of merges, odds say %.3f", got, odds.Traits[1].Upgrade)
+	}
+	other, _ := chest.Issue(rb, chest.IssueRequest{ID: "x", Owner: "someone", Type: "ender", Seed: 3})
+	if _, err := chest.Odds(rb, chest.Restore(sa), other, nil); !errors.Is(err, chest.ErrMismatch) {
+		t.Fatalf("odds across owners: %v", err)
+	}
+}
+
 func TestReissueFillsALegacyChestFromItsSeed(t *testing.T) {
 	rb := rulebooktest.Build(t)
 	issued := issue(t, rb, "c", 11).State()

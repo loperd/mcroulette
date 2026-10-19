@@ -83,3 +83,23 @@ test('nothing about chests touches browser storage', async () => {
     assert.deepEqual(touched, []);
   } finally { delete globalThis.localStorage; }
 });
+
+test('a merge asks the server for its odds, then spends the pair into a new chest', async () => {
+  const { inventory, server, errors } = await loadedInventory([{ id: 'a', caseId: 'traveler', seed: 3, traits: [{ id: 'moss', intensity: .5, seed: 1 }] },
+    { id: 'b', caseId: 'traveler', seed: 4, traits: [{ id: 'body-cracks', intensity: .4, seed: 2 }] }, { id: 'c', caseId: 'ender', seed: 5 }]);
+  assert.deepEqual(await inventory.mergeOdds('a', 'b'), { traits: [{ id: 'moss', keep: 40, upgrade: 0 }, { id: 'body-cracks', keep: 0, upgrade: 0 }], contents: { total: 12, kept: 8, keep: 66.67 } });
+  await assert.rejects(inventory.mergeOdds('a', 'c'), /HTTP 409/);
+  const merged = await inventory.merge('a', 'b');
+  assert.equal(merged.caseId, 'traveler');
+  assert.deepEqual(inventory.getState().map(chest => chest.id), ['c', merged.id], 'the list is the server\'s after the merge');
+  assert.deepEqual(server.requests.map(request => request.slice(0, 1)), [['odds'], ['odds'], ['merge']]);
+  await assert.rejects(inventory.merge('c', merged.id));
+  assert.equal(errors.length, 1, 'a refused merge is reported');
+});
+
+test('merge odds that are not percents are refused', async () => {
+  const server = inventoryServer([]);
+  const lying = async (url, init) => url.includes('/merge') ? { ok: true, status: 200, json: async () => ({ traits: [{ id: 'moss', keep: 140, upgrade: 0 }], contents: { total: 2, kept: 1, keep: 50 } }) } : server.fetcher(url, init);
+  const inventory = new ApiInventory('https://example.test/', CASES, () => {}, lying);
+  await assert.rejects(inventory.mergeOdds('a', 'b'), /percent/);
+});

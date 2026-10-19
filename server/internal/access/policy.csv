@@ -2,6 +2,7 @@ p, player, /api/v1/me, GET
 p, player, /api/v1/inventory, GET
 p, player, /api/v1/inventory/:instanceID/claim, POST
 p, player, /api/v1/inventory/:instanceID/open, POST
+p, player, /api/v1/inventory/merge, GET
 p, player, /api/v1/inventory/merge, POST
 p, player, /api/v1/inventory/items, GET
 p, player, /api/v1/inventory/items/merge, POST

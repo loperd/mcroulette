@@ -13,6 +13,8 @@ import { useObservableState } from './use-observable-state.ts';
 import { ChestThumbnail } from './ChestThumbnail.tsx';
 import { ScreenHeader } from './ScreenHeader.tsx';
 import { InventoryTabs } from './InventoryTabs.tsx';
+import { ChestMerge } from './ChestMerge.tsx';
+import type { CaseInstance } from '../../../domain/case-instance.ts';
 import { AccountContext } from './AccountContext.tsx';
 import type { SoundPreference } from './SoundControl.tsx';
 
@@ -36,6 +38,8 @@ export function InventoryScreen({ inventory, cases, navigation, storage, rendere
   }));
   const [rarity, setRarity] = useState<string>(saved.current?.rarity ?? 'all');
   const [density, setDensity] = useState(saved.current?.density ?? 'comfortable');
+  const [merging, setMerging] = useState<{ readonly definition: CaseDefinition; readonly initial: string }>();
+  const [merged, setMerged] = useState<CaseInstance>();
   const page = useRef<HTMLElement>(null);
   useEffect(() => { if (page.current) page.current.scrollTop = saved.current?.scroll ?? 0; }, []);
   useEffect(() => {
@@ -61,12 +65,15 @@ export function InventoryScreen({ inventory, cases, navigation, storage, rendere
       {rarities.map(value => <button type="button" key={value} className={`case-rarity case-rarity--${value}`} aria-pressed={rarity === value} onClick={() => setRarity(value)}>{CASE_RARITY_LABELS[value]}<span>{screenInstances.filter(instance => instance.rarity === value).length}</span></button>)}
     </nav>
     <div className="inventory__toolbar"><div className="inventory__tools"><button type="button" className="inventory__density" aria-pressed={density === 'compact'} onClick={() => setDensity(density === 'compact' ? 'comfortable' : 'compact')}>{density === 'compact' ? 'Крупные карточки' : 'Компактный вид'}</button></div></div>
+    {merged && <p className="inventory__notice" role="status">Новый сундук готов.
+      <button type="button" onClick={() => navigation.go({ screen: 'case', caseId: merged.caseId, instanceId: merged.id })}>Осмотреть</button></p>}
     <section className="inventory__grid" aria-label="Мои сундуки">
       {groups.map(group => {
         const instance = group.representative;
         const definition = cases.find(value => value.id === instance.caseId);
         if (!definition) return null;
         const profile = definition.model.modifications;
+        const mergeable = mode === 'inventory' && instance.status === 'available' && available.filter(item => item.caseId === instance.caseId).length >= 2;
         const condition = damageLevel(Math.max(0, ...partConditions(instance.appearance, profile).map(item => item.value)));
 
         return <article className={`inventory-card inventory-card--${instance.status}`} key={group.key}
@@ -82,6 +89,7 @@ export function InventoryScreen({ inventory, cases, navigation, storage, rendere
             <h2>{definition.presentation.title}</h2>
             <ChestIndicators appearance={instance.appearance} profile={profile} grouped status={instance.status} showParts={false} />
             <div className="inventory-card__footer"><span>{instance.status === 'opening' ? 'Открывается' : instance.status === 'opened' ? 'Открыт' : instance.status === 'destroyed' ? 'Разрушен' : 'Готов к открытию'}</span><span aria-hidden="true">↗</span></div>
+            {mergeable && <button type="button" className="inventory-card__merge" onClick={() => { setMerged(undefined); setMerging({ definition, initial: instance.id }); }}>Объединить</button>}
             {instance.reward && <p className="inventory-card__reward">{group.instances.length === 1 ? `Найдено: ${instance.reward.title}` : `Наград получено: ${group.instances.length}`}</p>}
             {mode === 'archive' && (instance.openedAt
               ? <time className="inventory-card__opened-at" dateTime={instance.openedAt}>{new Intl.DateTimeFormat('ru-RU', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(instance.openedAt))}</time>
@@ -91,5 +99,7 @@ export function InventoryScreen({ inventory, cases, navigation, storage, rendere
       })}
     </section>
     {visible.length === 0 && <div className="inventory__empty"><span aria-hidden="true">◇</span><h2>{mode === 'archive' ? 'Архив пока пуст' : (rarity !== 'all' ? `В классе ${CASE_RARITY_LABELS[rarity as CaseRarity]} пока пусто` : 'Здесь начнётся твоя коллекция')}</h2><p>{mode === 'archive' ? 'Открытые сундуки и награды будут храниться здесь.' : 'Кейсы, которые ты найдёшь или приобретёшь, появятся здесь.'}</p></div>}
+    {merging && <ChestMerge inventory={inventory} definition={merging.definition} initial={merging.initial}
+      onClose={() => setMerging(undefined)} onMerged={chest => { setMerging(undefined); setMerged(chest); }} />}
   </div></main>;
 }
