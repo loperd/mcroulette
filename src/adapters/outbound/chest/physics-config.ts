@@ -10,7 +10,7 @@ export const PHYSICS_CONFIG = Object.freeze({
 
 /** Where the chest floats until it is opened: in the middle of the view, a little over the ground. */
 export const PREVIEW_POSE: Pose = Object.freeze({
-  position: Object.freeze({ x: 0, y: 1.34, z: 0 }),
+  position: Object.freeze({ x: 0, y: 1.7, z: 0 }),
   rotation: Object.freeze({ x: 0, y: 0, z: 0, w: 1 }),
 });
 
