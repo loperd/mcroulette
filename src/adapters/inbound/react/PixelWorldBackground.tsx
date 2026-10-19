@@ -16,9 +16,15 @@ const VEIL = { color: '#050c0d', top: .38, middle: .18, bottom: .62 };
  * (wind, tremor, light). A world still in 2D gets a see-through 3D ground over it for the chest.
  * Without WebGL the case picture stays visible.
  */
-export function PixelWorldBackground({ world, chest, guest }: { readonly world: WorldId; readonly chest?: ChestHandles; readonly guest?: Guest }) {
+export function PixelWorldBackground({ world, chest, guest, onStill }: {
+  readonly world: WorldId; readonly chest?: ChestHandles; readonly guest?: Guest;
+  /** A still of this world (without the chest), for screens that show a picture of it: the roulette, the prize. */
+  readonly onStill?: (image: string) => void;
+}) {
   const host = useRef<HTMLDivElement>(null);
   const views = useRef<{ backdrop?: PixelWorld; stage?: BlockView<ChestHandles> }>({});
+  const onStillRef = useRef(onStill);
+  onStillRef.current = onStill;
   useEffect(() => {
     const element = host.current;
     if (!element) return;
@@ -31,7 +37,15 @@ export function PixelWorldBackground({ world, chest, guest }: { readonly world: 
       if (made.backdrop) element.append(made.stage.canvas);
     } catch (error) { console.warn('The world is unavailable; the case picture stays.', error); }
     views.current = made;
-    return () => { made.stage?.dispose(); made.backdrop?.dispose(); views.current = {}; };
+    // Once it has drawn: the same world, still, for the screens that follow the opening.
+    const view = element.ownerDocument.defaultView ?? window;
+    let frame = view.requestAnimationFrame(() => { frame = view.requestAnimationFrame(() => {
+      try {
+        const still = made.backdrop ? made.backdrop.canvas.toDataURL('image/jpeg', .82) : made.stage?.snapshot('image/jpeg', .82, { guests: false });
+        if (still && still.length > 64) onStillRef.current?.(still);
+      } catch (error) { console.warn('No still of the world; the case picture stays.', error); }
+    }); });
+    return () => { view.cancelAnimationFrame(frame); made.stage?.dispose(); made.backdrop?.dispose(); views.current = {}; };
   }, [world]);
   useEffect(() => {
     const { backdrop, stage } = views.current;

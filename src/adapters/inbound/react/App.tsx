@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { CaseInstance } from '../../../domain/case-instance.ts';
 import type { CaseVisualTheme, WorldId } from '../../../config/cases.ts';
 import type { ChestHandles } from '../../../application/ports/chest-handles.ts';
@@ -42,14 +43,17 @@ export function App({ captureWreck, catalog, session, preview, sceneElement, rou
   readonly onRetryInitialization?: () => Promise<void>;
 }) {
   const state = useObservableState(catalog);
+  // The roulette and prize screens show the very world the chest was opened in, still.
+  const [worldStill, setWorldStill] = useState<string>();
   if (state.phase === 'disposed') return null;
+  const worldImage = worldStill ?? backgroundUrl;
   return (
     <main className={`page-shell app${session ? ' app--game' : ''}`} style={{ ...(casePalette ? { '--case-accent': casePalette.accent, '--case-accent-highlight': casePalette.highlight,
-      '--case-accent-deep': casePalette.deep, '--case-accent-glow': casePalette.glow, '--case-effect': casePalette.accent } : {}), ...(backgroundUrl ? { '--case-world-image': `url("${backgroundUrl}")`, backgroundImage:
+      '--case-accent-deep': casePalette.deep, '--case-accent-glow': casePalette.glow, '--case-effect': casePalette.accent } : {}), ...(worldImage ? { '--case-world-image': `url("${worldImage}")` } : {}), ...(backgroundUrl ? { backgroundImage:
       `linear-gradient(180deg, rgba(5, 12, 13, 0.42), rgba(5, 12, 13, 0.3) 42%, rgba(5, 12, 13, 0.68)), url("${backgroundUrl}")` } : {}),
       // Its own stacking context: the world (z-index -1) sits over the case picture, under everything else.
       isolation: 'isolate' } as CSSProperties}>
-      {world && <PixelWorldBackground world={world.id} chest={world.chest} guest={world.guest} />}
+      {world && <PixelWorldBackground world={world.id} chest={world.chest} guest={world.guest} onStill={setWorldStill} />}
       <div className="app__content page-container">
         {!session && <header className="app__header">
           <p className="eyebrow">Minecraft</p>

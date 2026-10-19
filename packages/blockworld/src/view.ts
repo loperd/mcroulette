@@ -275,6 +275,7 @@ export class BlockView<H> {
   private closer = 0;
   private lift = 0;
   private lastDrawn = 0;
+  private withoutGuests = false;
   private physicsWorld?: WorldPhysics;
   private physicsLoad?: Promise<WorldPhysics>;
   private time = 0;
@@ -399,7 +400,12 @@ void main() { float down = 1. - vY; float a = down < .42 ? mix(top, middle, down
   }
 
   /** The current picture as an image (a still backdrop for screens that need no live world). */
-  snapshot(type = 'image/jpeg', quality = .85): string { this.draw(); return this.canvas.toDataURL(type, quality); }
+  snapshot(type = 'image/jpeg', quality = .85, options: { guests?: boolean } = {}): string {
+    // Without its guests (and the veil for an interface): the world alone, a backdrop for other screens.
+    this.withoutGuests = options.guests === false;
+    try { this.draw(); return this.canvas.toDataURL(type, quality); }
+    finally { this.withoutGuests = false; this.draw(); }
+  }
 
   dispose(): void {
     for (const guest of [...this.guests.keys()]) this.dismiss(guest);
@@ -513,8 +519,8 @@ void main() { float down = 1. - vY; float a = down < .42 ? mix(top, middle, down
     renderer.autoClear = true;
     renderer.render(this.scene, this.camera);
     renderer.autoClear = false;
-    if (this.veil) renderer.render(this.veil.scene, this.veil.camera);
-    if (this.guests.size === 0) { renderer.autoClear = true; return; }
+    if (this.veil && !this.withoutGuests) renderer.render(this.veil.scene, this.veil.camera);
+    if (this.guests.size === 0 || this.withoutGuests) { renderer.autoClear = true; return; }
     // The guests, over the world and in its depth, each in its own look.
     for (const guest of this.guests.keys()) {
       const look = guest.look ?? {};
