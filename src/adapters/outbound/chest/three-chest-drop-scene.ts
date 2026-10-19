@@ -142,6 +142,9 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     this.element = document.createElement('div');
     this.element.className = 'chest-canvas';
     this.arrival = new Promise(resolve => { this.arrived = resolve; });
+    // Hidden until it is given a pose and shown: a model fresh from loading stands at its own
+    // origin, its middle on the floor, half sunk into the ground.
+    this.element.hidden = true;
     this.root.visible = false;
   }
 

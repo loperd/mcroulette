@@ -142,7 +142,7 @@ function build(seed: number, events: Parameters<typeof happenings>[2] = {}): Sta
     sun: { direction: [-300, 70, -560], color: '#ffb36e', scatter: .85 },
     sky: { top: '#2a3a78', horizon: '#f2a46e', bottom: '#3a3050' },
     fog: { color: '#d99a7e', near: 70, far: 330 },
-    camera: { position: EYE, target: [CHEST[0], CHEST[1] + .75, CHEST[2]], fov: 50, drift: .12, focus: [.5, .38] },
+    camera: { position: EYE, target: [CHEST[0], CHEST[1] + .75, CHEST[2]], fov: 50, drift: .12, focus: [.5, .44] },
     // The chest lands here, on the world's own blocks (they are its physics ground), seen by this camera.
     anchor: CHEST,
     ground: { blocks: { world, registry: BLOCKS, around: [CHEST[0], CHEST[2]], radius: 12 } },

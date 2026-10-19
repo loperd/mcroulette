@@ -40,3 +40,12 @@ test('a world whose physics really fails while the chest stands in it is reporte
   assert.equal(errors.length, 1);
   chest.dispose();
 });
+
+test('a chest is not shown before it has a pose: fresh from loading it would stand half sunk', () => {
+  const chest = scene(), shown = world(new Promise(() => {}));
+  chest.guest.enter(shown);
+  chest.render();
+  assert.equal(chest.element.hidden, true);
+  assert.equal(chest.guest.root.visible, false, 'not in the world either, whatever frames are drawn');
+  chest.dispose();
+});
