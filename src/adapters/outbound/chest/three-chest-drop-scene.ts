@@ -23,7 +23,7 @@ import { gameAudio } from '../browser/game-audio.ts';
 import { NO_BREAKAGE, type ChestBreakage } from '../../../domain/chest-breakage.ts';
 import { ChestImpactEffects } from './chest-impact-effects.ts';
 import { ChestOpeningEffects } from './chest-opening-effects.ts';
-import { PREVIEW_DROP_POSE, SPAWN_POSE } from './physics-config.ts';
+import { SPAWN_POSE } from './physics-config.ts';
 import { CHEST_WIDTH } from './chest-bounds.ts';
 
 /** How long to wait for a world to take the chest in before giving up. */
@@ -100,9 +100,6 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     },
   };
   private previewTime = 0;
-  /** The preview fall: from the sky onto the ground, a real body under physics. */
-  private previewLanded = false;
-  private previewSettled = false;
 
   /** What a world takes in: the chest's things, one block wide, in the chest's own look. */
   readonly guest: Guest = {
@@ -222,8 +219,6 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     const visual = this.assets!.visual;
     const position = visual.position.clone(), rotation = visual.quaternion.clone();
     const scale = visual.scale.x;
-    // From where it lies on the ground, up to where it will fall from.
-    this.physics!.resetChest(this.assets!.colliders, SPAWN_POSE);
     const reduced = this.view.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const duration = reduced ? 0 : 2.2;
     this.fractureEffects?.start(reduced);
@@ -247,6 +242,9 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
       }
       this.render();
     }, signal);
+    // It shook where it hangs, and falls from there: no reset (and no flicker) before the drop.
+    this.syncPose();
+    this.initialPose = true;
   }
 
   subscribeErrors(listener: (error: unknown) => void): () => void {
@@ -322,22 +320,15 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     this.assertPrepared(signal);
     this.mode = 'preview'; this.previewTime = 0;
     this.initialPose = false;
-    // The chest comes down from the sky as what it is, a solid block: it falls, lands, rocks and
-    // settles on the ground; its shadow lies on the ground under it.
-    this.physics!.resetChest(this.assets!.colliders, PREVIEW_DROP_POSE);
-    this.previewLanded = false; this.previewSettled = false;
-    const reduced = this.view.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduced) {
-      this.physics!.settle();
-      this.previewLanded = true; this.previewSettled = true;
-    }
+    // It hangs in the air, held: the world's physics leaves it be until it is opened.
+    this.physics!.setChestMoving(false);
     this.syncPose();
     this.show(true); this.render();
     const scheduler = this.scheduler!;
     const stop = () => scheduler.stop();
     signal.addEventListener('abort', stop, { once: true });
     this.detachAbort = () => signal.removeEventListener('abort', stop);
-    if (!reduced) scheduler.start();
+    if (!this.view.matchMedia('(prefers-reduced-motion: reduce)').matches) scheduler.start();
   }
 
   async drop(signal: AbortSignal): Promise<void> {
@@ -351,6 +342,8 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     this.detachAbort = () => signal.removeEventListener('abort', stop);
     this.initialPose = false;
     this.mode = 'drop';
+    // Let go: straight down from where it hung, level, under the world's gravity.
+    this.physics!.setChestMoving(true);
     this.impactTriggered = false;
     this.fractureEffects?.start(this.view.matchMedia('(prefers-reduced-motion: reduce)').matches);
     this.breakageEffects?.start(this.view.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -498,6 +491,7 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     this.world?.approach(0, 0);
     this.assets!.restore();
     this.physics!.resetChest(this.assets!.colliders, SPAWN_POSE);
+    this.physics!.setChestMoving(false);
     this.initialPose = true;
     this.syncPose();
     this.render();
@@ -518,19 +512,7 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     if (this.mode === 'preview') {
       const delta = Math.min(deltaSeconds, 0.1);
       this.previewTime += delta;
-      if (!this.previewSettled) {
-        this.stepper.advance(deltaSeconds, step => this.physics!.step(step));
-        this.syncPose();
-        const visual = this.assets!.visual;
-        if (!this.previewLanded && this.lowestCorner() < 0.06) {
-          // Touchdown: a puff of dust and a jolt through whatever hangs off the chest.
-          this.previewLanded = true;
-          this.impactEffects?.trigger(visual.position.x, visual.position.z, false);
-          this.breakageEffects?.landed(.6);
-        }
-        this.impactEffects?.update(delta);
-        if (this.previewLanded && this.physics!.isChestSleeping()) this.previewSettled = true;
-      } else this.syncPose();
+      this.syncPose();
       this.breakageEffects?.update(delta);
       this.applyWorld(Math.min(deltaSeconds, 0.1));
       this.render(); return;

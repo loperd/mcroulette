@@ -8,6 +8,8 @@ export interface PhysicsWorldPort {
   step(deltaSeconds: number): void;
   /** Run until the chest rests (a still picture, reduced motion). */
   settle(): void;
+  /** Off: the chest hangs exactly where it is (in the air, untouched by anything). On: it falls. */
+  setChestMoving(moving: boolean): void;
   readChestPose(): Pose;
   isChestSleeping(): boolean;
   diagnostics(): { readonly bodies: number; readonly colliders: number };

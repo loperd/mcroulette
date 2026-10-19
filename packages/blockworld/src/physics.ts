@@ -23,6 +23,11 @@ export interface Body {
   sleeping(): boolean;
   /** Put it somewhere at rest (velocities cleared). */
   place(pose: BodyPose): void;
+  /**
+   * Held: the body stays exactly where it is put, whatever happens (it hangs in the air, blasts
+   * pass it by). Let go: it moves under gravity and everything else again.
+   */
+  hold(held: boolean): void;
   remove(): void;
 }
 
@@ -87,6 +92,10 @@ export class WorldPhysics {
       },
       sleeping: () => body.isSleeping(),
       place,
+      hold: held => {
+        body.setBodyType(held ? RAPIER.RigidBodyType.KinematicPositionBased : RAPIER.RigidBodyType.Dynamic, true);
+        body.setLinvel({ x: 0, y: 0, z: 0 }, true); body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+      },
       remove: () => { if (this.bodies.delete(body)) this.world?.removeRigidBody(body); },
     };
   }
@@ -108,11 +117,12 @@ export class WorldPhysics {
   }
 
   /** Is anything still moving? */
-  awake(): boolean { for (const body of this.bodies) if (!body.isSleeping()) return true; return false; }
+  awake(): boolean { for (const body of this.bodies) if (body.isDynamic() && !body.isSleeping()) return true; return false; }
 
   /** A blast at a point: bodies within `radius` are thrown away from it and up, harder the closer. */
   blast(at: Vec, strength: number, radius: number): void {
     for (const body of this.bodies) {
+      if (!body.isDynamic()) continue;
       const p = body.translation(), dx = p.x - at[0], dy = p.y - at[1], dz = p.z - at[2], d = Math.hypot(dx, dy, dz);
       if (d >= radius) continue;
       const push = strength * body.mass() * (1 - d / radius), n = d || 1;

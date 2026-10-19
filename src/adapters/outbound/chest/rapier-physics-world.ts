@@ -64,6 +64,13 @@ class RapierPhysicsWorld implements PhysicsWorldPort {
     world.step();
   }
 
+  setChestMoving(moving: boolean): void {
+    const chest = this.chest;
+    if (!chest) throw new Error('The chest body has not been created.');
+    chest.setBodyType(moving ? RAPIER.RigidBodyType.Dynamic : RAPIER.RigidBodyType.KinematicPositionBased, true);
+    chest.setLinvel({ x: 0, y: 0, z: 0 }, true); chest.setAngvel({ x: 0, y: 0, z: 0 }, true);
+  }
+
   settle(): void {
     for (let frame = 0; frame < 900 && !this.isChestSleeping(); frame++) this.step(1 / 60);
   }

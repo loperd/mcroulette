@@ -42,6 +42,11 @@ export class WorldBodyPhysics implements PhysicsWorldPort {
 
   settle(): void { this.physics.settle(); }
 
+  setChestMoving(moving: boolean): void {
+    if (!this.body) throw new Error('The chest body has not been created.');
+    this.body.hold(!moving);
+  }
+
   readChestPose(): Pose {
     if (!this.body) throw new Error('The chest body has not been created.');
     const { position: [x, y, z], rotation: [rx, ry, rz, rw] } = this.body.pose(), a = this.anchor;

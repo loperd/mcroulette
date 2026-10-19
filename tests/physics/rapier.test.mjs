@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createRapierPhysicsWorld } from '../../src/adapters/outbound/chest/rapier-physics-world.ts';
-import { PREVIEW_DROP_POSE, SPAWN_POSE } from '../../src/adapters/outbound/chest/physics-config.ts';
+import { SPAWN_POSE } from '../../src/adapters/outbound/chest/physics-config.ts';
 
 const boxes=[
   {center:{x:0,y:0,z:0},halfExtents:{x:0.5,y:0.5,z:0.5}},
@@ -31,7 +31,7 @@ test('100 real resets retain two bodies, three colliders and clear the previous 
       world.resetChest(boxes,SPAWN_POSE);
       assert.deepEqual(world.diagnostics(),{bodies:2,colliders:3});
       close(world.readChestPose().position.y,SPAWN_POSE.position.y);
-      world.step(1/60);assert.ok(world.readChestPose().position.y>3.29);
+      world.step(1/60);assert.ok(world.readChestPose().position.y>SPAWN_POSE.position.y-0.01);
       for(let frame=0;frame<30;frame++)world.step(1/60);
     }
   }finally{world.dispose();}
@@ -44,17 +44,16 @@ test('an aborted initialization cannot create a new world',async()=>{
   await assert.rejects(createRapierPhysicsWorld(abort.signal),{name:'AbortError'});
 });
 
-test('the preview fall from the sky lands, settles within seconds and stays on its block',async()=>{
+test('held, the chest hangs where it is; let go, it falls straight down and lands flat without tipping',async()=>{
   const world=await createRapierPhysicsWorld(new AbortController().signal);
   try{
-    world.resetChest(boxes,PREVIEW_DROP_POSE);
-    let frames=0;
-    for(;frames<900&&!world.isChestSleeping();frames++)world.step(1/60);
+    world.resetChest(boxes,SPAWN_POSE);world.setChestMoving(false);
+    for(let frame=0;frame<120;frame++)world.step(1/60);
+    close(world.readChestPose().position.y,SPAWN_POSE.position.y);
+    world.setChestMoving(true);world.settle();
     assert.equal(world.isChestSleeping(),true,'it comes to rest');
-    assert.ok(frames<600,`settled in ${(frames/60).toFixed(1)}s`);
-    const {position}=world.readChestPose();
+    const {position,rotation}=world.readChestPose();
     assert.ok(position.y>=0.45&&position.y<1.2,'on the ground');
-    // The world puts it on the flat meadow around its block (1.7 units a block): it must not roll away.
-    assert.ok(Math.hypot(position.x,position.z)<1.7,`stays by its block: ${position.x.toFixed(2)},${position.z.toFixed(2)}`);
+    assert.ok(Math.abs(rotation.x)<0.02&&Math.abs(rotation.z)<0.02,`level: ${rotation.x.toFixed(3)}, ${rotation.z.toFixed(3)}`);
   }finally{world.dispose();}
 });

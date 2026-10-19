@@ -66,3 +66,20 @@ test('the chest\'s body: its units and turn in, the world\'s blocks out, and bac
     assert.ok(Math.abs(chest.readChestPose().position.y - .85) < .05, 'rests on the anchor block: its floor is y 0');
   } finally { physics.dispose(); }
 });
+
+test('a held body hangs in the air: no gravity, no blast moves it; let go, it falls and lands level', async () => {
+  const physics = await WorldPhysics.create({ floor: 0 });
+  try {
+    const body = physics.add({ boxes: [{ center: [0, 0, 0], half: [.5, .5, .5] }], pose: at(3) });
+    body.hold(true);
+    physics.blast([1, 3, 0], 5, 4);
+    for (let t = 0; t <= 1000; t += 16) physics.sync(t);
+    assert.deepEqual(body.pose().position, [0, 3, 0], 'still where it hung');
+    assert.equal(physics.awake(), false, 'nothing for the world to simulate');
+    body.hold(false);
+    physics.settle();
+    const { position, rotation } = body.pose();
+    assert.ok(Math.abs(position[1] - .5) < .05 && Math.hypot(position[0], position[2]) < .25, 'down onto the floor, a bounce off its spot at most');
+    assert.ok(Math.abs(rotation[0]) < .01 && Math.abs(rotation[2]) < .01, 'level');
+  } finally { physics.dispose(); }
+});
