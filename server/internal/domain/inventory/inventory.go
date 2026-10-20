@@ -85,10 +85,12 @@ func value(rb *rulebook.Rulebook, item Item, s rulebook.Situation) (float64, str
 }
 
 // Offers is what each workshop action would cost or bring for an item now. Repair is absent for
-// an intact item; MergeRepair is the chance a merge with its twin mends the item that stays.
+// an intact item; MergeWith is the twin to merge it with (none: nothing to merge) and MergeRepair
+// the chance that merge mends the item that stays.
 type Offers struct {
 	Repair        *wallet.Amount
 	Salvage, Sell wallet.Amount
+	MergeWith     string
 	MergeRepair   float64
 }
 
@@ -99,8 +101,11 @@ func (inv *Inventory) Quote(rb *rulebook.Rulebook, id string, s rulebook.Situati
 		return Offers{}, err
 	}
 	item := inv.items[i]
-	_, _, valued := value(rb, item, s)
-	o := Offers{Salvage: salvageGain(rb, item, s), Sell: sellGain(rb, item, s), MergeRepair: rb.Value("item.merge.repair", valued)}
+	o := Offers{Salvage: salvageGain(rb, item, s), Sell: sellGain(rb, item, s)}
+	if twin := inv.worstTwin(rb, i); twin >= 0 {
+		_, _, o.MergeRepair = inv.planMerge(rb, i, twin, s)
+		o.MergeWith = inv.items[twin].ID
+	}
 	if rb.StateRank(item.State) > 0 {
 		cost := repairCost(rb, item, s)
 		o.Repair = &cost
@@ -174,8 +179,8 @@ func (inv *Inventory) Sell(rb *rulebook.Rulebook, w *wallet.Wallet, id string, s
 	return gain, nil
 }
 
-// Merge joins two damaged items of one kind: the better stays, mended one step with the
-// item.merge.repair chance, and the other is gone. It returns the item that stayed.
+// Merge joins two damaged items of one kind by planMerge: the one that stays may be mended one
+// step, the other is gone. It returns the item that stayed.
 func (inv *Inventory) Merge(rb *rulebook.Rulebook, idA, idB string, seed uint64, s rulebook.Situation) (Item, error) {
 	a, err := inv.get(rb, idA)
 	if err != nil {
@@ -185,22 +190,50 @@ func (inv *Inventory) Merge(rb *rulebook.Rulebook, idA, idB string, seed uint64,
 	if err != nil {
 		return Item{}, err
 	}
-	if a == b || inv.items[a].Item != inv.items[b].Item {
-		return Item{}, ErrNotTwins
+	if err := inv.twins(rb, a, b); err != nil {
+		return Item{}, err
 	}
-	if rb.StateRank(inv.items[a].State) <= 0 || rb.StateRank(inv.items[b].State) <= 0 {
-		return Item{}, ErrIntact
+	kept, gone, repair := inv.planMerge(rb, a, b, s)
+	if dice.New(seed, dice.StreamItemMerge).Chance(repair) {
+		inv.items[kept].State = rb.States()[rb.StateRank(inv.items[kept].State)-1]
 	}
+	item := inv.items[kept]
+	inv.remove(gone)
+	return item, nil
+}
+
+// planMerge is all an item merge decides before the dice: the twin in the better state stays (a,
+// on a tie), the other goes, and the one that stays is mended by item.merge.repair in its own
+// situation.
+func (inv *Inventory) planMerge(rb *rulebook.Rulebook, a, b int, s rulebook.Situation) (kept, gone int, repair float64) {
 	if rb.StateRank(inv.items[b].State) < rb.StateRank(inv.items[a].State) {
 		a, b = b, a
 	}
 	_, _, s = value(rb, inv.items[a], s)
-	if dice.New(seed, dice.StreamItemMerge).Chance(rb.Value("item.merge.repair", s)) {
-		inv.items[a].State = rb.States()[rb.StateRank(inv.items[a].State)-1]
+	return a, b, rb.Value("item.merge.repair", s)
+}
+
+// twins says whether two items may merge: two damaged items of one kind.
+func (inv *Inventory) twins(rb *rulebook.Rulebook, a, b int) error {
+	if a == b || inv.items[a].Item != inv.items[b].Item {
+		return ErrNotTwins
 	}
-	kept := inv.items[a]
-	inv.remove(b)
-	return kept, nil
+	if rb.StateRank(inv.items[a].State) <= 0 || rb.StateRank(inv.items[b].State) <= 0 {
+		return ErrIntact
+	}
+	return nil
+}
+
+// worstTwin is the twin of an item in the worst state, the one a merge costs least; -1 when
+// there is none.
+func (inv *Inventory) worstTwin(rb *rulebook.Rulebook, i int) int {
+	worst := -1
+	for j, other := range inv.items {
+		if inv.twins(rb, i, j) == nil && (worst < 0 || rb.StateRank(other.State) > rb.StateRank(inv.items[worst].State)) {
+			worst = j
+		}
+	}
+	return worst
 }
 
 // whole rounds an amount to a whole number of units.

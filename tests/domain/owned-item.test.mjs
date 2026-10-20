@@ -1,25 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { canAfford, copyBalances, copyOwnedItem, mergeTwins } from '../../src/domain/owned-item.ts';
+import { canAfford, copyBalances, copyOwnedItem } from '../../src/domain/owned-item.ts';
 
 const item = { id: 'pick', title: 'Кирка', image: '/pick.svg', rarity: 'rare', displayWeight: 0 };
 const offers = { repair: { resource: 'deep-ore', value: 16 }, salvage: { resource: 'deep-ore', value: 8 }, sell: { resource: 'currency', value: 20 }, mergeRepair: 70 };
 const owned = (id, state, extra = {}) => copyOwnedItem({ id, item, state, origin: 'chest', offers, ...extra });
 
-test('only two different damaged items of one kind are merge twins', () => {
-  const a = owned('a', 'heavy'), b = owned('b', 'slight'), whole = owned('c', 'intact');
-  const other = copyOwnedItem({ id: 'd', item: { ...item, id: 'lamp' }, state: 'broken', origin: 'x', offers });
-  const all = [a, b, whole, other];
-  assert.deepEqual(mergeTwins(all, a).map(twin => twin.id), ['b']);
-  assert.deepEqual(mergeTwins(all, whole), [], 'an intact item merges with nothing');
-  assert.deepEqual(mergeTwins(all, other), []);
-});
-
-test('an item the rulebook no longer knows has no offers and cannot be merged', () => {
-  const retired = copyOwnedItem({ id: 'r', item, state: 'heavy', origin: 'x' });
-  assert.equal(retired.offers, undefined);
-  assert.deepEqual(mergeTwins([retired, owned('a', 'heavy')], retired), []);
-  assert.deepEqual(mergeTwins([retired, owned('a', 'heavy')], owned('a', 'heavy')), []);
+test('the merge twin is the one the server named, never the item itself', () => {
+  assert.equal(owned('a', 'heavy', { offers: { ...offers, mergeWith: 'b' } }).offers.mergeWith, 'b');
+  assert.equal(owned('a', 'heavy').offers.mergeWith, undefined, 'no twin named: nothing to merge');
+  assert.throws(() => owned('a', 'heavy', { offers: { ...offers, mergeWith: 'a' } }));
+  assert.equal(copyOwnedItem({ id: 'r', item, state: 'heavy', origin: 'x' }).offers, undefined, 'a retired item has no offers');
 });
 
 test('owned items and balances are validated and frozen', () => {

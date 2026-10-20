@@ -11,7 +11,9 @@ export interface ItemOffers {
   readonly repair?: Amount;
   readonly salvage: Amount;
   readonly sell: Amount;
-  /** Percent chance that merging with a twin mends the item that stays. */
+  /** The twin the server merges it with; absent when there is nothing to merge with. */
+  readonly mergeWith?: string;
+  /** Percent chance that this merge mends the item that stays. */
   readonly mergeRepair: number;
 }
 
@@ -30,12 +32,6 @@ export type Balances = Readonly<Record<string, number>>;
 export const CURRENCY = 'currency';
 
 export function isDamaged(item: OwnedItem): boolean { return item.state !== 'intact'; }
-
-/** Damaged items of the same kind it can be merged with. */
-export function mergeTwins(items: readonly OwnedItem[], item: OwnedItem): readonly OwnedItem[] {
-  if (!isDamaged(item) || !item.offers) return [];
-  return items.filter(other => other.id !== item.id && other.item.id === item.item.id && isDamaged(other) && other.offers);
-}
 
 export function canAfford(balances: Balances, amount: Amount): boolean { return (balances[amount.resource] ?? 0) >= amount.value; }
 
@@ -56,11 +52,15 @@ export function copyOwnedItem(value: OwnedItem): OwnedItem {
   if (offers !== undefined && (typeof offers.mergeRepair !== 'number' || !(offers.mergeRepair >= 0 && offers.mergeRepair <= 100))) {
     throw new DomainError('INVALID_ITEM', 'A merge chance is a percent.');
   }
+  if (offers?.mergeWith !== undefined && (typeof offers.mergeWith !== 'string' || !offers.mergeWith || offers.mergeWith === value.id)) {
+    throw new DomainError('INVALID_ITEM', 'A merge twin is another item.');
+  }
   return Object.freeze({
     id: value.id, item: copyItem(value.item), state: value.state, origin: value.origin,
     ...(offers ? { offers: Object.freeze({
       ...(offers.repair ? { repair: copyAmount(offers.repair) } : {}),
       salvage: copyAmount(offers.salvage), sell: copyAmount(offers.sell), mergeRepair: offers.mergeRepair,
+      ...(offers.mergeWith ? { mergeWith: offers.mergeWith } : {}),
     }) } : {}),
   });
 }

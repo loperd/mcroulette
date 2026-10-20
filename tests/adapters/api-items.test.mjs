@@ -23,7 +23,7 @@ function itemsServer(state, answers = {}) {
 
 test('items come with their prices; one the rulebook no longer describes is skipped', async () => {
   const server = itemsServer({ items: [
-    { id: 'a', item: described('mine-pick'), state: 'heavy', origin: 'c1', offers },
+    { id: 'a', item: described('mine-pick'), state: 'heavy', origin: 'c1', offers: { ...offers, mergeWith: 'z' } },
     { id: 'b', item: described('mine-pick'), state: 'intact', origin: 'c2', offers: { ...offers, repair: null } },
     { id: 'gone', item: { id: 'gone', title: 'gone', image: '/x.svg', type: '', chance: 0 }, state: 'intact', origin: 'c3' },
   ], balances: { 'deep-ore': 30, currency: 5 } });
@@ -32,7 +32,7 @@ test('items come with their prices; one the rulebook no longer describes is skip
   await items.load();
   const { loaded, items: list, balances } = items.getState();
   assert.equal(loaded, true);
-  assert.deepEqual(list.map(item => [item.id, item.state, item.offers.repair?.value]), [['a', 'heavy', 16], ['b', 'intact', undefined]]);
+  assert.deepEqual(list.map(item => [item.id, item.state, item.offers.repair?.value, item.offers.mergeWith]), [['a', 'heavy', 16, 'z'], ['b', 'intact', undefined, undefined]]);
   assert.equal(list[0].item.image, 'https://example.test/api/v1/items/mine-pick/image.svg');
   assert.deepEqual(balances, { 'deep-ore': 30, currency: 5 });
 });

@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ITEM_STATES } from '../../../domain/case-instance.ts';
-import { canAfford, CURRENCY, isDamaged, mergeTwins, type Amount, type OwnedItem } from '../../../domain/owned-item.ts';
+import { canAfford, CURRENCY, isDamaged, type Amount, type OwnedItem } from '../../../domain/owned-item.ts';
 import type { Navigation } from '../../../application/ports/navigation.ts';
 import type { PlayerItems, WorkshopAction } from '../../../application/ports/player-items.ts';
 import { ITEM_STATE_LABELS, RESOURCES, resourceGlyph, resourceTitle } from '../../../config/resources.ts';
@@ -14,7 +13,6 @@ type Filter = 'all' | 'damaged';
 type Pending = { readonly id: string; readonly action: WorkshopAction | 'merge' };
 
 const amountText = (amount: Amount) => `${amount.value} ${resourceTitle(amount.resource)}`;
-const stateRank = (item: OwnedItem) => ITEM_STATES.indexOf(item.state);
 
 /** The resources to show: currency first, then every known material, then any the server added. */
 function walletResources(balances: Readonly<Record<string, number>>, items: readonly OwnedItem[]): readonly string[] {
@@ -25,7 +23,7 @@ function walletResources(balances: Readonly<Record<string, number>>, items: read
 
 /**
  * The player's items and wallet. A damaged item can be repaired one step for its collection's
- * material, merged with its twin, salvaged for material or sold for coins. Salvage and sale
+ * material, merged with the twin the server pairs it with, salvaged for material or sold for coins. Salvage and sale
  * destroy the item, so they ask once more. Every price is the server's; the list is the
  * server's after every action.
  */
@@ -60,8 +58,8 @@ export function ItemsScreen({ items, navigation, archiveCount, chestCount, sound
         : `${item.item.title}: ${action === 'sell' ? 'продано' : 'разобрано'}, +${amountText(amount)}`;
     });
   };
-  const merge = (item: OwnedItem, twin: OwnedItem) => void run({ id: item.id, action: 'merge' }, async () => {
-    const result = await items.merge(item.id, twin.id);
+  const merge = (item: OwnedItem, twin: string) => void run({ id: item.id, action: 'merge' }, async () => {
+    const result = await items.merge(item.id, twin);
     return `${item.item.title}: объединено, ${result.mended ? `предмет стал «${ITEM_STATE_LABELS[result.kept.state]}»` : 'починить не удалось'}`;
   });
 
@@ -87,9 +85,7 @@ export function ItemsScreen({ items, navigation, archiveCount, chestCount, sound
     {failed && !state.loaded && <div className="inventory__empty"><h2>Предметы недоступны</h2><p>Не удалось связаться с сервером.</p></div>}
     <section className="inventory__grid items-grid" aria-label="Мои предметы">
       {visible.map(item => {
-        const offers = item.offers, twins = mergeTwins(state.items, item);
-        // Merging loses the worse twin: offer the one in the worst state.
-        const twin = [...twins].sort((a, b) => stateRank(b) - stateRank(a))[0];
+        const offers = item.offers, twin = offers?.mergeWith;
         const disabled = !!busy;
         const asking = (action: WorkshopAction) => confirm?.id === item.id && confirm.action === action;
         return <article key={item.id} className={`item-card item-card--${item.item.rarity} item-card--${item.state}`} aria-busy={busy?.id === item.id || undefined}>

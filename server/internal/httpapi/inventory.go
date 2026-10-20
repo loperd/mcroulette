@@ -77,12 +77,14 @@ type ownedItemDTO struct {
 	Offers *offersDTO `json:"offers,omitempty"`
 }
 
-// offersDTO is what each workshop action would cost or bring now; mergeRepair is the chance, in
-// percent, that merging with a twin mends the item that stays.
+// offersDTO is what each workshop action would cost or bring now; mergeWith is the twin to merge
+// the item with (absent: nothing to merge) and mergeRepair the chance, in percent, that this
+// merge mends the item that stays.
 type offersDTO struct {
 	Repair      *amountDTO `json:"repair"`
 	Salvage     amountDTO  `json:"salvage"`
 	Sell        amountDTO  `json:"sell"`
+	MergeWith   string     `json:"mergeWith,omitempty"`
 	MergeRepair float64    `json:"mergeRepair"`
 }
 
@@ -237,7 +239,7 @@ func (s *Server) mergeOdds(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dto := mergeOddsDTO{Traits: make([]traitOddsDTO, len(odds.Traits)),
-		Contents: contentsOddsDTO{Total: odds.Contents, Kept: odds.Size, Keep: percent(float64(odds.Size), float64(odds.Contents))}}
+		Contents: contentsOddsDTO{Total: odds.Contents, Kept: odds.Size, Keep: percent(odds.ItemKeep, 1)}}
 	for i, trait := range odds.Traits {
 		dto.Traits[i] = traitOddsDTO{ID: trait.ID, Keep: percent(trait.Keep, 1), Upgrade: percent(trait.Upgrade, 1)}
 	}
@@ -255,7 +257,7 @@ func (s *Server) listItems(w http.ResponseWriter, r *http.Request) {
 	for _, item := range items {
 		dto := toOwnedItemDTO(rb, item.Item)
 		if o := item.Offers; o != nil {
-			dto.Offers = &offersDTO{Salvage: toAmountDTO(o.Salvage), Sell: toAmountDTO(o.Sell), MergeRepair: math.Round(o.MergeRepair*1000) / 10}
+			dto.Offers = &offersDTO{Salvage: toAmountDTO(o.Salvage), Sell: toAmountDTO(o.Sell), MergeWith: o.MergeWith, MergeRepair: percent(o.MergeRepair, 1)}
 			if o.Repair != nil {
 				repair := toAmountDTO(*o.Repair)
 				dto.Offers.Repair = &repair

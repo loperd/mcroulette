@@ -3,6 +3,7 @@ package chest
 import (
 	"fmt"
 	"math"
+	"slices"
 
 	"github.com/voxel-vault/api/internal/domain/dice"
 	"github.com/voxel-vault/api/internal/domain/rulebook"
@@ -15,30 +16,48 @@ type MergeRequest struct {
 }
 
 // Merge turns two available chests of one owner and one type into a new one; both are spent.
-// Traits of "reset" groups (damage) are gone; the others survive by the merge.<group>.* chances
-// and, held by both, may rise a tier. The contents are the union cut to content.size purely at
-// random, so the player may lose items of either chest. Rarity and condition are appraised anew.
+// It rolls the plan (see planMerge): each trait stays and may rise a tier by its chances, the
+// most intense of exclusive traits stays, and the contents are the union cut to content.size
+// purely at random, so the player may lose items of either chest. Rarity and condition are
+// appraised anew.
 func Merge(rb *rulebook.Rulebook, a, b *Chest, req MergeRequest) (*Chest, error) {
 	c, err := merged(rb, a, b, req.ID, req.Seed)
 	if err != nil {
 		return nil, err
 	}
-	d := dice.New(req.Seed, dice.StreamMerge)
 	s := c.situation(rb, req.Situation)
-	c.s.Traits = mergeTraits(rb, a.s.Traits, b.s.Traits, s, d)
-	c.s.Contents = mergeContents(a.s.Contents, b.s.Contents, int(rb.Value("content.size", s)), d)
+	plan := planMerge(rb, a, b, s)
+	d := dice.New(req.Seed, dice.StreamMerge)
+	var kept []Trait
+	for _, p := range plan.traits {
+		if !d.Chance(p.keep) {
+			continue
+		}
+		trait := p.Trait
+		if p.upgrade > 0 && d.Chance(p.upgrade) {
+			trait.Intensity = p.risen
+		}
+		kept = append(kept, trait)
+	}
+	c.s.Traits = withoutConflicts(rb, kept)
+	union := plan.contents
+	for i := len(union) - 1; i > 0; i-- {
+		j := d.Index(i + 1)
+		union[i], union[j] = union[j], union[i]
+	}
+	c.s.Contents = union[:plan.size]
 	c.appraise(rb, s)
 	a.s.Status, b.s.Status = Merged, Merged
 	return c, nil
 }
 
-// MergeOdds is what merging two chests would likely make. Traits are those of either chest, each
-// with its chance to stay and, held by both, to rise a tier, before exclusive traits settle which
-// one of them stays; damage has no chance. Of the Contents items the two hold together, the new
-// chest keeps Size, each with the same chance.
+// MergeOdds is what merging two chests would make, by the chances Merge rolls: each trait of
+// either chest with its chance to be on the new chest and to be there a tier higher; of the
+// Contents items the two hold together, the new chest keeps Size, each with the chance ItemKeep.
 type MergeOdds struct {
 	Traits         []TraitOdds
 	Contents, Size int
+	ItemKeep       float64
 }
 
 type TraitOdds struct {
@@ -46,34 +65,128 @@ type TraitOdds struct {
 	Keep, Upgrade float64
 }
 
-// Odds tells, by the chances Merge rolls, what merging a and b would likely make; nothing changes.
+// Odds tells what merging a and b would make; nothing changes. Exclusive traits are settled the
+// way Merge settles them, over every way their rolls can fall.
 func Odds(rb *rulebook.Rulebook, a, b *Chest, base rulebook.Situation) (MergeOdds, error) {
 	c, err := merged(rb, a, b, "", 0)
 	if err != nil {
 		return MergeOdds{}, err
 	}
-	s := c.situation(rb, base)
-	var odds MergeOdds
-	for _, trait := range traitOrder(a.s.Traits, b.s.Traits) {
-		o := TraitOdds{ID: trait.ID}
-		def, known := rb.Trait(trait.ID)
+	plan := planMerge(rb, a, b, c.situation(rb, base))
+	odds := MergeOdds{Traits: make([]TraitOdds, len(plan.traits)), Contents: len(plan.contents), Size: plan.size}
+	if odds.Contents > 0 {
+		odds.ItemKeep = float64(plan.size) / float64(odds.Contents)
+	}
+	for i, p := range plan.traits {
+		odds.Traits[i].ID = p.ID
+	}
+	for _, rivals := range plan.rivals(rb) {
+		settle(rb, plan.traits, rivals, odds.Traits)
+	}
+	return odds, nil
+}
+
+// mergePlan is all a merge decides before the dice: each trait of either chest (the more intense
+// of twins) with its chance to stay and, once kept, to rise to risen; and the items the new chest
+// keeps size of.
+type mergePlan struct {
+	traits   []plannedTrait
+	contents []Slot
+	size     int
+}
+
+type plannedTrait struct {
+	Trait
+	keep, upgrade, risen float64
+}
+
+// planMerge reads the merge.<group>.* chances: traits of "reset" groups (damage) and traits the
+// rulebook no longer knows never stay; one held by a single chest stays by keepOne; one held by
+// both stays by keepBoth and then rises a tier by upgrade, unless it is at the top tier.
+func planMerge(rb *rulebook.Rulebook, a, b *Chest, s rulebook.Situation) mergePlan {
+	var plan mergePlan
+	for _, trait := range a.s.Traits {
+		plan.traits = append(plan.traits, plannedTrait{Trait: trait})
+	}
+	for _, trait := range b.s.Traits {
+		if i := slices.IndexFunc(plan.traits, func(p plannedTrait) bool { return p.ID == trait.ID }); i < 0 {
+			plan.traits = append(plan.traits, plannedTrait{Trait: trait})
+		} else if trait.Intensity > plan.traits[i].Intensity {
+			plan.traits[i].Trait = trait
+		}
+	}
+	for i := range plan.traits {
+		p := &plan.traits[i]
+		def, known := rb.Trait(p.ID)
 		group, _ := rb.Group(def.Group)
-		if known && group.Merge == rulebook.MergeKeep {
-			prefix := "merge." + group.ID
-			if !hasTrait(a.s.Traits, trait.ID) || !hasTrait(b.s.Traits, trait.ID) {
-				o.Keep = rb.Value(prefix+".keepOne", s)
-			} else {
-				o.Keep = rb.Value(prefix+".keepBoth", s)
-				if top := strongest(a.s.Traits, b.s.Traits, trait.ID); nextTier(rb, top) > top.Intensity {
-					o.Upgrade = o.Keep * rb.Value(prefix+".upgrade", s)
+		if !known || group.Merge != rulebook.MergeKeep {
+			continue
+		}
+		prefix := "merge." + group.ID
+		if !hasTrait(a.s.Traits, p.ID) || !hasTrait(b.s.Traits, p.ID) {
+			p.keep = rb.Value(prefix+".keepOne", s)
+			continue
+		}
+		p.keep = rb.Value(prefix+".keepBoth", s)
+		if p.risen = nextTier(rb, p.Trait); p.risen > p.Intensity {
+			p.upgrade = rb.Value(prefix+".upgrade", s)
+		}
+	}
+	plan.contents = append([]Slot{}, a.s.Contents...)
+	for _, slot := range b.s.Contents {
+		if !holds(plan.contents, slot.Item) {
+			plan.contents = append(plan.contents, slot)
+		}
+	}
+	plan.size = min(max(int(rb.Value("content.size", s)), 1), len(plan.contents))
+	return plan
+}
+
+// rivals groups the plan's traits (by index, in order) that one exclusive key lets only one of
+// stay; a trait with no key is alone.
+func (p mergePlan) rivals(rb *rulebook.Rulebook) [][]int {
+	var groups [][]int
+	byKey := map[string]int{}
+	for i, trait := range p.traits {
+		def, _ := rb.Trait(trait.ID)
+		if g, ok := byKey[def.Exclusive]; ok {
+			groups[g] = append(groups[g], i)
+			continue
+		}
+		if def.Exclusive != "" {
+			byKey[def.Exclusive] = len(groups)
+		}
+		groups = append(groups, []int{i})
+	}
+	return groups
+}
+
+// settle adds to odds, for rivals, the chance of each to be on the new chest and to be there
+// risen: every way their rolls fall (gone, kept, kept risen), settled by withoutConflicts.
+func settle(rb *rulebook.Rulebook, plan []plannedTrait, rivals []int, odds []TraitOdds) {
+	var walk func(n int, chance float64, kept []Trait)
+	walk = func(n int, chance float64, kept []Trait) {
+		if chance == 0 {
+			return
+		}
+		if n == len(rivals) {
+			for _, trait := range withoutConflicts(rb, kept) {
+				i := rivals[slices.IndexFunc(rivals, func(i int) bool { return plan[i].ID == trait.ID })]
+				odds[i].Keep += chance
+				if plan[i].upgrade > 0 && trait.Intensity == plan[i].risen {
+					odds[i].Upgrade += chance
 				}
 			}
+			return
 		}
-		odds.Traits = append(odds.Traits, o)
+		p := plan[rivals[n]]
+		walk(n+1, chance*(1-p.keep), kept)
+		walk(n+1, chance*p.keep*(1-p.upgrade), append(slices.Clip(kept), p.Trait))
+		risen := p.Trait
+		risen.Intensity = p.risen
+		walk(n+1, chance*p.keep*p.upgrade, append(slices.Clip(kept), risen))
 	}
-	odds.Contents = len(contentUnion(a.s.Contents, b.s.Contents))
-	odds.Size = min(max(int(rb.Value("content.size", s)), 1), odds.Contents)
-	return odds, nil
+	walk(0, 1, nil)
 }
 
 // merged is the chest two would make, before any roll: same owner and type, both available.
@@ -91,66 +204,6 @@ func merged(rb *rulebook.Rulebook, a, b *Chest, id string, seed uint64) (*Chest,
 		ID: id, Owner: a.s.Owner, Type: a.s.Type, Revision: rb.Revision(), Seed: seed,
 		Origin: Origin{Source: SourceMerge, Parents: []string{a.s.ID, b.s.ID}}, Status: Available,
 	}}, nil
-}
-
-// traitOrder is a's traits, then those only b has.
-func traitOrder(a, b []Trait) []Trait {
-	order := append([]Trait{}, a...)
-	for _, trait := range b {
-		if !hasTrait(a, trait.ID) {
-			order = append(order, trait)
-		}
-	}
-	return order
-}
-
-// strongest is the more intense of a trait both chests hold.
-func strongest(a, b []Trait, id string) Trait {
-	var top Trait
-	for _, trait := range append(append([]Trait{}, a...), b...) {
-		if trait.ID == id && trait.Intensity >= top.Intensity {
-			top = trait
-		}
-	}
-	return top
-}
-
-func mergeTraits(rb *rulebook.Rulebook, a, b []Trait, s rulebook.Situation, d *dice.Dice) []Trait {
-	other := map[string]Trait{}
-	for _, trait := range b {
-		other[trait.ID] = trait
-	}
-	var kept []Trait
-	for _, trait := range traitOrder(a, b) {
-		def, ok := rb.Trait(trait.ID)
-		if !ok {
-			continue
-		}
-		group, _ := rb.Group(def.Group)
-		if group.Merge != rulebook.MergeKeep {
-			continue
-		}
-		prefix := "merge." + group.ID
-		twin, both := other[trait.ID]
-		both = both && hasTrait(a, trait.ID)
-		if !both {
-			if d.Chance(rb.Value(prefix+".keepOne", s)) {
-				kept = append(kept, trait)
-			}
-			continue
-		}
-		if !d.Chance(rb.Value(prefix+".keepBoth", s)) {
-			continue
-		}
-		if twin.Intensity > trait.Intensity {
-			trait = twin
-		}
-		if d.Chance(rb.Value(prefix+".upgrade", s)) {
-			trait.Intensity = nextTier(rb, trait)
-		}
-		kept = append(kept, trait)
-	}
-	return withoutConflicts(rb, kept)
 }
 
 // nextTier lifts an intensity to the threshold of the tier above; the top tier stays as it is.
@@ -190,24 +243,4 @@ func hasTrait(traits []Trait, id string) bool {
 		}
 	}
 	return false
-}
-
-func mergeContents(a, b []Slot, size int, d *dice.Dice) []Slot {
-	union := contentUnion(a, b)
-	for i := len(union) - 1; i > 0; i-- {
-		j := d.Index(i + 1)
-		union[i], union[j] = union[j], union[i]
-	}
-	return union[:min(max(size, 1), len(union))]
-}
-
-// contentUnion is a's items, then those only b holds.
-func contentUnion(a, b []Slot) []Slot {
-	union := append([]Slot{}, a...)
-	for _, slot := range b {
-		if !holds(union, slot.Item) {
-			union = append(union, slot)
-		}
-	}
-	return union
 }

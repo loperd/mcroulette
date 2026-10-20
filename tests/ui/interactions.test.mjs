@@ -521,7 +521,7 @@ test('items screen: wallet, prices, a repair the wallet cannot afford, and sale 
   const item = { id: 'mine-pick', title: 'Кирка забойщика', image: '/pick.svg', rarity: 'rare', displayWeight: 0 };
   const offers = { repair: { resource: 'deep-ore', value: 16 }, salvage: { resource: 'deep-ore', value: 8 }, sell: { resource: 'currency', value: 20 }, mergeRepair: 70 };
   let state = { loaded: true, items: [
-    { id: 'a', item, state: 'heavy', origin: 'c', offers }, { id: 'b', item, state: 'slight', origin: 'c', offers },
+    { id: 'a', item, state: 'heavy', origin: 'c', offers: { ...offers, mergeWith: 'b' } }, { id: 'b', item, state: 'slight', origin: 'c', offers: { ...offers, mergeWith: 'a' } },
     { id: 'c', item: { ...item, id: 'mine-heart', title: 'Сердце жилы', rarity: 'legendary' }, state: 'intact', origin: 'c', offers: { ...offers, repair: undefined } },
   ], balances: { 'deep-ore': 10, currency: 3 } };
   const listeners = new Set(), calls = [];

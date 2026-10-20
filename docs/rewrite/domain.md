@@ -66,6 +66,7 @@ owner, items [{ id, item, state: intact | slight | heavy | broken, origin: chest
 - При начале сессии (claim) сервер считает исход падения: добавит ли удар повреждение (новая черта группы `damage` или рост интенсивности существующей), пересчитанное состояние и не разрушен ли сундук ударом (`moment: impact`).
 - При открытии сервер сначала решает, не разрушит ли сундук перегрузка (`moment: opening`), и только потом роллит дроп.
 - Шансы — параметры свода, зависят от износа и настраиваются правилами: `landing.damage.chance`, `landing.damage.intensity.max`, `chest.destroy.impact.perWear`, `chest.destroy.opening.perWear` (стартовые 0.3 / 0.4 / 0.1 / 0.1). Какую черту может дать удар, задаёт `landing.trait.<id>.weight` (сейчас 1 у черт повреждений, 0 у остальных).
+- Что игрок видит до действия — то, по чему действие бросает кубики: у мёржа один план (`chest.planMerge`, `Inventory.planMerge`), `Merge` бросает по нему, `Odds`/`Quote` его отдают; цены — те же `repairCost`/`salvageGain`/`sellGain`, что списывает действие.
 - Разрушенный сундук получает `destroyed` без дропа. Эндпоинт `destroy`, через который это объявляет клиент, уходит.
 
 ## Доменные события
@@ -106,10 +107,12 @@ chest      { id, caseId, status, seed, revision, rarity, condition,
              origin: { source, parents? }, sessionId?, drop?: { item, state }, destroyedAt?: impact|opening, openedAt? }
 item       { id, title, image, type: <редкость>, chance }   — chance содержимого — доля в % внутри сундука
 ownedItem  { id, item, state: intact|slight|heavy|broken, origin: <id сундука> }
-offers     { repair: amount | null, salvage: amount, sell: amount, mergeRepair: % } — нет у предмета, которого больше нет в своде
+offers     { repair: amount | null, salvage: amount, sell: amount, mergeWith?: <id близнеца>, mergeRepair: % }
+           — нет у предмета, которого больше нет в своде; mergeWith — пара, которую выбрал сервер (худший
+             повреждённый близнец), mergeRepair — шанс починки того, кто останется, именно в этой паре
 mergeOdds  { traits: [{ id, keep: %, upgrade: % }], contents: { total, kept, keep: % } }
-           — черты обоих сундуков: шанс остаться и (есть у обоих) подняться на ступень, до выбора
-             между взаимоисключающими; повреждения — 0. Из total разных предметов пары остаются kept.
+           — черты обоих сундуков: шанс оказаться на новом сундуке и оказаться там ступенью выше, с учётом
+             взаимоисключающих (снег/изморозь); повреждения — 0. Из total разных предметов пары остаются kept.
 ```
 
 Ошибки: 404 — нет такого сундука или предмета у игрока (чужой — то же самое), 409 — не то состояние (другая сессия, не пара для мёржа, предмет цел, не хватает ресурсов), 400 — плохое тело.

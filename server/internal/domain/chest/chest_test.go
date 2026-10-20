@@ -259,14 +259,20 @@ func TestMerge(t *testing.T) {
 func TestOddsAreWhatMergesThenDo(t *testing.T) {
 	rb := rulebooktest.Build(t)
 	sa, sb := issue(t, rb, "a", 1).State(), issue(t, rb, "b", 2).State()
-	sa.Traits = []chest.Trait{{ID: "body-cracks", Intensity: .9}, {ID: "moss", Intensity: .5}, {ID: "void-runes", Intensity: .4}}
-	sb.Traits = []chest.Trait{{ID: "moss", Intensity: .7}, {ID: "snow", Intensity: .2}}
+	// Snow and frost are exclusive: snow stays only when frost, more intense, is gone.
+	sa.Traits = []chest.Trait{{ID: "body-cracks", Intensity: .9}, {ID: "moss", Intensity: .5}, {ID: "void-runes", Intensity: .4}, {ID: "snow", Intensity: .2}}
+	sb.Traits = []chest.Trait{{ID: "moss", Intensity: .7}, {ID: "frost", Intensity: .5}}
 	odds, err := chest.Odds(rb, chest.Restore(sa), chest.Restore(sb), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []chest.TraitOdds{{ID: "body-cracks"}, {ID: "moss", Keep: .85, Upgrade: .85 * .25}, {ID: "void-runes", Keep: .2}, {ID: "snow", Keep: .4}}
-	if !reflect.DeepEqual(odds.Traits, want) || odds.Size != 8 || odds.Contents < 8 {
+	want := []chest.TraitOdds{{ID: "body-cracks"}, {ID: "moss", Keep: .85, Upgrade: .85 * .25}, {ID: "void-runes", Keep: .2}, {ID: "snow", Keep: .4 * .6}, {ID: "frost", Keep: .4}}
+	for i, o := range odds.Traits {
+		if o.ID != want[i].ID || math.Abs(o.Keep-want[i].Keep) > 1e-9 || math.Abs(o.Upgrade-want[i].Upgrade) > 1e-9 {
+			t.Fatalf("odds %+v, want %+v", odds.Traits, want)
+		}
+	}
+	if len(odds.Traits) != len(want) || odds.Size != 8 || odds.Contents < 8 || odds.ItemKeep != 8/float64(odds.Contents) {
 		t.Fatalf("odds %+v", odds)
 	}
 	const runs = 4000

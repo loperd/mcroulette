@@ -78,7 +78,8 @@ export class ApiItems implements PlayerItems {
     return copyOwnedItem({
       id: dto.id as string, item: decodeItem(described, this.baseUrl), state: dto.state as OwnedItem['state'], origin: dto.origin as string,
       ...(offers ? { offers: { ...(offers.repair ? { repair: offers.repair as Amount } : {}), salvage: offers.salvage as Amount,
-        sell: offers.sell as Amount, mergeRepair: offers.mergeRepair as number } } : {}),
+        sell: offers.sell as Amount, mergeRepair: offers.mergeRepair as number,
+        ...(typeof offers.mergeWith === 'string' && offers.mergeWith ? { mergeWith: offers.mergeWith } : {}) } } : {}),
     });
   }
 

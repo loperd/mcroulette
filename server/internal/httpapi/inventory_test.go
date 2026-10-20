@@ -127,18 +127,23 @@ func TestClaimLandsAndOpenDropsIntoTheItems(t *testing.T) {
 
 func TestItemsAreListedWithTheirPricesAndWorkedForThem(t *testing.T) {
 	s, m := economyServer(t)
-	m.Items["p"] = []inventory.Item{{ID: "a", Item: "item-i", State: "heavy"}, {ID: "b", Item: "item-i", State: "intact"}, {ID: "gone", Item: "not-in-rulebook", State: "intact"}}
+	m.Items["p"] = []inventory.Item{{ID: "a", Item: "item-i", State: "heavy"}, {ID: "b", Item: "item-i", State: "intact"}, {ID: "gone", Item: "not-in-rulebook", State: "intact"},
+		{ID: "c", Item: "item-i", State: "slight"}, {ID: "d", Item: "item-i", State: "broken"}}
 	m.Balances["p"] = map[string]int64{"end-shards": 100}
 	var listed struct {
 		Items    []ownedItemDTO   `json:"items"`
 		Balances map[string]int64 `json:"balances"`
 	}
-	if code := call(t, s.listItems, "p", "", "", &listed); code != 200 || len(listed.Items) != 3 || listed.Balances["end-shards"] != 100 {
+	if code := call(t, s.listItems, "p", "", "", &listed); code != 200 || len(listed.Items) != 5 || listed.Balances["end-shards"] != 100 {
 		t.Fatalf("list %d %+v", code, listed)
 	}
 	damaged, intact, gone := listed.Items[0].Offers, listed.Items[1].Offers, listed.Items[2].Offers
 	if damaged == nil || damaged.Repair == nil || intact == nil || intact.Repair != nil || gone != nil {
 		t.Fatalf("offers %+v %+v %+v", damaged, intact, gone)
+	}
+	// The server pairs each damaged item with its worst twin; an intact one has no pair.
+	if damaged.MergeWith != "d" || listed.Items[3].Offers.MergeWith != "d" || listed.Items[4].Offers.MergeWith != "a" || intact.MergeWith != "" {
+		t.Fatalf("merge pairs %+v %+v %+v %+v", damaged, listed.Items[3].Offers, listed.Items[4].Offers, intact)
 	}
 	if damaged.MergeRepair <= 0 || damaged.MergeRepair > 100 {
 		t.Fatalf("merge chance in percent: %v", damaged.MergeRepair)

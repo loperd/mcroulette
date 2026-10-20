@@ -76,6 +76,34 @@ func TestMergeKeepsTheBetterTwin(t *testing.T) {
 	}
 }
 
+func TestQuotedMergeIsTheMergeTheServerDoes(t *testing.T) {
+	// Only a heavy item is ever mended: the chance is the kept twin's, not the quoted one's.
+	rb := rulebooktest.Build(t, rulebooktest.Set(map[string]float64{"item.merge.repair": 0}), func(def *rulebook.Definition) {
+		def.Rules = append(def.Rules, rulebook.Rule{ID: "heavy-mends", Priority: 1,
+			When: map[string]rulebook.Condition{"item.state": {Eq: "heavy"}}, Set: map[string]float64{"item.merge.repair": 1}})
+	})
+	inv := inventory.New("p")
+	for _, item := range []inventory.Item{{ID: "1", Item: "item-i", State: "broken"}, {ID: "2", Item: "item-i", State: "slight"},
+		{ID: "3", Item: "item-i", State: "heavy"}, {ID: "4", Item: "item-i", State: rulebook.Intact}} {
+		if err := inv.Receive(rb, item); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if offers, _ := inv.Quote(rb, "2", nil); offers.MergeWith != "1" || offers.MergeRepair != 0 {
+		t.Fatalf("the slight item pairs with the broken one and stays slight: %+v", offers)
+	}
+	if offers, _ := inv.Quote(rb, "4", nil); offers.MergeWith != "" {
+		t.Fatalf("an intact item has no merge: %+v", offers)
+	}
+	offers, err := inv.Quote(rb, "1", nil)
+	if err != nil || offers.MergeWith != "3" || offers.MergeRepair != 1 {
+		t.Fatalf("the broken item pairs with the heavy one, which stays and surely mends: %+v %v", offers, err)
+	}
+	if kept, err := inv.Merge(rb, "1", offers.MergeWith, 7, nil); err != nil || kept.ID != "3" || kept.State != "slight" {
+		t.Fatalf("quoted a sure mend, got %+v %v", kept, err)
+	}
+}
+
 func TestReceiveRejectsUnknownItemsAndDuplicates(t *testing.T) {
 	rb, inv, _ := setup(t, inventory.Item{ID: "1", Item: "item-a", State: rulebook.Intact})
 	if err := inv.Receive(rb, inventory.Item{ID: "2", Item: "nope", State: rulebook.Intact}); !errors.Is(err, inventory.ErrUnknownItem) {
