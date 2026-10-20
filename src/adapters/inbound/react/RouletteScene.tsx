@@ -8,6 +8,7 @@ export function RouletteScene({ active, element }: { readonly active: boolean; r
       <h2>{casePresentation.title}</h2><p>Сундук открыт. Что достанется тебе?</p>
     </header>
     <PresentationHost className="game-viewport__roulette" element={element} />
+    <div className="roulette-focus" aria-hidden="true"><i /><i /></div>
     <div className="roulette-pointer" aria-hidden="true"><span /><i /><span /></div>
     <p className="roulette-caption"><span aria-hidden="true">◇</span> Твоя находка — под указателем</p>
   </section>;

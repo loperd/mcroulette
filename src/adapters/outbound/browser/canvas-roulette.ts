@@ -8,9 +8,9 @@ import { FrameTimeline } from './frame-timeline.ts';
 import { rouletteThemes, type RouletteTheme } from './roulette-theme.ts';
 import type { ClickSound } from './click-sound.ts';
 
-const STRIDE = 155, CARD_WIDTH = 150, CARD_HEIGHT = 100, BLUR_PAD = 15, ZOOM = 1.2;
+const STRIDE = 200, CARD_WIDTH = 184, CARD_HEIGHT = 164;
 const COLORS = { common: ['#5e7482', '#3d4f5b'], uncommon: ['#005bff', '#0c5399'], rare: ['#8846c7', '#671ab4'], epic: ['#c22ec9', '#86178c'], legendary: ['#da3217', '#9a1616'] } as const;
-type Card = { normal: HTMLCanvasElement; blurred: HTMLCanvasElement };
+type Card = HTMLCanvasElement;
 
 export interface CanvasRouletteOptions {
   readonly theme?: RouletteTheme;
@@ -140,13 +140,17 @@ export class CanvasRoulette implements RoulettePresentationPort {
   }
 
   private createCard(item: Item, image: HTMLImageElement): Card {
-    const normal = this.createCanvas(), blurred = this.createCanvas();
-    // Small, fixed-resolution caches; no text layout, blur or image decode in the frame loop.
+    const normal = this.createCanvas();
+    // A small, fixed-resolution cache; no text layout or image decode in the frame loop.
     const ratio = 2;
     normal.width = CARD_WIDTH * ratio; normal.height = CARD_HEIGHT * ratio;
     const context = this.getContext(normal); context.scale(ratio, ratio);
     const theme = rouletteThemes[this.options.theme ?? 'ender'];
-    context.fillStyle = theme.card; context.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT);
+    const surface = context.createLinearGradient(0, 0, CARD_WIDTH, CARD_HEIGHT);
+    surface.addColorStop(0, '#172536'); surface.addColorStop(1, theme.card);
+    context.fillStyle = surface; context.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT);
+    context.strokeStyle = 'rgba(116, 190, 232, .34)'; context.lineWidth = 1;
+    context.strokeRect(0.5, 0.5, CARD_WIDTH - 1, CARD_HEIGHT - 1);
     const width = image.naturalWidth || image.width, height = image.naturalHeight || image.height;
     if (width <= 0 || height <= 0) throw new Error(`The prize image ${item.id} has no dimensions.`);
     const scale = Math.min((CARD_WIDTH - 20) / width, (CARD_HEIGHT - 16) / height);
@@ -155,21 +159,7 @@ export class CanvasRoulette implements RoulettePresentationPort {
     const gradient = context.createLinearGradient(0, 0, CARD_WIDTH, 0);
     gradient.addColorStop(0, colors[0]); gradient.addColorStop(1, colors[1]);
     context.fillStyle = gradient; context.fillRect(0, CARD_HEIGHT - theme.stripe, CARD_WIDTH, theme.stripe);
-    blurred.width = (CARD_WIDTH + BLUR_PAD * 2) * ratio;
-    blurred.height = (CARD_HEIGHT + BLUR_PAD * 2) * ratio;
-    const blur = this.getContext(blurred); blur.scale(ratio, ratio);
-    if (typeof blur.filter === 'string') {
-      blur.filter = `blur(${5 * ratio}px)`;
-      blur.drawImage(normal, BLUR_PAD, BLUR_PAD, CARD_WIDTH, CARD_HEIGHT);
-    } else {
-      // Canvas filter is absent in some browsers. Approximate blur once, never per frame.
-      blur.globalAlpha = 1 / 25;
-      blur.globalCompositeOperation = 'lighter';
-      for (let y = -2; y <= 2; y++) for (let x = -2; x <= 2; x++) {
-        blur.drawImage(normal, BLUR_PAD + x * 3.5, BLUR_PAD + y * 3.5, CARD_WIDTH, CARD_HEIGHT);
-      }
-    }
-    return { normal, blurred };
+    return normal;
   }
 
   private paint(): void {
@@ -181,27 +171,13 @@ export class CanvasRoulette implements RoulettePresentationPort {
       this.width = bounds.width; this.height = bounds.height; this.ratio = ratio;
       this.element.width = Math.ceil(this.width * ratio); this.element.height = Math.ceil(this.height * ratio);
     }
-    const theme = rouletteThemes[this.options.theme ?? 'ender'];
-    const context = this.context, cx = this.width / 2, cy = this.height / 2;
+    const context = this.context;
     context.setTransform(ratio, 0, 0, ratio, 0, 0); context.clearRect(0, 0, this.width, this.height);
-    // CSS circle(15%) uses the normalized diagonal; the old loupe scaled the whole mask by 1.2.
-    const radius = 0.15 * Math.hypot(this.width, this.height) / Math.SQRT2 * ZOOM;
-    // The lower strip must not show through transparent pixels or gaps of the lens strip.
-    context.save(); context.beginPath(); context.rect(0, 0, this.width, this.height);
-    context.moveTo(cx + radius, cy);
-    context.arc(cx, cy, radius, 0, Math.PI * 2); context.clip('evenodd');
-    context.translate(cx, cy); context.scale(ZOOM, ZOOM); context.translate(-cx, -cy);
-    context.globalAlpha = theme.outside; this.drawStrip(true, this.width / ZOOM); context.restore();
-    context.save(); context.beginPath(); context.arc(cx, cy, radius, 0, Math.PI * 2); context.clip();
-    context.fillStyle = theme.focus; context.fillRect(0, 0, this.width, this.height);
-    context.translate(cx, cy); context.scale(ZOOM, ZOOM); context.translate(-cx, -cy);
-    this.drawStrip(false, radius * 2 / ZOOM);
-    // The scene owns the pointer overlay; both canvas passes retain identical alignment.
-    context.restore();
+    this.drawStrip();
   }
 
-  private drawStrip(blurred: boolean, visibleWidth: number): void {
-    const selection = this.selection!, context = this.context!;
+  private drawStrip(): void {
+    const selection = this.selection!, context = this.context!, visibleWidth = this.width;
     const first = Math.floor(this.position - visibleWidth / (2 * STRIDE)) - 1;
     const count = Math.ceil(visibleWidth / STRIDE) + 4;
     for (let index = 0; index < count; index++) {
@@ -209,10 +185,12 @@ export class CanvasRoulette implements RoulettePresentationPort {
       const slot = ((logical % selection.slots.length) + selection.slots.length) % selection.slots.length;
       const card = this.strip[slot]!;
       const x = this.width / 2 + (logical - this.position) * STRIDE + (STRIDE - CARD_WIDTH) / 2;
-      const y = (this.height - CARD_HEIGHT) / 2;
-      if (blurred) context.drawImage(card.blurred, x - BLUR_PAD, y - BLUR_PAD, CARD_WIDTH + BLUR_PAD * 2, CARD_HEIGHT + BLUR_PAD * 2);
-      else context.drawImage(card.normal, x, y, CARD_WIDTH, CARD_HEIGHT);
+      const y = this.height * 0.44 - CARD_HEIGHT / 2;
+      const centerDistance = Math.abs(x + CARD_WIDTH / 2 - this.width / 2);
+      context.globalAlpha = Math.max(0.55, 1 - centerDistance / (CARD_WIDTH * 2.1));
+      context.drawImage(card, x, y, CARD_WIDTH, CARD_HEIGHT);
     }
+    context.globalAlpha = 1;
   }
 
   private readonly loadImage = (url: string, signal: AbortSignal): Promise<HTMLImageElement> => new Promise((resolve, reject) => {
@@ -234,7 +212,7 @@ export class CanvasRoulette implements RoulettePresentationPort {
     return context;
   }
   private releaseCard(card: Card): void {
-    card.normal.width = 0; card.normal.height = 0; card.blurred.width = 0; card.blurred.height = 0;
+    card.width = 0; card.height = 0;
   }
   private clearCards(): void { for (const card of this.cards.values()) this.releaseCard(card); this.cards.clear(); }
   private assertAlive(signal: AbortSignal): void {

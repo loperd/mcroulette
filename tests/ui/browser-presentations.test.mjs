@@ -28,14 +28,14 @@ function harness(width = 720) {
 }
 
 function underCursor(canvas, width) {
-  const draw = canvas.context.draws.find(draw => draw.clipped && draw.x <= width / 2 && draw.x + draw.width >= width / 2);
-  assert.ok(draw, 'cursor stops inside the sharp card, excluding gap');
+  const draw = canvas.context.draws.find(draw => draw.x <= width / 2 && draw.x + draw.width >= width / 2);
+  assert.ok(draw, 'cursor stops inside a card, excluding gap');
   return draw.source.imageUrl;
 }
 
 async function loaded() { for (let i = 0; i < 20; i++) await Promise.resolve(); }
 
-test('canvas lens and background stop on the authoritative prize at every refresh rate and viewport width', async () => {
+test('the canvas strip stops on the authoritative prize at every refresh rate and viewport width', async () => {
   for (const width of [320, 720, 1800]) for (const hz of [30, 60, 120]) {
     const h = harness(width), signal = new AbortController().signal;
     const selection = ensureTarget(buildStrip(legacyCatalog(), 40, constantRandom()), legacyCatalog()[13], constantRandom());
@@ -46,28 +46,23 @@ test('canvas lens and background stop on the authoritative prize at every refres
     h.frames(Math.ceil(plan.durationSeconds * hz) + 3, hz); await done;
     assert.equal(underCursor(h.roulette.element, width), selection.prize.image);
     const draws = h.roulette.element.context.draws;
-    assert.ok(draws.filter(draw => !draw.clipped).every(draw => draw.region === 'outside'));
-    assert.ok(draws.filter(draw => draw.clipped).every(draw => draw.region === 'lens'));
-    const focus = draws.find(draw => draw.clipped && draw.x <= width / 2 && draw.x + draw.width >= width / 2);
-    const background = draws.find(draw => !draw.clipped && draw.source.imageUrl === focus.source.imageUrl && Math.abs(draw.x + 15 - focus.x) < 0.01);
-    assert.ok(background, 'both passes use the same card position');
-    assert.equal(background.scaleX, focus.scaleX, 'both passes have identical on-screen stride and speed');
-    assert.equal(background.scaleY, focus.scaleY, 'both passes have identical card height');
-    assert.equal(draws.filter(draw => !draw.clipped).length, Math.ceil(width / (1.2 * 155)) + 4);
+    assert.ok(draws.every(draw => !draw.clipped), 'one sharp pass, no lens');
+    assert.ok(draws.every(draw => draw.scaleX === draws[0].scaleX && draw.width === draws[0].width), 'every card has the same on-screen size');
+    assert.equal(draws.length, Math.ceil(width / 200) + 4);
     assert.equal(h.window.document.querySelectorAll('canvas').length, 1);
     assert.ok(h.ticks > 0); assert.equal(h.env.frames.size, 0); h.dispose();
     assert.equal(h.env.listeners.size, 0);
   }
 });
 
-test('a one-item canvas strip remains bounded and reuses image/blur caches across 100 spins', async () => {
+test('a one-item canvas strip remains bounded and reuses image caches across 100 spins', async () => {
   const h = harness(1800), signal = new AbortController().signal;
   const prize = item('one', 0, { title: '<script>alert(1)</script>' });
   const selection = ensureTarget([], prize, constantRandom());
-  const plan = createSpinPlan(selection, constantRandom(), { deceleration: 1, nominalTimeSeconds: 0.1, timeScale: 0.05, cardFraction: 150 / 155 });
+  const plan = createSpinPlan(selection, constantRandom(), { deceleration: 1, nominalTimeSeconds: 0.1, timeScale: 0.05, cardFraction: 184 / 200 });
   for (let index = 0; index < 100; index++) {
     const done = h.roulette.spin(selection, plan, signal); await loaded(); h.frames(30); await done;
-    assert.equal(h.canvases.length, 3);
+    assert.equal(h.canvases.length, 2);
     assert.equal(h.requests.length, 1);
     assert.equal(h.roulette.element.querySelector('script'), null);
     assert.equal(underCursor(h.roulette.element, 1800), prize.image);
@@ -105,7 +100,7 @@ test('abort during image loading settles immediately and late images cannot repa
   await roulette.spin(next, createSpinPlan(next, constantRandom()), new AbortController().signal);
   pending.resolve({ width: 100, height: 100, src: '/items/old.png' }); await loaded();
   assert.equal(underCursor(roulette.element, 720), next.prize.image);
-  assert.equal(factory.canvases.length, 3);
+  assert.equal(factory.canvases.length, 2);
   roulette.dispose(); window.close();
 });
 

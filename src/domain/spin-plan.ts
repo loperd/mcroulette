@@ -15,7 +15,7 @@ export const DEFAULT_SPIN_SETTINGS: SpinSettings = Object.freeze({
   deceleration: 500 / 155,
   nominalTimeSeconds: 5,
   timeScale: 1.2,
-  cardFraction: 150 / 155,
+  cardFraction: 184 / 200,
 });
 
 export interface SpinPlan {

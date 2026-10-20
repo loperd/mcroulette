@@ -15,7 +15,7 @@ test('spin stops inside the target for every seeded prize, jitter, and start pos
     const plan = createSpinPlan(selection, random, DEFAULT_SPIN_SETTINGS, seed * 0.71);
     const landing = positionAt(plan, plan.durationSeconds) % plan.slotCount;
     assert.equal(Math.floor(landing), selection.targetIndex);
-    near(landing, selection.targetIndex + 0.5 + plan.targetOffsetFraction * 150 / 155);
+    near(landing, selection.targetIndex + 0.5 + plan.targetOffsetFraction * 184 / 200);
     assert.ok(plan.targetOffsetFraction >= -0.4 && plan.targetOffsetFraction < 0.4);
     assert.ok(plan.durationSeconds >= 5 * 1.2);
   }
@@ -52,8 +52,8 @@ test('both extreme jitters stop inside the card instead of its gap', () => {
   for (const jitter of [0, 1 - Number.EPSILON]) {
     const plan = createSpinPlan(selection, constantRandom(jitter));
     const fraction = plan.endPosition % plan.slotCount;
-    assert.ok(fraction > (1 - 150 / 155) / 2);
-    assert.ok(fraction < 1 - (1 - 150 / 155) / 2);
+    assert.ok(fraction > (1 - 184 / 200) / 2);
+    assert.ok(fraction < 1 - (1 - 184 / 200) / 2);
   }
 });
 

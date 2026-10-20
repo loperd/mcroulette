@@ -31,7 +31,6 @@
 .login__telegram { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; box-sizing: border-box; text-decoration: none; }
 .login__switch { margin: 10px 0 0; color: #7f969c; font-size: 13px; text-align: center; }
 .login__switch button { padding: 4px 2px; border: 0; background: none; color: #86ead0; font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
-.login__switch button:focus-visible { outline: 2px solid #86ead0; outline-offset: 2px; border-radius: 2px; }
 @keyframes login-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .login__panel { animation: none; } }
 @media (max-width: 560px) { .login__panel { padding: 26px 18px 22px; } }

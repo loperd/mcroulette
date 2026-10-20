@@ -49,7 +49,7 @@ export function App({ captureWreck, catalog, session, preview, sceneElement, rou
   const worldImage = worldStill ?? backgroundUrl;
   return (
     <main className={`page-shell app${session ? ' app--game' : ''}`} style={{ ...(casePalette ? { '--case-accent': casePalette.accent, '--case-accent-highlight': casePalette.highlight,
-      '--case-accent-deep': casePalette.deep, '--case-accent-glow': casePalette.glow, '--case-effect': casePalette.accent } : {}), ...(worldImage ? { '--case-world-image': `url("${worldImage}")` } : {}), ...(backgroundUrl ? { backgroundImage:
+      '--case-accent-deep': casePalette.deep, '--case-accent-glow': casePalette.glow, '--case-effect': casePalette.accent } : {}), ...(worldImage ? { '--case-world-image': `url("${worldImage}")` } : {}), ...(backgroundUrl ? { '--case-static-image': `url("${backgroundUrl}")`, backgroundImage:
       `linear-gradient(180deg, rgba(5, 12, 13, 0.42), rgba(5, 12, 13, 0.3) 42%, rgba(5, 12, 13, 0.68)), url("${backgroundUrl}")` } : {}),
       // Its own stacking context: the world (z-index -1) sits over the case picture, under everything else.
       isolation: 'isolate' } as CSSProperties}>
