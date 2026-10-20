@@ -14,6 +14,6 @@ export { BlockWorld } from './world.ts';
 export { computeLight } from './light.ts';
 export { meshWorld, brightness, FACES, type MeshArrays, type MeshOptions, type WorldMesh } from './mesher.ts';
 export { blockAtlas, TILE, type TileName } from './atlas.ts';
-export { BlockView, preloadStage, worldMeshes, geometry, type Guest, type GuestWorld, type Living, type Stage, type StageBuilder, type StageContext } from './view.ts';
+export { BlockView, preloadStage, worldMeshes, geometry, type BlockRenderMetrics, type GraphicsMode, type Guest, type GuestWorld, type Living, type Stage, type StageBuilder, type StageContext } from './view.ts';
 export { raw } from './color.ts';
 export { WorldPhysics, physicsReady, type Body, type BodyBox, type BodyPose, type BodySpec, type PhysicsGround, type Vec } from './physics.ts';

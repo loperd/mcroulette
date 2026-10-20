@@ -1,5 +1,5 @@
 import {
-  BackSide, Group, OrthographicCamera, PlaneGeometry, ShaderMaterial, SRGBColorSpace, type Camera, type ToneMapping, BufferAttribute, BufferGeometry, Color, DoubleSide, Fog, LinearSRGBColorSpace, Mesh, MeshBasicMaterial, NoToneMapping, PerspectiveCamera,
+  ACESFilmicToneMapping, BackSide, DirectionalLight, Group, HemisphereLight, OrthographicCamera, PCFShadowMap, PCFSoftShadowMap, PlaneGeometry, ShaderMaterial, SRGBColorSpace, type Camera, type ToneMapping, BufferAttribute, BufferGeometry, Color, DoubleSide, Fog, LinearSRGBColorSpace, Mesh, MeshBasicMaterial, MeshLambertMaterial, NoToneMapping, PerspectiveCamera,
   Scene, SphereGeometry, Vector2, Vector3, WebGLRenderer, type Object3D, type Texture,
 } from 'three';
 import type { MeshArrays, WorldMesh } from './mesher.ts';
@@ -61,6 +61,12 @@ export interface Stage<H> {
 }
 
 export interface StageBuilder<H> { readonly id: string; build(seed: number): Stage<H> }
+export type GraphicsMode = 'baseline' | 'shadow-poc';
+export interface BlockRenderMetrics {
+  readonly mode: GraphicsMode; readonly drawCalls: number; readonly triangles: number;
+  readonly geometries: number; readonly textures: number; readonly frameMs: number; readonly fps: number;
+  readonly shadowMap: boolean;
+}
 
 /**
  * Something from outside that lives in the world — a chest, say. The world is the base: it stands
@@ -180,7 +186,7 @@ vec3 haze = mix(fogColor, sunColor, pow(toSun, 6.) * scatter);
 gl_FragColor.rgb = mix(gl_FragColor.rgb, haze, fogFactor);
 #endif`;
 
-function moving(material: MeshBasicMaterial, kind: 'sway' | 'wave'): MeshBasicMaterial {
+function moving<T extends MeshBasicMaterial | MeshLambertMaterial>(material: T, kind: 'sway' | 'wave'): T {
   material.onBeforeCompile = shader => {
     Object.assign(shader.uniforms, atmosphere);
     shader.vertexShader = shader.vertexShader
@@ -199,6 +205,7 @@ export function worldMeshes(mesh: WorldMesh, atlas: Texture): Mesh[] {
   const opaque = new Mesh(geometry(mesh.opaque), moving(new MeshBasicMaterial({ map: atlas, vertexColors: true, alphaTest: .5 }), 'sway'));
   const plants = new Mesh(geometry(mesh.plants), moving(new MeshBasicMaterial({ map: atlas, vertexColors: true, alphaTest: .5, side: DoubleSide }), 'sway'));
   const liquid = new Mesh(geometry(mesh.liquid), moving(new MeshBasicMaterial({ map: atlas, vertexColors: true, transparent: true, opacity: .78, depthWrite: false, side: DoubleSide }), 'wave'));
+  opaque.userData.blockworldPass = 'sway'; plants.userData.blockworldPass = 'sway'; liquid.userData.blockworldPass = 'wave';
   liquid.renderOrder = 1;
   return [opaque, plants, liquid].filter(part => (part.geometry.index?.count ?? 0) > 0);
 }
@@ -265,6 +272,15 @@ export class BlockView<H> {
   private readonly dome: Mesh;
   private readonly fog: Fog;
   private readonly fogBase: Color;
+  private readonly sunLight: DirectionalLight;
+  private readonly fillLight: HemisphereLight;
+  private graphicsMode: GraphicsMode = 'baseline';
+  private readonly shadowMaterials: { mesh: Mesh; baseline: MeshBasicMaterial; experiment: MeshLambertMaterial }[] = [];
+  private metrics: BlockRenderMetrics = { mode: 'baseline', drawCalls: 0, triangles: 0, geometries: 0, textures: 0, frameMs: 0, fps: 0, shadowMap: false };
+  private fpsWindow = 0;
+  private fpsFrames = 0;
+  private frameMsSum = 0;
+  private frameSamples = 0;
   private readonly flashColor = new Color();
   private readonly target = new Vector3();
   private host: H | undefined;
@@ -299,12 +315,13 @@ export class BlockView<H> {
    * `veil`: darkness laid over the world, under its guests, as alphas at the top, middle (42%) and
    * bottom of the view, so an interface on top stays readable without dimming the guests.
    */
-  constructor(element: HTMLElement, builder: StageBuilder<H>, options: { seed?: number; veil?: { color: string; top: number; middle: number; bottom: number } } = {}) {
+  constructor(element: HTMLElement, builder: StageBuilder<H>, options: { seed?: number; veil?: { color: string; top: number; middle: number; bottom: number }; graphicsMode?: GraphicsMode } = {}) {
     this.view = element.ownerDocument.defaultView ?? window;
     this.stage = stageOf(builder, options.seed ?? 1);
     let state = ((options.seed ?? 1) * 9301 + 49297) % 233280;
     this.rand = () => { state = (state * 9301 + 49297) % 233280; return state / 233280; };
     this.renderer = new WebGLRenderer({ antialias: false, alpha: this.stage.transparent === true, powerPreference: 'low-power', stencil: false });
+    this.renderer.info.autoReset = false;
     if (this.stage.transparent) this.renderer.setClearColor(0x000000, 0);
     // The game's look: colours go to the screen as computed, no colour management, no tone curve.
     this.renderer.outputColorSpace = LinearSRGBColorSpace;
@@ -321,6 +338,20 @@ export class BlockView<H> {
     this.dome = skyDome(this.stage.sky);
     if (!this.stage.transparent) { this.scene.fog = this.fog; this.scene.add(this.dome); }
     this.scene.add(this.stage.root);
+    const focus = this.stage.camera.target, direction = this.stage.sun?.direction ?? [-.4, .7, -.5];
+    this.sunLight = new DirectionalLight(this.stage.sun?.color ?? '#ffd19a', 2.1);
+    this.sunLight.castShadow = true;
+    this.sunLight.shadow.mapSize.set(1536, 1536);
+    this.sunLight.shadow.camera.left = -48; this.sunLight.shadow.camera.right = 48;
+    this.sunLight.shadow.camera.top = 42; this.sunLight.shadow.camera.bottom = -42;
+    this.sunLight.shadow.camera.near = .5; this.sunLight.shadow.camera.far = 220;
+    this.sunLight.shadow.bias = -.0002; this.sunLight.shadow.normalBias = .025; this.sunLight.shadow.radius = 3;
+    this.sunLight.position.set(focus[0] + direction[0] * 90, focus[1] + direction[1] * 90, focus[2] + direction[2] * 90);
+    this.sunLight.target.position.set(...focus);
+    this.sunLight.visible = false; this.sunLight.target.visible = false;
+    this.fillLight = new HemisphereLight('#f2e4cc', '#354052', 1.15);
+    this.fillLight.visible = false;
+    this.scene.add(this.sunLight, this.sunLight.target, this.fillLight);
     this.target.set(...this.stage.camera.target);
     if (options.veil) {
       const { color, top, middle, bottom } = options.veil;
@@ -340,8 +371,39 @@ void main() { float down = 1. - vY; float a = down < .42 ? mix(top, middle, down
     element.ownerDocument.addEventListener('visibilitychange', this.onChange);
     if (typeof ResizeObserver !== 'undefined') { this.resizeObserver = new ResizeObserver(() => this.resize()); this.resizeObserver.observe(element); }
     this.resize();
+    this.setGraphicsMode(options.graphicsMode ?? 'baseline');
     this.sync();
   }
+
+  /** Dev-only A/B switch: same block meshes, with dynamic Lambert lighting and shadow maps. */
+  setGraphicsMode(mode: GraphicsMode): void {
+    if (this.disposed || this.graphicsMode === mode) return;
+    this.graphicsMode = mode;
+    this.fpsWindow = 0; this.fpsFrames = 0; this.frameMsSum = 0; this.frameSamples = 0;
+    this.metrics = { ...this.metrics, mode, frameMs: 0, fps: 0, shadowMap: mode === 'shadow-poc' };
+    if (mode === 'shadow-poc') {
+      this.stage.root.traverse(object => {
+        if (!(object instanceof Mesh) || !object.userData.blockworldPass || !(object.material instanceof MeshBasicMaterial)) return;
+        const baseline = object.material, kind = object.userData.blockworldPass as 'sway' | 'wave';
+        object.geometry.computeVertexNormals();
+        const experiment = moving(new MeshLambertMaterial({ map: baseline.map, vertexColors: true, alphaTest: baseline.alphaTest, transparent: baseline.transparent, opacity: baseline.opacity, depthWrite: baseline.depthWrite, side: baseline.side, fog: baseline.fog }), kind);
+        this.shadowMaterials.push({ mesh: object, baseline, experiment });
+        object.material = experiment; object.castShadow = true; object.receiveShadow = true;
+      });
+      this.sunLight.visible = true; this.sunLight.target.visible = true; this.fillLight.visible = true;
+    } else {
+      for (const entry of this.shadowMaterials) {
+        entry.mesh.material = entry.baseline; entry.mesh.castShadow = false; entry.mesh.receiveShadow = false;
+        entry.experiment.dispose();
+      }
+      this.shadowMaterials.length = 0;
+      this.sunLight.visible = false; this.sunLight.target.visible = false; this.fillLight.visible = false;
+    }
+    this.draw();
+  }
+
+  /** Renderer counters for the isolated lab; GPU allocation size is not exposed reliably by WebGL. */
+  get renderMetrics(): BlockRenderMetrics { return this.metrics; }
 
   /** What the world may act on now (or nothing). */
   hold(host: H | undefined): void { this.host = host; }
@@ -417,6 +479,9 @@ void main() { float down = 1. - vY; float a = down < .42 ? mix(top, middle, down
     this.resizeObserver?.disconnect();
     // The stage stays cached for the session; only this view's own objects go.
     this.scene.remove(this.stage.root);
+    for (const entry of this.shadowMaterials) { entry.mesh.material = entry.baseline; entry.experiment.dispose(); }
+    this.shadowMaterials.length = 0;
+    this.scene.remove(this.sunLight, this.sunLight.target, this.fillLight);
     this.dome.geometry.dispose(); (this.dome.material as MeshBasicMaterial).dispose();
     this.veil?.material.dispose();
     this.renderer.dispose();
@@ -513,14 +578,18 @@ void main() { float down = 1. - vY; float a = down < .42 ? mix(top, middle, down
     (this.dome.material as MeshBasicMaterial).color.setScalar(1 + this.flashLevel * 1.5);
     this.atmosphere();
     this.lastDrawn = this.view.performance.now();
-    const renderer = this.renderer;
-    renderer.outputColorSpace = LinearSRGBColorSpace; renderer.toneMapping = NoToneMapping;
-    renderer.shadowMap.enabled = false; renderer.localClippingEnabled = false;
+    const renderer = this.renderer, started = this.view.performance.now();
+    renderer.info.reset();
+    renderer.outputColorSpace = this.graphicsMode === 'shadow-poc' ? SRGBColorSpace : LinearSRGBColorSpace;
+    renderer.toneMapping = this.graphicsMode === 'shadow-poc' ? ACESFilmicToneMapping : NoToneMapping;
+    renderer.shadowMap.enabled = this.graphicsMode === 'shadow-poc';
+    renderer.shadowMap.type = this.graphicsMode === 'shadow-poc' ? PCFSoftShadowMap : PCFShadowMap;
+    renderer.localClippingEnabled = false;
     renderer.autoClear = true;
     renderer.render(this.scene, this.camera);
     renderer.autoClear = false;
     if (this.veil && !this.withoutGuests) renderer.render(this.veil.scene, this.veil.camera);
-    if (this.guests.size === 0 || this.withoutGuests) { renderer.autoClear = true; return; }
+    if (this.guests.size === 0 || this.withoutGuests) { renderer.autoClear = true; this.recordMetrics(started); return; }
     // The guests, over the world and in its depth, each in its own look.
     for (const guest of this.guests.keys()) {
       const look = guest.look ?? {};
@@ -532,6 +601,26 @@ void main() { float down = 1. - vY; float a = down < .42 ? mix(top, middle, down
     }
     for (const place of this.guests.values()) place.visible = true;
     renderer.autoClear = true;
+    this.recordMetrics(started);
+  }
+
+  private recordMetrics(started: number): void {
+    const renderer = this.renderer, now = this.view.performance.now();
+    if (!this.fpsWindow) this.fpsWindow = now;
+    this.fpsFrames++; this.frameMsSum += now - started; this.frameSamples++;
+    let fps = this.metrics.fps, frameMs = this.metrics.frameMs;
+    if (now - this.fpsWindow >= 1000) {
+      fps = this.fpsFrames * 1000 / (now - this.fpsWindow);
+      frameMs = this.frameSamples ? this.frameMsSum / this.frameSamples : 0;
+      this.fpsWindow = now; this.fpsFrames = 0;
+      this.frameMsSum = 0; this.frameSamples = 0;
+    }
+    this.metrics = {
+      mode: this.graphicsMode, drawCalls: renderer.info.render.calls, triangles: renderer.info.render.triangles,
+      geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures,
+      frameMs, fps, shadowMap: this.graphicsMode === 'shadow-poc',
+    };
+    renderer.info.reset();
   }
 
   /** The guests alone, on a clear background, from another camera: a picture for elsewhere. */
