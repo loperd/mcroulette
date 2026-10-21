@@ -29,13 +29,11 @@
 .item-card__actions button small { color: #7f9d8d; font-size: 11px; text-align: right; }
 .item-card__actions button:disabled { opacity: .45; cursor: default; }
 .item-card__actions .item-card__confirm { border-color: #f0a58f66; background: #f0a58f14; color: #f6c6b6; }
-.item-card__actions button:focus-visible { outline: 2px solid color-mix(in srgb, var(--case-accent, #86ead0) 75%, transparent); outline-offset: 2px; }
 .item-card__retired { margin-top: auto; color: #7d9487; font-size: 12px; }
 @media (hover: hover) and (pointer: fine) { .item-card__actions button:not(:disabled):hover { border-color: #8ce8bb44; background: #8ce8bb12; } }
 @media (max-width: 1000px) { .items-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 720px) { .items-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 420px) { .items-grid { grid-template-columns: 1fr; } }
-@media (forced-colors: active) { .item-card__actions button:focus-visible { outline: 2px solid Highlight; } }
 
 /* Inventory tabs: chests and the items they dropped. */
 .inventory-tabs { display: flex; gap: 4px; margin: -8px 0 22px; border-bottom: 1px solid #ffffff0c; }
@@ -43,7 +41,6 @@
 .inventory-tabs button span { margin-left: 8px; padding: 2px 7px; border-radius: 3px; background: #8ce8bb0c; color: #789a88; font-size: 12px; font-variant-numeric: tabular-nums; }
 .inventory-tabs button[aria-selected='true'] { color: #d6eadf; }
 .inventory-tabs button[aria-selected='true']::after { content: ''; position: absolute; inset: auto 8px -1px; height: 2px; background: var(--case-accent, #8ce8bb); }
-.inventory-tabs button:focus-visible { outline: 2px solid #8ce8bb80; outline-offset: -2px; }
 @media (hover: hover) and (pointer: fine) { .inventory-tabs button:hover { color: #c3dfd0; } }
 
 /* Header: the wallet and the player. */

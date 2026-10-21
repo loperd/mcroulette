@@ -1,3 +1,4 @@
+import { Mesh, MeshBasicMaterial, PointLight } from 'three';
 import { MineParts, type Block } from './parts.ts';
 
 export function fortress(p: MineParts): void {
@@ -30,6 +31,31 @@ export function fortress(p: MineParts): void {
   }
 }
 
+/**
+ * What the chest can stand on, as masonry cells (x, y, z, then width, height, depth): the landing
+ * in front of the gate, the stepped plinth in its middle the chest stands on, the bridge behind.
+ * The same cells are drawn and are the physics' ground, so the chest lands on stone that is there.
+ */
+const FOOTING: readonly (readonly [string, number, number, number, number, number, number])[] = [
+  ['chest-landing', -4, -3, -3, 9, 3, 7],
+  ['plinth-step', -2, 0, -2, 5, 1, 5],
+  ['plinth', -1, 1, -1, 3, 1, 3],
+  ['bridge-stone', -24, -3, -16, 49, 3, 9],
+];
+/** A masonry block is .96 of a cell, its cell centred on the integer point. */
+const FACE = .48;
+
+/** The top of the chest's plinth: where the chest stands. */
+export const PLINTH_TOP = 1 + FACE;
+
+/** The footing as boxes for the physics: each cell range one solid box, as tall as the stone shows. */
+export function footing(): { center: [number, number, number]; half: [number, number, number] }[] {
+  return FOOTING.map(([, x, y, z, w, h, d]) => ({
+    center: [x + (w - 1) / 2, y + (h - 1) / 2, z + (d - 1) / 2],
+    half: [(w - 1) / 2 + FACE, (h - 1) / 2 + FACE, (d - 1) / 2 + FACE],
+  }));
+}
+
 export function cavern(p: MineParts): void {
   const cave = p.group('03-cavern-rock-and-stalactites');
   for (const side of [-1, 1]) for (let z = -65; z < 20; z += 4) {
@@ -42,10 +68,17 @@ export function cavern(p: MineParts): void {
     p.masonry(cave, 'hanging-rock', x, 28 + p.rand() * 7, z, 2, 3 + Math.floor(p.rand() * 7), 2);
   }
   const floor = p.group('04-chest-dais-and-broken-ravine');
-  p.masonry(floor, 'chest-landing', -4, -3, -3, 9, 3, 7);
-  for (let x = -24; x <= 24; x++) for (let z = -16; z <= -8; z++) {
-    p.masonry(floor, 'bridge-stone', x, -3, z, 1, 3, 1);
+  for (const [name, ...cells] of FOOTING) p.masonry(floor, name, ...cells);
+  // A ring of glowing runes on the plinth's lower step lights the chest from below, two lanterns on
+  // the landing's front corners keep the middle of the scene out of the dark.
+  const rune = new MeshBasicMaterial({ color: '#5fe8f2' });
+  for (let i = 0; i < 12; i++) {
+    const a = i / 12 * Math.PI * 2, mark = new Mesh(p.box, rune);
+    mark.position.set(Math.cos(a) * 1.95, .5, Math.sin(a) * 1.95); mark.rotation.y = -a;
+    mark.scale.set(.22, .06, i % 3 ? .4 : .6); floor.add(mark);
   }
+  const glow = new PointLight('#4fd8f0', 45, 9, 1.6); glow.position.set(0, 1, 2.6); floor.add(glow);
+  for (const x of [-3.6, 3.6]) p.lantern(floor, x, -.17, 2.6, .8, true);
   for (let i = 0; i < 80; i++) {
     const x = (p.rand() - .5) * 52, z = p.rand() * 22 - 5;
     if (Math.abs(x) < 7) continue;

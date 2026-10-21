@@ -36,11 +36,9 @@
 .inventory__empty > span { font-size: 44px; color: #5c7a64; }
 .inventory__empty h2 { margin: 18px 0 10px; font-size: 22px; font-weight: 500; }
 .inventory__empty p { font-size: 12px; color: #7d9487; }
-.inventory input:focus-visible { outline: none; background-color: #82c59a14; box-shadow: inset 0 0 24px #82c59a0b, 0 0 14px #82c59a16; color: #d0eeda; }
 @media (hover: hover) and (pointer: fine) { .inventory-card__inspect:hover .inventory-card__preview { background-color: #8ce8bb03; } }
 @media (max-width: 850px) { .inventory__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .inventory__header { gap: 24px; } }
 @media (max-width: 560px) { .inventory { padding: 20px 16px 40px; } .inventory__header { align-items: start; gap: 16px; flex-direction: column; } .inventory__header nav { gap: 20px; } .inventory__intro { align-items: start; } .inventory__intro h1 { font-size: 28px; } .inventory__intro p:last-child { max-width: 210px; font-size: 12px; } .inventory__toolbar { align-items: stretch; flex-direction: column; gap: 10px; } .inventory__toolbar input { width: 100%; } .inventory__grid { gap: 10px; } .inventory-card__top { padding: 12px 10px 0; font-size: 10px; } .inventory-card__number { display: none; } .inventory-card__preview { height: 155px; } .inventory-card__info { padding: 0 10px 12px; } .inventory-card h2 { font-size: 14px; margin: 8px 0 14px; } .inventory-card__condition { font-size: 10px; } }
-@media (forced-colors: active) { .inventory input:focus-visible { outline: 2px solid Highlight; outline-offset: -2px; } }
 .inventory__tools { display: flex; align-items: center; gap: 12px; }
 .inventory__density { border: 0; background: transparent; color: #7e9d8a; font-size: 12px; min-height: 38px; cursor: pointer; }
 .inventory--compact .inventory__grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }

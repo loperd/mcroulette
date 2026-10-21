@@ -58,7 +58,11 @@ export interface Stage<H> {
   readonly sun?: { readonly direction: readonly [number, number, number]; readonly color: string; readonly scatter?: number };
   /** How strongly torchlight flickers, 0..~.2 (default .08). */
   readonly flicker?: number;
+  /** The light guests are lit with here: from above, from below, and the main light's colour. */
+  readonly light?: GuestLight;
 }
+
+export interface GuestLight { readonly sky: string; readonly ground: string; readonly key: string }
 
 export interface StageBuilder<H> { readonly id: string; build(seed: number): Stage<H> }
 export type GraphicsMode = 'baseline' | 'shadow-poc';
@@ -107,6 +111,8 @@ export interface GuestWorld {
   readonly anchor: Vec;
   /** How the world turned the guest about the vertical (radians) to show its front. */
   readonly turn: number;
+  /** The world's light, for the guest to light itself with (none: its own). */
+  readonly light?: GuestLight;
 }
 
 /**
@@ -429,7 +435,7 @@ void main() { float down = 1. - vY; float a = down < .42 ? mix(top, middle, down
       camera: view.camera,
       physics: view.physics(),
       sync: () => view.physicsWorld?.sync(view.view.performance.now()),
-      anchor, turn,
+      anchor, turn, light: this.stage.light,
     });
     this.draw();
   }

@@ -2,9 +2,12 @@ import { HemisphereLight } from 'three';
 import type { StageBuilder } from '../../../../../packages/blockworld/src/index.ts';
 import type { ChestHandles } from '../../../../application/ports/chest-handles.ts';
 import { MineParts } from './parts.ts';
-import { cavern, fortress, galleries } from './architecture.ts';
+import { cavern, footing, fortress, galleries, PLINTH_TOP } from './architecture.ts';
 import { miningProps } from './props.ts';
 import { atmosphere } from './atmosphere.ts';
+
+/** The cavern's light: a blue-grey from above, the rust of the rock below, the lanterns' warm glow. */
+const LIGHT = { sky: '#6c87b4', ground: '#724025', key: '#ffb37a' };
 
 /** An independent, entirely geometric stage for the miner chest. No backdrop image. */
 export const MINER_VAULT: StageBuilder<ChestHandles> = {
@@ -15,13 +18,15 @@ export const MINER_VAULT: StageBuilder<ChestHandles> = {
     cavern(p); fortress(p); galleries(p); miningProps(p);
     const living = atmosphere(p);
     p.flush();
-    p.root.add(new HemisphereLight('#6c87b4', '#724025', 1.7));
+    p.root.add(new HemisphereLight(LIGHT.sky, LIGHT.ground, 1.7));
     return {
       root: p.root, living, calm: .02,
       sky: { top: '#0a1221', horizon: '#182132', bottom: '#100c10' },
       fog: { color: '#202332', near: 27, far: 100 },
-      camera: { position: [0, 8.5, 25], target: [0, 5.2, -15], fov: 54, drift: .025, focus: [.5, .44] },
-      anchor: [0, -.5, 0], ground: { floor: -.5 }, flicker: .1,
+      // The chest falls onto its plinth in front of the gate (the physics' ground is the stone that is
+      // drawn) and is lit in the cavern's colours; the camera stands 9 blocks off, the gate framing it.
+      camera: { position: [0, PLINTH_TOP + 2.45, 9], target: [0, PLINTH_TOP + .75, 0], fov: 50, drift: .1, focus: [.5, .44] },
+      anchor: [0, PLINTH_TOP, 0], ground: { boxes: footing() }, light: LIGHT, flicker: .1,
     };
   },
 };

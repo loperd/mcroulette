@@ -34,6 +34,8 @@ export interface Body {
 export interface PhysicsGround {
   /** Solid blocks within `radius` of `around` (x, z) become the ground. */
   readonly blocks?: { readonly world: BlockWorld; readonly registry: BlockRegistry; readonly around: readonly [number, number]; readonly radius: number };
+  /** Boxes of the world's own solid things (a world built of meshes, not of a `BlockWorld`). */
+  readonly boxes?: readonly { readonly center: Vec; readonly half: Vec }[];
   /** A flat floor at this height, everywhere (for a world with no blocks to stand on). */
   readonly floor?: number;
 }
@@ -65,6 +67,7 @@ export class WorldPhysics {
           .setFrictionCombineRule(RAPIER.CoefficientCombineRule.Multiply).setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Multiply), fixed);
       if (ground.floor !== undefined) solid(0, ground.floor - .5, 0, [200, .5, 200]);
       if (ground.blocks) groundBlocks(ground.blocks, solid);
+      for (const box of ground.boxes ?? []) solid(...box.center, box.half);
     } catch (error) { physics.dispose(); throw error; }
     return physics;
   }

@@ -84,6 +84,9 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
   private worldTremor = { left: 0, total: 0, strength: 0 };
   private worldFlash = { left: 0, total: 0, peak: 0 };
   private worldLight?: PointLight;
+  /** The chest's own light, in the colours of the world it stands in. */
+  private skyLight?: HemisphereLight;
+  private keyLight?: DirectionalLight;
   private worldBase?: Vector3;
   private woken = false;
 
@@ -161,6 +164,7 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     if (!physics || this.world !== world) return;
     const carried = this.carried;
     this.carried = undefined;
+    this.lightBy(world);
     this.worldPhysics = new WorldBodyPhysics(physics, world, UNIT);
     this.physics = this.worldPhysics;
     // A chest that hung keeps hanging in the new world; only one that was falling goes on falling.
@@ -324,8 +328,11 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
       this.impactEffects = new ChestImpactEffects(scene, effectColor);
       this.breakageEffects = this.createBreakageEffects(scene);
       this.mixer = new AnimationMixer(this.assets.animationRoot);
-      scene.add(new HemisphereLight(0xffffff, 0x435846, 2));
+      const sky = new HemisphereLight(0xffffff, 0x435846, 2);
+      this.skyLight = sky;
+      scene.add(sky);
       const light = new DirectionalLight(0xffffff, 3);
+      this.keyLight = light;
       light.position.set(3, 6, -4);
       light.castShadow = true;
       light.shadow.mapSize.set(1024, 1024);
@@ -348,6 +355,7 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
       floor.rotation.x = -Math.PI / 2;
       floor.receiveShadow = true;
       scene.add(floor);
+      if (this.world) this.lightBy(this.world);
       this.scheduler = new FrameScheduler(browserFrameEnvironment(this.view, this.document),
         delta => this.frame(delta), () => this.stepper.reset(), error => this.runtimeFailure(error));
       this.prepared = true;
@@ -356,6 +364,14 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
       if (this.generation === generation) this.release();
       throw error;
     }
+  }
+
+  /** Lit as the world lights things: its sky, its ground, its main light (or white, the chest's own). */
+  private lightBy(world: GuestWorld): void {
+    const light = world.light;
+    this.skyLight?.color.set(light?.sky ?? 0xffffff);
+    this.skyLight?.groundColor.set(light?.ground ?? 0x435846);
+    this.keyLight?.color.set(light?.key ?? 0xffffff);
   }
 
   async preview(signal: AbortSignal): Promise<void> {

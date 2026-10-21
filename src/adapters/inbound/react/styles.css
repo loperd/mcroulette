@@ -16,7 +16,6 @@
 .screen-header__nav button[aria-current='page'] { color: #b8e8d0; }
 .screen-header__nav button[aria-current='page']::after { content: ''; position: absolute; inset: auto 0 -13px; height: 2px; background: #8ce8bb; box-shadow: 0 0 10px #8ce8bb45; }
 .screen-header__nav button span { margin-left: 6px; color: #769286; font-size: 12px; font-variant-numeric: tabular-nums; }
-.screen-header :focus-visible { outline: 2px solid #8ce8bb80; outline-offset: 3px; }
 .screen-header .sound-control { position: static; display: inline-flex; flex: 0 0 auto; align-items: center; min-height: 38px; padding: 7px 10px; border-color: #ffffff12; border-radius: 3px; background: #ffffff04; color: #91a69b; font-size: 12px; }
 .screen-header .sound-control:hover { color: #dce8e1; background: #ffffff08; }
 
@@ -481,8 +480,6 @@ h1 { margin-top: 8px; font-size: clamp(2rem, 6vw, 3.5rem); line-height: 1.1; let
    focuses its action) shows nothing; keyboard focus shows a ring in the case colour. Overriding
    colours on :focus made a focused button inherit the light text colour as its border. */
 button:focus:not(:focus-visible), [role='button']:focus:not(:focus-visible) { outline: none; }
-.btn:focus-visible { outline: 2px solid color-mix(in srgb, var(--case-accent, #86ead0) 75%, transparent); outline-offset: 3px; }
-@media (forced-colors: active) { .btn:focus-visible { outline: 2px solid Highlight; } }
 .app__content, .inventory__content, .case-directory__content {
   width: min(var(--content-max-width), 100%);
   margin-inline: auto;
@@ -559,3 +556,12 @@ body:has(.game-viewport .roulette-scene:not([hidden])) .scene-status { bottom: 8
   .roulette-caption span { width: 40px; height: 40px; }
 }
 @media (max-width: 560px) { :root { --page-gutter: 16px; } }
+
+/* Focus is a highlight, never an outline or a border: the element lights up in the case's colour.
+   The fill is an inset shadow, so it lies over any background without moving the layout. Forced
+   colours keep a system outline, the only focus mark they show. */
+:is(a, button, input, select, textarea, summary, [role='button'], [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 100vmax color-mix(in srgb, var(--case-accent, #86ead0) 14%, transparent), 0 0 20px color-mix(in srgb, var(--case-accent, #86ead0) 28%, transparent);
+}
+@media (forced-colors: active) { :focus-visible { outline: 2px solid Highlight; outline-offset: 2px; } }

@@ -1,6 +1,5 @@
 /* Chest merge: pick two chests of one type, read the server's chances, merge. */
 .inventory-card__merge { width: 100%; min-height: 34px; margin-top: 10px; padding: 7px 10px; border: 1px solid #8ce8bb1c; border-radius: 3px; background: #8ce8bb08; color: #c3dfd0; font: inherit; font-size: 12px; cursor: pointer; }
-.inventory-card__merge:focus-visible { outline: 2px solid color-mix(in srgb, var(--case-accent, #86ead0) 75%, transparent); outline-offset: 2px; }
 @media (hover: hover) and (pointer: fine) { .inventory-card__merge:hover { border-color: #8ce8bb44; background: #8ce8bb12; } }
 .inventory__notice { display: flex; align-items: center; gap: 12px; margin: -8px 0 16px; color: #a9d8bf; font-size: 13px; }
 .inventory__notice button { min-height: 32px; padding: 6px 12px; border: 1px solid #8ce8bb33; border-radius: 3px; background: #8ce8bb10; color: #c3dfd0; font: inherit; font-size: 12px; cursor: pointer; }
@@ -18,7 +17,6 @@
 .chest-merge__pick ul { display: grid; gap: 6px; max-height: 240px; margin: 10px 0 0; padding: 0; overflow: auto; list-style: none; }
 .chest-merge__pick button { display: grid; grid-template-columns: 14px 1fr auto; grid-template-areas: 'swatch name integrity' 'swatch features features'; gap: 2px 10px; align-items: center; width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid #8ce8bb18; border-radius: 3px; background: #17231e88; color: #c3dfd0; font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
 .chest-merge__pick button[aria-pressed='true'] { border-color: var(--case-accent, #86ead0); background: color-mix(in srgb, var(--case-accent, #86ead0) 10%, #17231e); }
-.chest-merge__pick button:focus-visible { outline: 2px solid color-mix(in srgb, var(--case-accent, #86ead0) 75%, transparent); outline-offset: 2px; }
 .chest-merge__pick button:disabled { opacity: .6; cursor: default; }
 .chest-merge__swatch { grid-area: swatch; width: 14px; height: 28px; border-radius: 2px; background: linear-gradient(180deg, var(--chest-color), var(--chest-accent)); }
 .chest-merge__name { grid-area: name; }
@@ -44,4 +42,3 @@
   .chest-merge__footer { flex-direction: column-reverse; }
   .chest-merge__footer .btn { width: 100%; }
 }
-@media (forced-colors: active) { .chest-merge__pick button:focus-visible, .inventory-card__merge:focus-visible { outline: 2px solid Highlight; } }

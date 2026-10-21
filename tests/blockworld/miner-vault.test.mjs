@@ -16,8 +16,13 @@ test('miner vault owns its components, a clear chest landing and batched masonry
   for (const name of ['01-fortress-and-portcullis', '02-receding-mine-tunnel', '03-cavern-rock-and-stalactites', '04-chest-dais-and-broken-ravine', '05-timber-galleries-and-railway', '06-minecarts-crates-and-tools', '07-miners-guild-banners', '08-molten-lava-cascade', '09-underground-waterfalls', '10-luminous-cyan-ore-veins', '11-ground-mist', '12-rising-embers']) {
     assert(stage.root.getObjectByName(name), name);
   }
-  assert.deepEqual(stage.anchor, [0, -.5, 0]);
-  assert.equal(stage.ground.floor, -.5);
+  // The chest stands on the plinth's top, and the physics' ground is the drawn stone, not a floor.
+  assert.deepEqual(stage.anchor, [0, 1.48, 0]);
+  assert.equal(stage.ground.floor, undefined);
+  const tops = stage.ground.boxes.filter(b => Math.abs(b.center[0]) < 1 && Math.abs(b.center[2]) < 1).map(b => b.center[1] + b.half[1]);
+  assert(tops.some(top => Math.abs(top - stage.anchor[1]) < 1e-9), 'a box of stone ends exactly under the chest');
+  assert(stage.light, 'the chest is lit in the cavern\'s colours');
+  assert(stage.camera.target[1] > stage.anchor[1], 'the camera aims at the chest');
   let meshes = 0, instances = 0;
   stage.root.traverse(o => { if (o.isMesh) meshes++; if (o instanceof InstancedMesh) instances += o.count; });
   assert(meshes < 300, 'repeated blocks must be instanced');
