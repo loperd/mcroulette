@@ -56,3 +56,33 @@ test('a runtime rebuilt in a loop and unhandled errors both end in the modal', a
   assert.equal(second.failsafe.visible, true); assert.equal(second.reports.at(-1).context.code, 'UNCAUGHT_ERROR');
   second.failsafe.dispose(); window.close(); second.window.close();
 });
+
+test('the close button exits the broken scene and the modal can open again', () => {
+  const { document, failsafe, homes } = setup();
+  failsafe.fatal('UNCAUGHT_ERROR', new Error('failed'));
+  const close = document.querySelector('[data-action="close"]');
+  assert.match(close.getAttribute('aria-label'), /Закрыть/);
+  close.querySelector('path').dispatchEvent(new document.defaultView.MouseEvent('click', { bubbles: true }));
+  assert.equal(homes(), 1);
+  assert.equal(failsafe.visible, false);
+  failsafe.fatal('STUCK_PHASE', new Error('failed again'));
+  assert.equal(failsafe.visible, true);
+  assert.equal(document.querySelectorAll('.failsafe').length, 1);
+  document.querySelector('[data-action="close"]').click();
+  assert.equal(homes(), 2);
+  failsafe.dispose();
+});
+
+test('the main menu action is hidden at home and re-evaluated for each new error', () => {
+  let home = true;
+  const { document, failsafe } = setup({ isHome: () => home });
+  failsafe.fatal('UNCAUGHT_ERROR', new Error('main menu failure'));
+  assert.equal(document.querySelector('[data-action="home"]').hidden, true);
+  assert.equal(document.activeElement, document.querySelector('[data-action="reload"]'));
+  document.querySelector('[data-action="close"]').click();
+  home = false;
+  failsafe.fatal('STUCK_PHASE', new Error('inner screen failure'));
+  assert.equal(document.querySelector('[data-action="home"]').hidden, false);
+  assert.equal(document.activeElement, document.querySelector('[data-action="home"]'));
+  failsafe.dispose();
+});

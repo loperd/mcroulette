@@ -36,7 +36,7 @@ k -n "$APP_NS" rollout status "deployment/$FULLNAME" --timeout=180s
 echo "=== 4/4 Check"
 k -n "$APP_NS" get vaultstaticsecret "$FULLNAME" -o jsonpath='{.status.conditions[*].type}{"\n"}' 2>/dev/null || true
 k -n "$APP_NS" get pods
-for path in /healthz /readyz /api/v1/auth/providers /api/v1/cases; do
+for path in /healthz /readyz /api/v1/cases; do
   printf '%-26s ' "$path"
   k -n "$APP_NS" run "probe-$RANDOM" --rm -i --restart=Never --quiet --image=curlimages/curl:8.11.1 -- \
     curl -sS -m 5 -w ' [%{http_code}]\n' "http://$FULLNAME:8080$path" 2>/dev/null | tail -c 300 || echo "failed"

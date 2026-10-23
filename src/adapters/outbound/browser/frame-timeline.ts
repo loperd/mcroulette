@@ -7,7 +7,10 @@ export class FrameTimeline {
   private disposed = false;
 
   constructor(environment: FrameEnvironment) {
-    this.scheduler = new FrameScheduler(environment, delta => this.task?.advance(Math.min(delta, 0.1)),
+    // These are time-based presentations, not physics steps. Dropping visible time makes a
+    // short transition take arbitrarily long under load and trips the phase watchdog.
+    // FrameScheduler already excludes hidden-tab time on resume.
+    this.scheduler = new FrameScheduler(environment, delta => this.task?.advance(delta),
       () => {}, error => this.cancel(error));
   }
 

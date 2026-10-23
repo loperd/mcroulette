@@ -44,8 +44,10 @@ const CHEST = [-1.5, GROUND + 1, 6.5] as const;
 const EYE = [CHEST[0], CHEST[1] + 2.45, CHEST[2] + 9] as const;
 /** The sky light at dusk: warm on the lit side of the world, as the game tints it at sunset. */
 const DUSK: [number, number, number] = [1, .78, .64];
+/** Where the square sun hangs; the sky, the atmosphere and the baked sun all take its bearing. */
+export const SUN_DISC = [-520, 78, -364] as const;
 /** The low evening sun (from where its square hangs, a little higher so shadows stay readable). */
-const SUN = { direction: [-.41, .5, -.76], color: [1, .8, .58], strength: .42, reach: 48 } as const;
+export const SUN = { direction: [-0.72, 0.47, -0.51], color: [1, .8, .58], strength: .42, reach: 48 } as const;
 
 function noise(x: number, z: number, seed: number): number {
   const s = (v: number) => { const h = Math.sin(v) * 43758.5453; return h - Math.floor(h); };
@@ -134,17 +136,17 @@ function build(seed: number, events: Parameters<typeof happenings>[2] = {}): Sta
   root.add(farRanges(seed, uv, texture));
   // The square sun of the game, low and warm.
   const sun = new Mesh(new PlaneGeometry(60, 60), new MeshBasicMaterial({ color: raw('#ffe7a6'), fog: false }));
-  sun.position.set(-300, 70, -560); sun.lookAt(0, 20, 0);
+  sun.position.set(...SUN_DISC); sun.lookAt(0, 20, 0);
   root.add(sun);
   return {
     root, living: [clouds(root, rand), storm(root), sheep(root, rand), fireflies(root, rand), leaves(root, rand),
       happenings(root, { ground: GROUND + 1, chest: CHEST, road: roadAt, tint: DUSK }, events)], calm: .1,
-    sun: { direction: [-300, 70, -560], color: '#ffb36e', scatter: .85 },
+    sun: { direction: SUN_DISC, color: '#ffb36e', scatter: .85 },
     sky: { top: '#2a3a78', horizon: '#f2a46e', bottom: '#3a3050' },
     fog: { color: '#d99a7e', near: 70, far: 330 },
     camera: { position: EYE, target: [CHEST[0], CHEST[1] + .75, CHEST[2]], fov: 50, drift: .12, focus: [.5, .44] },
     // The chest lands here, on the world's own blocks (they are its physics ground), seen by this camera.
-    anchor: CHEST,
+    anchor: CHEST, light: { sky: '#ffffff', ground: '#435846', key: '#ffffff', from: [-.5, .6, 1] },
     ground: { blocks: { world, registry: BLOCKS, around: [CHEST[0], CHEST[2]], radius: 12 } },
   };
 }

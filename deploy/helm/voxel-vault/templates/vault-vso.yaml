@@ -49,5 +49,10 @@ spec:
   rolloutRestartTargets:
     - kind: Deployment
       name: {{ include "voxel-vault.fullname" . }}
+    {{- if .Values.gateway.enabled }}
+    # The gateway reads SESSION_SECRET, INTERNAL_TOKEN and TG_OIDC_CLIENT_SECRET from this Secret.
+    - kind: Deployment
+      name: {{ include "voxel-vault.fullname" . }}-gateway
+    {{- end }}
   {{- end }}
 {{- end }}

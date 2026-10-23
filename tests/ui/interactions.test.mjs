@@ -516,7 +516,7 @@ test('reward screen keeps remaining stock visible', async () => {
   assert.match(document.querySelector('.prize__actions').textContent, /Вернуться в инвентарь/);
 });
 
-test('items screen: wallet, prices, a repair the wallet cannot afford, and sale asked twice', async () => {
+test('items screen: separate wallet affordability, prices, and sale asked twice', async () => {
   const { ItemsScreen } = await import(new URL('adapters/inbound/react/ItemsScreen.js', build));
   const item = { id: 'mine-pick', title: 'Кирка забойщика', image: '/pick.svg', rarity: 'rare', displayWeight: 0 };
   const offers = { repair: { resource: 'deep-ore', value: 16 }, salvage: { resource: 'deep-ore', value: 8 }, sell: { resource: 'currency', value: 20 }, mergeRepair: 70 };
@@ -528,9 +528,11 @@ test('items screen: wallet, prices, a repair the wallet cannot afford, and sale 
   const items = { getState: () => state, subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); }, async load() {},
     async work(id, action) { calls.push([action, id]); state = { ...state, items: state.items.filter(entry => entry.id !== id) }; listeners.forEach(listener => listener()); return offers[action]; },
     async merge(a, b) { calls.push(['merge', a, b]); return { kept: state.items[1], mended: false }; } };
-  await act(async () => { root.render(createElement(ItemsScreen, { items, navigation: { go() {} } })); });
-  const wallet = [...document.querySelectorAll('.wallet__entry')].map(entry => entry.textContent);
-  assert.ok(wallet.includes('◎Монеты3') && wallet.includes('◆Глубинная руда10') && wallet.includes('✦Осколки Края0'), wallet.join('|'));
+  const { AccountContext } = await import(new URL('adapters/inbound/react/AccountContext.js', build));
+  const walletState = { loaded: true, balances: [{ asset: 'deep-ore', available: '10' }], historyAvailable: true };
+  const wallet = { getState: () => walletState, subscribe: () => () => {}, async load() {} };
+  await act(async () => { root.render(createElement(AccountContext.Provider, { value: { items, wallet, player: { displayName: 'Miner', handle: 'miner' }, signOut() {} } }, createElement(ItemsScreen, { items, navigation: { go() {} } }))); });
+  assert.equal(document.querySelector('.wallet__entry'), null, 'balances belong to the Wallet page');
   const card = id => [...document.querySelectorAll('.item-card')][state.items.findIndex(entry => entry.id === id)];
   const button = (id, label) => [...card(id).querySelectorAll('button')].find(entry => entry.textContent.startsWith(label));
   assert.ok(button('a', 'Починить').disabled, 'a repair costing 16 with 10 in the wallet');
@@ -549,24 +551,45 @@ test('items screen: wallet, prices, a repair the wallet cannot afford, and sale 
   assert.equal(document.querySelectorAll('.item-card').length, 2);
 });
 
-test('the header shows the coins and the player; the wallet lists materials, the profile signs out', async () => {
+test('the header uses Wallet and opens its section; the profile signs out', async () => {
   const { ScreenHeader } = await import(new URL('adapters/inbound/react/ScreenHeader.js', build));
   const { AccountContext } = await import(new URL('adapters/inbound/react/AccountContext.js', build));
   const state = { loaded: true, items: [], balances: { currency: 120, 'deep-ore': 7 } };
   const went = [], player = { id: 'u', handle: 'miner', displayName: 'Шахтёр', roles: [] };
   let signedOut = 0;
-  const account = { player, items: { getState: () => state, subscribe: () => () => {} }, signOut: () => signedOut++ };
+  const walletState = { loaded: true, balances: [{ asset: 'currency', available: '120' }] };
+  const account = { player, items: { getState: () => state, subscribe: () => () => {} }, wallet: { getState: () => walletState, subscribe: () => () => {} }, signOut: () => signedOut++ };
   await act(async () => { root.render(createElement(AccountContext.Provider, { value: account },
     createElement(ScreenHeader, { navigation: { go: route => went.push(route.screen) }, active: 'inventory' }))); });
   assert.ok(![...document.querySelectorAll('.screen-header__nav button')].some(button => button.textContent.startsWith('Предметы')), 'items live inside the inventory');
   const wallet = document.querySelector('.header-chip--wallet');
   assert.equal(wallet.textContent, '◎120');
   await act(async () => { wallet.click(); });
-  assert.match(document.querySelector('.header-wallet').textContent, /Глубинная руда7/);
-  await act(async () => { document.querySelector('.header-popover__action').click(); });
-  assert.deepEqual(went, ['items']);
+  assert.deepEqual(went, ['wallet']);
   await act(async () => { document.querySelector('.header-chip--profile').click(); });
   assert.match(document.querySelector('.header-profile__handle').textContent, /@miner/);
   await act(async () => { [...document.querySelectorAll('.header-popover__action')].find(button => button.textContent === 'Выйти').click(); });
   assert.equal(signedOut, 1);
+});
+
+test('Wallet shows exact funds, retries history and changes currency without stale rows', async () => {
+  const { WalletScreen } = await import(new URL('adapters/inbound/react/WalletScreen.js', build));
+  const state = { loaded: true, historyAvailable: true, balances: [{ asset:'currency',posted:'9007199254740993',held:'4',available:'9007199254740989' },{asset:'end-shards',posted:'20',held:'0',available:'20'}] };
+  let fail = true;
+  const calls = [];
+  const entry = { id:'j1',asset:'currency',direction:'credit',units:'9007199254740993',purpose:'opening_balance',reference:'opening',at:'2026-10-23T00:00:00Z' };
+  const wallet = { getState:()=>state,subscribe:()=>()=>{},async load(){},async history(asset,cursor){
+    calls.push([asset,cursor]);if(fail){fail=false;throw new Error('offline');}
+    return asset==='currency'?{entries:cursor?[{...entry,id:'j2',units:'4',purpose:'spending',direction:'debit'}]:[entry],...(cursor?{}:{nextCursor:'next'})}:{entries:[]};
+  }};
+  await act(async()=>{root.render(createElement(WalletScreen,{wallet,navigation:{go(){}}}));});
+  assert.match(document.querySelector('[role="alert"]').textContent,/Не удалось загрузить историю/);
+  assert.ok(document.querySelector('.wallet-screen__balances').textContent.replace(/\s/g,'').includes('9007199254740989'));
+  await act(async()=>{[...document.querySelectorAll('button')].find(b=>b.textContent==='Повторить').click();});
+  assert.match(document.querySelector('.wallet-screen__transactions').textContent,/Начальный баланс/);
+  await act(async()=>{[...document.querySelectorAll('button')].find(b=>b.textContent==='Показать ещё').click();});
+  assert.equal(document.querySelectorAll('.wallet-screen__transactions li').length,2);
+  await act(async()=>{document.querySelectorAll('.wallet-screen__balance')[1].click();});
+  assert.equal(document.querySelectorAll('.wallet-screen__transactions li').length,0);
+  assert.deepEqual(calls.at(-1),['end-shards',undefined]);
 });

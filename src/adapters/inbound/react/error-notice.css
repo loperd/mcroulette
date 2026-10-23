@@ -19,8 +19,25 @@
 .error-notice__title { margin: 0; color: #f4e9e6; font-size: clamp(20px, 2.4vw, 26px); font-weight: 600; letter-spacing: -.02em; }
 .error-notice__text { color: #b09c97; font-size: 14px; line-height: 1.45; }
 .error-notice__text p { margin: 0; }
+.error-notice__actions:empty { display: none; }
 .error-notice__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 14px; }
-.error-notice__actions .btn { min-width: 160px; }
+/* Error actions share one palette, independent of the selected chest. */
+.error-notice__actions .btn {
+  --btn: #c5483d; --btn-deep: #a82f28;
+  min-width: 160px; color: #fff5f2; border-color: #ff9a8f33;
+  background: linear-gradient(180deg, var(--btn), var(--btn-deep));
+  box-shadow: 0 10px 24px -10px #2a0a07;
+}
+.error-notice__close {
+  position: absolute; top: 8px; right: 8px; display: grid; place-items: center; width: 44px; height: 44px; padding: 0;
+  color: #ff9a8f; background: #e3665a14; border: 1px solid #e3665a33; border-radius: 6px; cursor: pointer;
+  transition: background-color 140ms ease-out, color 140ms ease-out, border-color 140ms ease-out;
+}
+.error-notice__close:active { background: #e3665a33; }
+.error-notice__close:focus-visible, .error-notice__actions .btn:focus-visible { outline: 2px solid #ff9a8f; outline-offset: 3px; }
+@media (hover: hover) and (pointer: fine) {
+  .error-notice__close:hover { color: #fff5f2; background: #e3665a26; border-color: #e3665a66; }
+}
 .error-notice--compact .error-notice__panel { padding: 24px 20px 20px; }
 .error-notice--compact .error-notice__mark { width: 30px; height: 30px; font-size: 14px; }
 @keyframes error-notice-in { from { opacity: 0; transform: translateY(8px) scale(.985); } to { opacity: 1; transform: none; } }

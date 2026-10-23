@@ -1,0 +1,171 @@
+import { AdditiveBlending, BoxGeometry, BufferAttribute, BufferGeometry, Color, Group, Line, LineBasicMaterial, Mesh, MeshBasicMaterial, Points, PointsMaterial, Vector3 } from 'three';
+import { BlockRegistry, BlockWorld, blockAtlas, computeLight, meshWorld, worldMeshes, type Living, type Stage, type StageBuilder } from '../../../../packages/blockworld/src/index.ts';
+import type { ChestHandles } from '../../../application/ports/chest-handles.ts';
+
+type EndActor = Living<ChestHandles>;
+
+/** The End: broken end-stone shelves frame a clear floating chest, with obsidian spires,
+ * chorus growth, drifting motes and distant Endermen. Geometry is generated locally. */
+const BLOCKS = new BlockRegistry([
+  { name: 'end_stone', textures: { all: 'end_stone' } },
+  { name: 'obsidian', textures: { all: 'obsidian' } },
+  { name: 'chorus', textures: { all: 'chorus' } },
+  { name: 'bloom', textures: { all: 'chorus_flower' }, light: 12 },
+]);
+const B = { Stone: BLOCKS.id('end_stone'), Obsidian: BLOCKS.id('obsidian'),
+  Chorus: BLOCKS.id('chorus'), Bloom: BLOCKS.id('bloom') };
+const SX = 128, SY = 56, SZ = 128, OX = -64, OZ = -92, FLOOR = 14;
+/** Where the chest lands: the flat top of a small island in the middle; the camera 9 blocks off. */
+const CHEST = [.5, FLOOR + 1, .5] as const;
+const EYE = [CHEST[0], CHEST[1] + 2.45, CHEST[2] + 9] as const;
+
+function build(seed: number): Stage<ChestHandles> {
+  let state = seed * 104729 + 97;
+  const rand = () => { state = (state * 16807) % 2147483647; return state / 2147483647; };
+  const grid = new BlockWorld(SX, SY, SZ, [OX, 0, OZ]);
+  const heightAt = (x: number, z: number, cx: number, cz: number, rx: number, rz: number) => {
+    const d = Math.hypot((x - cx) / rx, (z - cz) / rz);
+    if (d >= 1) return -1;
+    return Math.max(2, Math.round(9 + (1 - d) * 8 + (fbm(x / 9, z / 9, seed) - .5) * 4));
+  };
+  // A broken ring of islands surrounds the camera, keeping the chest silhouette unobstructed.
+  const islands = [
+    [-40, -42, 24, 19], [40, -52, 25, 20], [-45, 12, 22, 17], [44, 7, 23, 18],
+    [-5, -88, 43, 21], [2, 32, 37, 19],
+  ] as const;
+  for (let gx = 0; gx < SX; gx++) for (let gz = 0; gz < SZ; gz++) {
+    const x = gx + OX, z = gz + OZ;
+    // Leave a broad aperture around the chest and the center line of sight.
+    if (Math.abs(x) < 17 && z > -37 && z < 14) {
+      // The chest's own island: a small pedestal over the void, ending well before the camera.
+      const d = Math.hypot(x / 4, z / 3.5);
+      if (d >= 1) continue;
+      const top = d < .7 ? FLOOR : FLOOR - 1;
+      for (let y = Math.floor(top - 2 - Math.pow(1 - d, .6) * 10); y <= top; y++) grid.set(gx, y, gz, B.Stone);
+      continue;
+    }
+    let h = -1, islandEdge = 1;
+    for (const [cx, cz, rx, rz] of islands) {
+      const candidate = heightAt(x, z, cx, cz, rx, rz);
+      if (candidate > h) { h = candidate; islandEdge = Math.hypot((x - cx) / rx, (z - cz) / rz); }
+    }
+    if (h < 0) continue;
+    // Jagged hanging undersides keep each island floating instead of reading as a tall wall.
+    const underside = Math.max(0, Math.floor(h - 5 - Math.pow(1 - islandEdge, .55) * 13));
+    for (let y = underside; y <= h; y++) {
+      grid.set(gx, y, gz, B.Stone);
+    }
+  }
+  const pillars: { x: number; z: number; h: number }[] = [[-47, -43, 31], [43, -53, 38], [-48, 9, 25], [48, 4, 33], [-5, -99, 42], [12, 29, 24]]
+    .map(([x, z, h]) => ({ x: x!, z: z!, h: h! }));
+  for (const p of pillars) {
+    const gx = p.x - OX, gz = p.z - OZ;
+    const [cx, cz, rx, rz] = nearestIsland(p.x, p.z, islands);
+    const base = Math.max(2, heightAt(p.x, p.z, cx, cz, rx, rz));
+    const radius = p.h > 35 ? 2 : 1;
+    for (let y = base; y < base + p.h; y++) for (let dx = -radius; dx <= radius; dx++) for (let dz = -radius; dz <= radius; dz++) {
+      if (dx * dx + dz * dz <= radius * radius + 1) grid.set(gx + dx, y, gz + dz, B.Obsidian);
+    }
+    // Crystal crown on each spire.
+    grid.set(gx, base + p.h, gz, B.Bloom);
+    for (const [dx, dz] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) grid.set(gx + dx, base + p.h - 1, gz + dz, B.Bloom);
+  }
+  // Chorus plants are sparse silhouettes on the outer islands.
+  for (let i = 0; i < 54; i++) {
+    const x = Math.floor(rand() * 104 - 52), z = Math.floor(rand() * 112 - 78);
+    if (Math.abs(x) < 22 && z > -45 && z < 16) continue;
+    const island = islands.find(([cx, cz, rx, rz]) => Math.hypot((x - cx) / rx, (z - cz) / rz) < .82);
+    if (!island) continue;
+    const h = heightAt(x, z, island[0], island[1], island[2], island[3]), gx = x - OX, gz = z - OZ;
+    if (h < 1 || grid.get(gx, h, gz) !== B.Stone || rand() < .25) continue;
+    const stalk = 3 + Math.floor(rand() * 4);
+    for (let y = 1; y <= stalk; y++) grid.set(gx, h + y, gz, B.Chorus);
+    for (const [dx, dz] of [[-2, 0], [2, 0], [0, -2], [0, 2]] as const) {
+      if (rand() > .55) { for (let j = 1; j <= 2; j++) grid.set(gx + dx * j / 2, h + stalk - j, gz + dz * j / 2, B.Chorus); grid.set(gx + dx, h + stalk - 2, gz + dz, B.Bloom); }
+    }
+    grid.set(gx, h + stalk + 1, gz, B.Bloom);
+  }
+  computeLight(grid, BLOCKS);
+  const { texture, uv } = blockAtlas();
+  const root = new Group();
+  root.add(...worldMeshes(meshWorld(grid, BLOCKS, { uv, sky: [.58, .55, .7], glow: [.72, .5, 1], minimum: .08,
+    sun: { direction: [-.45, .72, .52], color: [.72, .65, .85], strength: .25, reach: 24 },
+  }), texture));
+  const living: EndActor[] = [crystalBeams(root, pillars), endermen(root), driftingMotes(root, rand)];
+  return {
+    root, living, calm: .025,
+    sky: { top: '#080b18', horizon: '#28213b', bottom: '#111322' },
+    fog: { color: '#211d35', near: 45, far: 190 },
+    camera: { position: EYE, target: [CHEST[0], CHEST[1] + .75, CHEST[2]], fov: 50, drift: .1, focus: [.5, .44] },
+    anchor: CHEST, light: { sky: '#d8cdf0', ground: '#3a3350', key: '#efe6ff', from: [-.4, .7, 1] },
+    ground: { blocks: { world: grid, registry: BLOCKS, around: [CHEST[0], CHEST[2]], radius: 6 } },
+  };
+}
+
+/** Smooth, seeded terrain variation; independent of the removed voxel renderer. */
+export function fbm(x: number, z: number, seed: number): number {
+  const hash = (a: number, b: number, octave: number) => {
+    const value = Math.sin(a * 127.1 + b * 311.7 + seed * 74.7 + octave * 19.3) * 43758.5453;
+    return value - Math.floor(value);
+  };
+  const smooth = (t: number) => t * t * (3 - 2 * t);
+  const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+  let sum = 0, weight = 1, total = 0;
+  for (let octave = 0; octave < 4; octave++) {
+    const ix = Math.floor(x), iz = Math.floor(z), fx = smooth(x - ix), fz = smooth(z - iz);
+    const top = lerp(hash(ix, iz, octave), hash(ix + 1, iz, octave), fx);
+    const bottom = lerp(hash(ix, iz + 1, octave), hash(ix + 1, iz + 1, octave), fx);
+    sum += lerp(top, bottom, fz) * weight; total += weight;
+    x *= 2; z *= 2; weight *= .5;
+  }
+  return sum / total;
+}
+
+function nearestIsland(x: number, z: number, islands: readonly (readonly [number, number, number, number])[]): [number, number, number, number] {
+  return [...islands].sort((a, b) => Math.hypot((x - a[0]) / a[2], (z - a[1]) / a[3]) - Math.hypot((x - b[0]) / b[2], (z - b[1]) / b[3]))[0]! as [number, number, number, number];
+}
+
+function crystalBeams(root: Group, pillars: readonly { x: number; z: number; h: number }[]): EndActor {
+  const material = new LineBasicMaterial({ color: '#bf8cff', transparent: true, opacity: .08, blending: AdditiveBlending, depthWrite: false });
+  const beams: Line[] = [];
+  for (let i = 0; i < pillars.length; i++) for (let j = i + 1; j < pillars.length; j++) {
+    const a = pillars[i]!, b = pillars[j]!;
+    if (Math.hypot(a.x - b.x, a.z - b.z) > 100) continue;
+    const geometry = new BufferGeometry().setFromPoints([new Vector3(a.x, a.h + 10, a.z), new Vector3(b.x, b.h + 10, b.z)]);
+    const line = new Line(geometry, material);
+    root.add(line); beams.push(line);
+  }
+  return { update(world) { material.opacity = .035 + (Math.sin(world.time * .45) + 1) * .025; } };
+}
+
+function endermen(root: Group): EndActor {
+  const mat = new MeshBasicMaterial({ color: '#171522' }), eye = new MeshBasicMaterial({ color: '#dc70ff' });
+  const actors: { group: Group; x: number; y: number; z: number; phase: number; speed: number }[] = [];
+  for (let i = 0; i < 4; i++) {
+    const group = new Group();
+    const body = new Mesh(new BoxGeometry(.65, 1.7, .42), mat); body.position.y = 1.5; group.add(body);
+    for (const x of [-.15, .15]) { const e = new Mesh(new BoxGeometry(.1, .07, .035), eye); e.position.set(x, 1.82, .22); group.add(e); }
+    for (const x of [-.2, .2]) { const leg = new Mesh(new BoxGeometry(.16, 1.05, .16), mat); leg.position.set(x, .52, 0); group.add(leg); }
+    const x = i % 2 ? 43 : -43, z = -58 + i * 17;
+    const y = i % 2 ? 12 : 10;
+    group.position.set(x, y, z); root.add(group); actors.push({ group, x, y, z, phase: i * 1.8, speed: i % 2 ? -.45 : .38 });
+  }
+  return { update(world, dt) {
+    for (const a of actors) {
+      a.phase += dt * a.speed; a.group.position.x = a.x + Math.sin(a.phase) * 4; a.group.position.z = a.z + Math.cos(a.phase * .7) * 3;
+      a.group.rotation.y = Math.sin(a.phase) * .4; a.group.position.y = a.y + Math.sin(world.time * 1.2 + a.phase) * .12;
+      if (Math.sin(world.time * .13 + a.phase) > .997) { a.group.visible = false; }
+      else a.group.visible = true;
+    }
+  } };
+}
+
+export function driftingMotes(root: Group, rand: () => number): EndActor {
+  const count = 100, positions = new Float32Array(count * 3), geometry = new BufferGeometry();
+  for (let i = 0; i < count; i++) positions.set([(rand() - .5) * 150, 5 + rand() * 42, -rand() * 155], i * 3);
+  geometry.setAttribute('position', new BufferAttribute(positions, 3));
+  const points = new Points(geometry, new PointsMaterial({ color: new Color('#aa8bd8'), size: .42, transparent: true, opacity: .55, depthWrite: false, blending: AdditiveBlending })); root.add(points);
+  return { update(world, dt) { for (let i = 0; i < count; i++) { const k = i * 3; positions[k] = positions[k]! + Math.sin(world.time * .4 + i) * dt * .25; positions[k + 1] = positions[k + 1]! + Math.sin(world.time * .7 + i * 2) * dt * .12; } geometry.attributes.position!.needsUpdate = true; } };
+}
+
+export const END_3D: StageBuilder<ChestHandles> = { id: 'end-3d', build };

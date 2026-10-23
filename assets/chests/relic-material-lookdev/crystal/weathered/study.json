@@ -1,0 +1,40 @@
+{
+  "family": "crystal",
+  "variant": "weathered",
+  "asset": "assets/chests/relic-material-lookdev/crystal/weathered/relic.glb",
+  "sha256": "1dd1efb2d2e95616a279c4423fccce00eb46840fe60c9f3238fab8eea1afee57",
+  "sourceParts": [
+    "Body.HeartCrystal",
+    "Body.ReliquaryFrame",
+    "Body.ReliquaryRecess",
+    "Body.CrystalClaw.-1.4.12",
+    "Body.CrystalClaw.1.4.12",
+    "Body.CrystalClaw.-1.7.62",
+    "Body.CrystalClaw.1.7.62"
+  ],
+  "translationAuthorUnits": [
+    -0.0,
+    10.25,
+    7.154999999999999
+  ],
+  "camera": {
+    "direction": [
+      1.2,
+      0.55,
+      -2.2
+    ],
+    "scale": 0.57,
+    "target": [
+      0,
+      1.0171875000000001,
+      0
+    ]
+  },
+  "atlas": [
+    256,
+    256
+  ],
+  "texelsPerBlock": 256,
+  "focusMaterial": 4,
+  "purpose": "isolated material study, not a production chest or animation asset"
+}

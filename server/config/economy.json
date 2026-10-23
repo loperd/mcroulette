@@ -1,5 +1,5 @@
 {
-  "revision": "2026-10-19.1",
+  "revision": "2026-10-22.relic-1",
   "rarities": ["common", "uncommon", "rare", "epic", "legendary"],
   "severities": ["slight", "heavy", "broken"],
   "parts": ["body", "lid", "latch"],
@@ -14,7 +14,8 @@
     { "id": "overworld", "material": "travel-scraps" },
     { "id": "deep-mines", "material": "deep-ore" },
     { "id": "the-end", "material": "end-shards" },
-    { "id": "dragon-reach", "material": "dragon-scales" }
+    { "id": "dragon-reach", "material": "dragon-scales" },
+    { "id": "quantum-vault", "material": "quantum-shards" }
   ],
 
   "types": [
@@ -73,7 +74,85 @@
       { "id": "dragon-eye", "title": "Глаз дракона", "rarity": "rare", "glyph": "eye" },
       { "id": "dragon-slayer", "title": "Меч, сразивший дракона", "rarity": "epic", "glyph": "sword" },
       { "id": "dragon-egg", "title": "Осколок драконьего яйца", "rarity": "legendary", "glyph": "egg" }
-    ]}
+    ]},
+    {
+      "id": "relic",
+      "collection": "quantum-vault",
+      "pool": [
+        {
+          "id": "relic-core-fragment",
+          "title": "Осколок реакторного ядра",
+          "rarity": "common",
+          "glyph": "crystal"
+        },
+        {
+          "id": "relic-relay",
+          "title": "Сигнальный ретранслятор",
+          "rarity": "common",
+          "glyph": "lantern"
+        },
+        {
+          "id": "relic-star-chart",
+          "title": "Карта звёздных маршрутов",
+          "rarity": "common",
+          "glyph": "map"
+        },
+        {
+          "id": "relic-insulation",
+          "title": "Плащ из вакуумной ткани",
+          "rarity": "common",
+          "glyph": "cloak"
+        },
+        {
+          "id": "relic-probe",
+          "title": "Разведывательный зонд",
+          "rarity": "common",
+          "glyph": "eye"
+        },
+        {
+          "id": "relic-navigator",
+          "title": "Квантовый навигатор",
+          "rarity": "uncommon",
+          "glyph": "compass"
+        },
+        {
+          "id": "relic-capacitor",
+          "title": "Кристаллический накопитель",
+          "rarity": "uncommon",
+          "glyph": "crystal"
+        },
+        {
+          "id": "relic-cutter",
+          "title": "Плазменный резак",
+          "rarity": "uncommon",
+          "glyph": "pickaxe"
+        },
+        {
+          "id": "relic-phase-blade",
+          "title": "Фазовый клинок",
+          "rarity": "rare",
+          "glyph": "sword"
+        },
+        {
+          "id": "relic-matrix",
+          "title": "Матрица памяти предтеч",
+          "rarity": "rare",
+          "glyph": "eye"
+        },
+        {
+          "id": "relic-diadem",
+          "title": "Диадема сингулярности",
+          "rarity": "epic",
+          "glyph": "crown"
+        },
+        {
+          "id": "relic-quantum-heart",
+          "title": "Сердце сингулярности",
+          "rarity": "legendary",
+          "glyph": "heart"
+        }
+      ]
+    }
   ],
 
   "groups": [

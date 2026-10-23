@@ -1,6 +1,6 @@
 import { ACESFilmicToneMapping, Box3, DirectionalLight, HemisphereLight, Mesh, PCFSoftShadowMap, PerspectiveCamera, PlaneGeometry, Scene,
   ShadowMaterial, WebGLRenderer } from 'three';
-import RAPIER from '@dimforge/rapier3d-compat';
+import { physicsReady } from '../../packages/blockworld/src/physics.ts';
 import { ENDER_CASE } from '../config/cases.ts';
 import { loadChestAssets } from '../adapters/outbound/chest/chest-assets.ts';
 import { BEAM_AT, BURST_AT, ChestBreakageEffects } from '../adapters/outbound/chest/chest-breakage-effects.ts';
@@ -38,7 +38,7 @@ const scenarios = [
     mods: [{ id: 'snow', intensity: 1 }, { id: 'end-crystals', intensity: 1 }, { id: 'vines', intensity: .9 }, { id: 'cobweb', intensity: 1 }] },
 ] as const;
 
-await RAPIER.init();
+await physicsReady();
 const width = 360, height = 300;
 const renderer = new WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
 renderer.setSize(width, height, false); renderer.toneMapping = ACESFilmicToneMapping; renderer.toneMappingExposure = 1.1;

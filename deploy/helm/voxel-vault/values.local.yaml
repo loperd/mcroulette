@@ -7,9 +7,29 @@ env:
   FRONTEND_URL: "https://vault.loper.me/"
   WEBAUTHN_RP_ID: "vault.loper.me"
   WEBAUTHN_ORIGINS: "https://vault.loper.me"
+  ALLOWED_ORIGINS: "https://vault.loper.me"
   COOKIE_SECURE: "true"
   # BotFather: trusted origin https://vault.loper.me, this redirect URI.
   TELEGRAM_REDIRECT_URL: "https://vault.loper.me/api/v1/auth/telegram/callback"
+
+gateway:
+  config:
+    telegramAuth:
+      redirectUrl: "https://vault.loper.me/api/v1/auth/telegram/callback"
+    cors:
+      allowedOrigins:
+        - https://vault.loper.me
+        - http://localhost:5173
+        - http://localhost:4173
+
+# The API service has no public route; this ingress targets the gateway service.
+ingress:
+  enabled: true
+  className: nginx
+  host: api-vault.loper.me
+  sslRedirect: false
+  hsts: false
+
 
 # Local Vault (dev mode, in-cluster, ns vault) through VSO: KV-v2 secret/local/voxel-vault.
 secrets:

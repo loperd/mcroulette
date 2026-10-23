@@ -1,7 +1,8 @@
 # Checks on every push to master and every pull request; a RELEASE deploys. A release is a semver
 # tag without a prefix, as the repository's earlier tags (git tag 0.3.0 && git push origin 0.3.0): the Go API to the VPS cluster (Helm,
 # values.prod.yaml), then the frontend to Cloudflare (Worker + static assets). The image is tagged
-# with the release, so a rollback is re-running the previous tag's workflow.
+# with the release. After economy cutover, recovery requires a compatible context image;
+# redeploying an older legacy tag cannot undo the permanent source fence or ledger imports.
 #
 # Repository secrets (Settings → Secrets and variables → Actions):
 #   KUBECONFIG_B64         deploy/bootstrap/make-kubeconfig.sh output (SA voxel-vault-deployer)
@@ -27,6 +28,17 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: economy_test
+          POSTGRES_PASSWORD: economy_test
+          POSTGRES_DB: legacy_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U economy_test -d legacy_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -38,8 +50,11 @@ jobs:
       - run: npm run test:physics
       - uses: actions/setup-go@v5
         with: { go-version-file: server/go.mod, cache-dependency-path: server/go.sum }
-      - run: go vet ./... && go test ./...
+      - run: go vet ./... && go test -race ./...
         working-directory: server
+        env:
+          TEST_DATABASE_URL: postgres://economy_test:economy_test@localhost:5432/legacy_test?sslmode=disable
+          TEST_WALLET_DATABASE_URL: postgres://economy_test:economy_test@localhost:5432/postgres?sslmode=disable
       # Helm 3, as loncha (alpine/helm:3.18.3): Helm 4's server-side apply rejects fields the
       # cluster's older VSO CRDs do not declare (VaultStaticSecret.spec.destination.excludeRaw).
       - uses: azure/setup-helm@v4
@@ -68,6 +83,17 @@ jobs:
       # cluster's older VSO CRDs do not declare (VaultStaticSecret.spec.destination.excludeRaw).
       - uses: azure/setup-helm@v4
         with: { version: v3.18.3 }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Apply Identity and Security migrations
+        env:
+          KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
+        run: |
+          umask 077
+          printf '%s' "$KUBECONFIG_B64" | base64 -d > "$RUNNER_TEMP/kubeconfig"
+          KUBECONFIG="$RUNNER_TEMP/kubeconfig" python3 deploy/migrate-identity.py \
+            --image "$IMAGE:$GITHUB_REF_NAME" --release "$GITHUB_REF_NAME"
+          rm -f "$RUNNER_TEMP/kubeconfig"
       - name: helm upgrade
         env:
           KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}

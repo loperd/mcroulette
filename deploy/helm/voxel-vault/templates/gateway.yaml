@@ -1,0 +1,127 @@
+{{- if .Values.gateway.enabled }}
+{{- if ne .Values.service.type "ClusterIP" }}
+{{- fail "the backend service must be ClusterIP when the gateway is enabled" }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "voxel-vault.fullname" . }}-gateway
+data:
+  gateway.yaml: |
+    {{- toYaml .Values.gateway.config | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "voxel-vault.fullname" . }}-gateway
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ include "voxel-vault.name" . }}-gateway
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: {{ .Values.gateway.port }}
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "voxel-vault.fullname" . }}-gateway
+spec:
+  replicas: {{ .Values.gateway.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "voxel-vault.name" . }}-gateway
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "voxel-vault.name" . }}-gateway
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      annotations:
+        checksum/gateway: {{ toJson .Values.gateway | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "voxel-vault.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: gateway
+          image: "{{ .Values.gateway.image.repository }}:{{ .Values.gateway.image.tag }}"
+          imagePullPolicy: {{ .Values.gateway.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.gateway.port }}
+          env:
+            - name: PORT
+              value: {{ .Values.gateway.port | quote }}
+            - name: GATEWAY_CONFIG
+              value: /etc/gateway/gateway.yaml
+            - name: LONCHA_UPSTREAM_URL
+              value: "http://{{ include "voxel-vault.fullname" . }}:{{ .Values.service.port }}"
+            - name: GATEWAY_TOKEN_ISSUER
+              value: "{{ include "voxel-vault.fullname" . }}-gateway"
+            - name: GATEWAY_TOKEN_AUDIENCE
+              value: "{{ include "voxel-vault.fullname" . }}-api"
+            - name: GATEWAY_SESSION_COOKIE
+              value: vv_gateway_session
+            - name: GATEWAY_REFRESH_COOKIE
+              value: vv_gateway_refresh
+            - name: LONCHA_SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "gateway.existingSecret is required" .Values.gateway.existingSecret }}
+                  key: SESSION_SECRET
+            - name: LONCHA_INTERNAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.gateway.existingSecret }}
+                  key: INTERNAL_TOKEN
+            # Telegram Login (OIDC) and the Identity-backed session live in the gateway; the API only
+            # resolves accounts and sessions behind it. The secret comes from the chart's own Secret.
+            - name: TG_OIDC_CLIENT_ID
+              value: {{ .Values.env.TELEGRAM_CLIENT_ID | quote }}
+            - name: TG_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.existingSecret }}
+                  key: TG_OIDC_CLIENT_SECRET
+                  optional: true
+            - name: GATEWAY_IDENTITY_MODE
+              value: personal
+            - name: APP_URL
+              value: {{ .Values.env.FRONTEND_URL | trimSuffix "/" | quote }}
+            {{- range $name, $value := .Values.gateway.env }}
+            - name: {{ $name }}
+              value: {{ $value | quote }}
+            {{- end }}
+          volumeMounts:
+            - name: configuration
+              mountPath: /etc/gateway
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.gateway.resources | nindent 12 }}
+      volumes:
+        - name: configuration
+          configMap:
+            name: {{ include "voxel-vault.fullname" . }}-gateway
+{{- end }}

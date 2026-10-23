@@ -1,0 +1,48 @@
+[
+  {
+    "name": "Vault.Shell",
+    "color": "#777777",
+    "metallic": 1,
+    "roughness": 1,
+    "maps": {
+      "orm": "orm.png",
+      "normal": "normal.png"
+    }
+  },
+  {
+    "name": "Vault.Panel",
+    "color": "#777777",
+    "metallic": 0,
+    "roughness": 0.8
+  },
+  {
+    "name": "Vault.Metal",
+    "color": "#777777",
+    "metallic": 0,
+    "roughness": 0.8
+  },
+  {
+    "name": "Vault.Edge",
+    "color": "#777777",
+    "metallic": 0,
+    "roughness": 0.8
+  },
+  {
+    "name": "Vault.Crystal",
+    "color": "#777777",
+    "metallic": 0,
+    "roughness": 0.8
+  },
+  {
+    "name": "Vault.Accent",
+    "color": "#777777",
+    "metallic": 0,
+    "roughness": 0.8
+  },
+  {
+    "name": "Vault.Interior",
+    "color": "#777777",
+    "metallic": 0,
+    "roughness": 0.8
+  }
+]

@@ -1,4 +1,5 @@
-import RAPIER, { type RigidBody, type World } from '@dimforge/rapier3d-compat';
+import type RapierEngine from '@dimforge/rapier3d-compat';
+import type { RigidBody, World } from '@dimforge/rapier3d-compat';
 import type { BlockRegistry } from './blocks.ts';
 import type { BlockWorld } from './world.ts';
 
@@ -42,10 +43,20 @@ export interface PhysicsGround {
 
 const STEP = 1 / 60, MAX_GAP = .1;
 let initialization: Promise<void> | undefined;
+let RAPIER: typeof RapierEngine;
+
+/** For effects with their own simulation, after awaiting physicsReady(). */
+export function physicsEngine(): typeof RapierEngine {
+  if (!RAPIER) throw new Error('Await physicsReady() before creating physics effects.');
+  return RAPIER;
+}
 
 /** Rapier's engine, loaded once for the page. */
 export function physicsReady(): Promise<void> {
-  return initialization ??= RAPIER.init().catch(error => { initialization = undefined; throw error; });
+  return initialization ??= import('@dimforge/rapier3d-compat').then(async ({ default: engine }) => {
+    await engine.init();
+    RAPIER = engine;
+  }).catch(error => { initialization = undefined; throw error; });
 }
 
 export class WorldPhysics {

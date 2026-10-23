@@ -7,6 +7,7 @@ import { normalizeBaseUrl, resolvePublicAsset } from './asset-url.ts';
 import { DataError } from './data-error.ts';
 import { decodeItem } from './item-dto.ts';
 import { browserFetch, type FetchJson } from './request-json.ts';
+import { MutationKeys } from './mutation-key.ts';
 
 /**
  * The player's chests, as the server has them. The server alone issues chests and decides what
@@ -18,6 +19,7 @@ import { browserFetch, type FetchJson } from './request-json.ts';
 export class ApiInventory implements PlayerInventory {
   private state: readonly CaseInstance[] = Object.freeze([]);
   private loaded = false;
+  private readonly mutations = new MutationKeys();
   private readonly listeners = new Set<() => void>();
   private readonly held = new Map<string, CaseInstance>();
   private readonly baseUrl: URL;
@@ -31,6 +33,8 @@ export class ApiInventory implements PlayerInventory {
 
   readonly getState = () => this.state;
   readonly subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
+  /** Forget everything read: the session ended, and no one else's (or a past) list may be shown. */
+  clear(): void { this.state = Object.freeze([]); this.held.clear(); this.loaded = false; this.publish(); }
   /** Has the list been read from the server at least once? */
   isLoaded(): boolean { return this.loaded; }
 
@@ -60,7 +64,7 @@ export class ApiInventory implements PlayerInventory {
       if (chest.status === 'destroyed') { this.held.set(instanceId, chest); return { destroyed: chest.destroyedAt ?? 'opening' }; }
       if (chest.status !== 'opened' || !chest.reward) throw new DataError('INVALID_DTO', 'The opening answer is neither a prize nor a destruction.');
       this.held.set(instanceId, chest);
-      return { prize: chest.reward };
+      return { prize: chest.reward, ...(chest.rewardState ? { condition: chest.rewardState } : {}) };
     } catch (error) {
       if (!signal?.aborted) {
         this.onError(error);
@@ -86,14 +90,16 @@ export class ApiInventory implements PlayerInventory {
   }
 
   async merge(a: string, b: string): Promise<CaseInstance> {
+    const intent = JSON.stringify([a, b]);
     try {
       const response = await this.fetcher(resolvePublicAsset('api/v1/inventory/merge', this.baseUrl), {
         method: 'POST', cache: 'no-store', credentials: 'same-origin', body: JSON.stringify({ a, b }),
-        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'Idempotency-Key': this.mutations.for(intent) },
       });
       if (!response.ok) throw new DataError('HTTP_ERROR', `The chest merge request failed with HTTP ${response.status}.`);
       const chest = this.decode(await response.json());
       if (!chest) throw new DataError('INVALID_DTO', 'The merge answer has no chest of a known type.');
+      this.mutations.done(intent);
       return chest;
     } catch (error) {
       this.onError(error);
@@ -125,12 +131,14 @@ export class ApiInventory implements PlayerInventory {
     const definition = this.cases.find(item => item.id === dto.caseId);
     // A type this client does not know yet is skipped, not fatal.
     if (!definition) return undefined;
-    if (typeof dto.seed !== 'number' || !Number.isSafeInteger(dto.seed)) throw new DataError('INVALID_DTO', 'A chest seed must be an integer.');
+    const seed = typeof dto.seed === 'string' && /^(0|[1-9][0-9]{0,19})$/.test(dto.seed) && BigInt(dto.seed) <= 18446744073709551615n
+      ? Number(BigInt(dto.seed) & 0xffffffffn) : dto.seed;
+    if (typeof seed !== 'number' || !Number.isSafeInteger(seed)) throw new DataError('INVALID_DTO', 'A chest seed must be an integer.');
     if (!Array.isArray(dto.contents) || !Array.isArray(dto.traits)) throw new DataError('INVALID_DTO', 'A chest needs its contents and traits.');
     const traits = dto.traits as CaseInstance['traits'];
     const drop = dto.drop && typeof dto.drop === 'object' ? dto.drop as Record<string, unknown> : undefined;
     return copyCaseInstance({
-      id: dto.id, caseId: dto.caseId, status: dto.status, appearance: chestLook(definition, dto.seed, traits),
+      id: dto.id, caseId: dto.caseId, status: dto.status, appearance: chestLook(definition, seed, traits),
       contents: dto.contents.map(slot => ({ item: decodeItem((slot as Record<string, unknown>)?.item, this.baseUrl), weight: (slot as Record<string, unknown>)?.weight })),
       traits, condition: dto.condition, ...(typeof dto.rarity === 'string' && dto.rarity ? { rarity: dto.rarity } : {}),
       ...(typeof dto.sessionId === 'string' && dto.sessionId ? { sessionId: dto.sessionId } : {}),

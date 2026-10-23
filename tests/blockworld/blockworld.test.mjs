@@ -132,3 +132,35 @@ test('torchlight is marked for flicker: the flame fully, ground near it partly, 
   assert.ok(ground(3) > 0 && ground(3) < 1, 'next to the torch, mixed with the sky');
   assert.equal(ground(22), 0, 'out of its reach');
 });
+
+test('boxes model: a bottom slab is six faces half a block tall; the face on stone below is dropped', () => {
+  const r = new BlockRegistry([
+    { name: 'stone', textures: { all: 'stone' } },
+    { name: 'slab', model: 'boxes', textures: { all: 'stone' }, boxes: [[0, 0, 0, 16, 8, 16]] },
+  ]);
+  const w = new BlockWorld(3, 3, 3);
+  w.set(1, 1, 1, r.id('slab'));
+  computeLight(w, r);
+  const alone = meshWorld(w, r, { uv }).opaque;
+  assert.equal(quads(alone), 6);
+  const ys = [...alone.positions].filter((_, i) => i % 3 === 1);
+  assert.equal(Math.max(...ys), 1.5); assert.equal(Math.min(...ys), 1);
+  w.set(1, 0, 1, r.id('stone'));
+  computeLight(w, r);
+  // The stone keeps all six (a slab does not cover its top); the slab loses its bottom.
+  assert.equal(quads(meshWorld(w, r, { uv }).opaque), 11);
+});
+
+test('second light: soul fire floods its own channel, tinted on its own, beside the first', () => {
+  const r = new BlockRegistry([
+    { name: 'stone', textures: { all: 'stone' } },
+    { name: 'fire', model: 'torch', textures: { all: 'torch' }, light: 14 },
+    { name: 'soul', model: 'torch', textures: { all: 'torch' }, light: 14, secondLight: true },
+  ]);
+  const w = new BlockWorld(9, 1, 1);
+  w.set(0, 0, 0, r.id('fire')); w.set(8, 0, 0, r.id('soul'));
+  computeLight(w, r);
+  assert.equal(w.glowAt(0, 0, 0), 14); assert.equal(w.glow2At(0, 0, 0), 6);
+  assert.equal(w.glow2At(8, 0, 0), 14); assert.equal(w.glowAt(8, 0, 0), 6);
+  assert.equal(w.glowAt(4, 0, 0), 10); assert.equal(w.glow2At(4, 0, 0), 10, 'both meet in the middle');
+});

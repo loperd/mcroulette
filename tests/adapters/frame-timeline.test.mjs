@@ -30,6 +30,18 @@ test('hidden time does not finish a transition; cancellation and rendering error
   assert.equal(env.frames.size, 0); timeline.dispose();
 });
 
+test('slow visible frames preserve transition duration instead of accumulating lost time', async () => {
+  for (const gap of [250, 500, 1000, 16_000]) {
+    const env = environment(), timeline = new FrameTimeline(env), values = [];
+    const done = timeline.run(2.5, value => values.push(value), new AbortController().signal);
+    env.tick(0);
+    for (let now = gap; now <= Math.ceil(2500 / gap) * gap; now += gap) env.tick(now);
+    assert.equal(values.at(-1), 2.5, `ends on the first frame after 2.5 visible seconds (gap ${gap}ms)`);
+    assert.equal(env.frames.size, 0);
+    await done; timeline.dispose();
+  }
+});
+
 test('replacing an animation settles the old promise and disposal settles the active promise', async () => {
   const env = environment(), timeline = new FrameTimeline(env), signal = new AbortController().signal;
   const first = timeline.run(1, () => {}, signal);

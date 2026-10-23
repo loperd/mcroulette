@@ -27,6 +27,7 @@ var Cases = []CaseType{
 	{ID: "deep-mine", Rarity: "uncommon", Title: "Кладовая Шахтёра", Collection: "Глубинные шахты", Description: "Снаряжение и редкие минералы из забытых подземных залов.", Accent: "#5fc78e", Deep: "#195d42", Highlight: "#a8edbd", Glow: "#5fc78e66"},
 	{ID: "ender", Rarity: "rare", Title: "Сокровища Эндера", Collection: "Коллекция Края", Description: "Тайны другого измерения и артефакты из Края.", Accent: "#59a9ef", Deep: "#174d79", Highlight: "#a2d5ff", Glow: "#59a9ef66"},
 	{ID: "dragon", Rarity: "epic", Title: "Казна Драконоборца", Collection: "Предел Дракона", Description: "Реликвии древней битвы, пропитанные энергией Края.", Accent: "#b887ed", Deep: "#59357d", Highlight: "#e0c0ff", Glow: "#b887ed66"},
+	{ID: "relic", Rarity: "legendary", Title: "Квантовый реликт", Collection: "Квантовое хранилище", Description: "Обсидиановая броня, кристаллическое ядро и технологии забытой цивилизации.", Accent: "#51dccb", Deep: "#164c52", Highlight: "#bbfff1", Glow: "#51dccb66"},
 }
 
 // Loot tables are demo content; weights are used by the server-side selector.

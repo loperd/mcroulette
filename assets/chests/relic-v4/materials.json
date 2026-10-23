@@ -1,0 +1,100 @@
+[
+  {
+    "name": "Vault.Shell",
+    "color": "#242738",
+    "metallic": 1,
+    "roughness": 1,
+    "texture": true,
+    "maps": {
+      "orm": "Vault-Shell-orm.png",
+      "normal": "Vault-Shell-normal.png"
+    },
+    "normalScale": 1,
+    "occlusionStrength": 1
+  },
+  {
+    "name": "Vault.Panel",
+    "color": "#17242d",
+    "metallic": 1,
+    "roughness": 1,
+    "texture": true,
+    "maps": {
+      "orm": "Vault-Panel-orm.png",
+      "normal": "Vault-Panel-normal.png"
+    },
+    "normalScale": 1,
+    "occlusionStrength": 1
+  },
+  {
+    "name": "Vault.Metal",
+    "color": "#668c88",
+    "metallic": 1,
+    "roughness": 1,
+    "maps": {
+      "orm": "Vault-Metal-orm.png",
+      "normal": "Vault-Metal-normal.png"
+    },
+    "normalScale": 1,
+    "occlusionStrength": 1
+  },
+  {
+    "name": "Vault.Edge",
+    "color": "#344b50",
+    "metallic": 1,
+    "roughness": 1,
+    "maps": {
+      "orm": "Vault-Edge-orm.png",
+      "normal": "Vault-Edge-normal.png"
+    },
+    "normalScale": 1,
+    "occlusionStrength": 1
+  },
+  {
+    "name": "Vault.Crystal",
+    "color": "#48cbb9",
+    "metallic": 1,
+    "roughness": 1,
+    "emission": [
+      0.25,
+      1.0,
+      1.0
+    ],
+    "maps": {
+      "orm": "Vault-Crystal-orm.png",
+      "normal": "Vault-Crystal-normal.png",
+      "emissive": "Vault-Crystal-emissive.png"
+    },
+    "normalScale": 1,
+    "occlusionStrength": 1
+  },
+  {
+    "name": "Vault.Accent",
+    "color": "#91f1d6",
+    "metallic": 1,
+    "roughness": 1,
+    "emission": [
+      0.09,
+      0.48,
+      0.42
+    ],
+    "maps": {
+      "orm": "Vault-Accent-orm.png",
+      "normal": "Vault-Accent-normal.png",
+      "emissive": "Vault-Accent-emissive.png"
+    },
+    "normalScale": 1,
+    "occlusionStrength": 1
+  },
+  {
+    "name": "Vault.Interior",
+    "color": "#151d26",
+    "metallic": 1,
+    "roughness": 1,
+    "maps": {
+      "orm": "Vault-Interior-orm.png",
+      "normal": "Vault-Interior-normal.png"
+    },
+    "normalScale": 1,
+    "occlusionStrength": 1
+  }
+]

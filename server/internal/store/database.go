@@ -9,15 +9,25 @@ import (
 )
 
 func Open(dsn string) (*gorm.DB, error) {
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{TranslateError: true}) // ErrDuplicatedKey for unique handles
+	db, err := OpenRuntime(dsn)
 	if err != nil {
-		return nil, fmt.Errorf("open PostgreSQL: %w", err)
+		return nil, err
 	}
-	if err := db.AutoMigrate(&User{}, &Credential{}, &Identity{}, &Ceremony{}, &OAuthFlow{}, &Session{}, &ChestType{}, &LootItem{}, &ChestInstance{}, &InventoryItem{}, &WalletBalance{}); err != nil {
+	if err := db.AutoMigrate(&EconomyOwner{}, &ChestType{}, &LootItem{}, &ChestInstance{}, &InventoryItem{}, &WalletBalance{}); err != nil {
 		return nil, fmt.Errorf("migrate application schema: %w", err)
 	}
 	if err := seed(db); err != nil {
 		return nil, err
+	}
+	return db, nil
+}
+
+// OpenRuntime connects to an already provisioned database. Context/maintenance API
+// startup must not migrate or seed the legacy catalog with runtime credentials.
+func OpenRuntime(dsn string) (*gorm.DB, error) {
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{TranslateError: true})
+	if err != nil {
+		return nil, fmt.Errorf("open PostgreSQL: %w", err)
 	}
 	return db, nil
 }

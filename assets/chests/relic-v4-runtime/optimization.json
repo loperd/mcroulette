@@ -1,0 +1,849 @@
+{
+  "source": "/Users/loper/projects/mcroulette/assets/chests/relic-v4/relic.glb",
+  "runtime": "/Users/loper/projects/mcroulette/assets/chests/relic-v4-runtime/relic.glb",
+  "sourceSha256": "7977ccd1f9c3f90e235b2b163d06dd525d35b3f58ec2ac44f8556515fa0af783",
+  "runtimeSha256": "8dc4b45a8d330410d157c169b5bbfb61d6c17804f0edfd5374350a8ceefc6d20",
+  "bytesBefore": 1248528,
+  "bytesAfter": 483036,
+  "textureRGBA8WithMipsBefore": 33554432,
+  "textureRGBA8WithMipsAfter": 14680064,
+  "triangles": 6632,
+  "drawPrimitives": 14,
+  "quantizationBits": {
+    "position": 16,
+    "normal": 12,
+    "uv": 16
+  },
+  "triangleOrder": "preserved",
+  "hierarchyAnimation": "unchanged",
+  "maxTextureEdge": 512,
+  "webp": "lossless after explicit downscale; renormalized normals and linear-light color resize",
+  "attributes": [
+    {
+      "attribute": "POSITION",
+      "maxAbsoluteError": 6.3925981521606445e-06
+    },
+    {
+      "attribute": "NORMAL",
+      "maxAbsoluteError": 0.0006912085809744895
+    },
+    {
+      "attribute": "TEXCOORD_0",
+      "maxAbsoluteError": 7.569789886474609e-06
+    },
+    {
+      "attribute": "POSITION",
+      "maxAbsoluteError": 6.139278411865234e-06
+    },
+    {
+      "attribute": "NORMAL",
+      "maxAbsoluteError": 0.0006912085809744895
+    },
+    {
+      "attribute": "TEXCOORD_0",
+      "maxAbsoluteError": 7.420778274536133e-06
+    },
+    {
+      "attribute": "POSITION",
+      "maxAbsoluteError": 7.420778274536133e-06
+    },
+    {
+      "attribute": "NORMAL",
+      "maxAbsoluteError": 0.0006912085809744895
+    },
+    {
+      "attribute": "TEXCOORD_0",
+      "maxAbsoluteError": 7.569789886474609e-06
+    },
+    {
+      "attribute": "POSITION",
+      "maxAbsoluteError": 7.3909759521484375e-06
+    },
+    {
+      "attribute": "NORMAL",
+      "maxAbsoluteError": 0.0006912085809744895
+    },
+    {
+      "attribute": "TEXCOORD_0",
+      "maxAbsoluteError": 7.569789886474609e-06
+    },
+    {
+      "attribute": "POSITION",
+      "maxAbsoluteError": 7.063150405883789e-06
+    },
+    {
+      "attribute": "NORMAL",
+      "maxAbsoluteError": 0.0006912085809744895
+    },
+    {
+      "attribute": "TEXCOORD_0",
+      "maxAbsoluteError": 7.361173629760742e-06
+    },
+    {
+      "attribute": "POSITION",
+      "maxAbsoluteError": 5.863606929779053e-06
+    },
+    {
+      "attribute": "NORMAL",
+      "maxAbsoluteError": 0.0006912085809744895
+    },
+    {
+      "attribute": "TEXCOORD_0",
+      "maxAbsoluteError": 7.271766662597656e-06
+    },
+    {
+      "attribute": "POSITION",
+      "maxAbsoluteError": 5.997717380523682e-06
+    },
+    {
+      "attribute": "NORMAL",
+      "maxAbsoluteError": 0.0006912085809744895
+    },
+    {
+      "attribute": "TEXCOORD_0",
+      "maxAbsoluteError": 7.3909759521484375e-06
+    },
+    {
+      "attribute": "POSITION",
+      "maxAbsoluteError": 5.8710575103759766e-06
+    },
+    {
+      "attribute": "NORMAL",
+      "maxAbsoluteError": 0.0006912085809744895
+    },
+    {
+      "attribute": "TEXCOORD_0",
+      "maxAbsoluteError": 7.3909759521484375e-06
+    },
+    {
+      "attribute": "POSITION",
+      "maxAbsoluteError": 3.814697265625e-06
+    },
+    {
+      "attribute": "NORMAL",
+      "maxAbsoluteError": 0.0006912085809744895
+    },
+    {
+      "attribute": "TEXCOORD_0",
+      "maxAbsoluteError": 6.556510925292969e-06
+    },
+    {
+      "attribute": "POSITION",
+      "maxAbsoluteError": 7.431022822856903e-06
+    },
+    {
+      "attribute": "NORMAL",
+      "maxAbsoluteError": 0.0006912085809744895
+    },
+    {
+      "attribute": "TEXCOORD_0",
+      "maxAbsoluteError": 7.62939453125e-06
+    },
+    {
+      "attribute": "POSITION",
+      "maxAbsoluteError": 7.420778274536133e-06
+    },
+    {
+      "attribute": "NORMAL",
+      "maxAbsoluteError": 0.0006912085809744895
+    },
+    {
+      "attribute": "TEXCOORD_0",
+      "maxAbsoluteError": 7.569789886474609e-06
+    },
+    {
+      "attribute": "POSITION",
+      "maxAbsoluteError": 1.5944242477416992e-06
+    },
+    {
+      "attribute": "NORMAL",
+      "maxAbsoluteError": 0.0006088614463806152
+    },
+    {
+      "attribute": "TEXCOORD_0",
+      "maxAbsoluteError": 6.079673767089844e-06
+    },
+    {
+      "attribute": "POSITION",
+      "maxAbsoluteError": 5.8710575103759766e-06
+    },
+    {
+      "attribute": "NORMAL",
+      "maxAbsoluteError": 0.0006912085809744895
+    },
+    {
+      "attribute": "TEXCOORD_0",
+      "maxAbsoluteError": 7.271766662597656e-06
+    },
+    {
+      "attribute": "POSITION",
+      "maxAbsoluteError": 4.577450454235077e-06
+    },
+    {
+      "attribute": "NORMAL",
+      "maxAbsoluteError": 0.0006912085809744895
+    },
+    {
+      "attribute": "TEXCOORD_0",
+      "maxAbsoluteError": 6.496906280517578e-06
+    }
+  ],
+  "textures": [
+    {
+      "name": "0.webp",
+      "channel": "base",
+      "before": [
+        1024,
+        512
+      ],
+      "after": [
+        512,
+        256
+      ],
+      "beforeBytes": 34296,
+      "afterBytes": 9212
+    },
+    {
+      "name": "1.webp",
+      "channel": "base",
+      "before": [
+        512,
+        512
+      ],
+      "after": [
+        512,
+        512
+      ],
+      "beforeBytes": 13772,
+      "afterBytes": 6106
+    },
+    {
+      "name": "2.webp",
+      "channel": "base",
+      "before": [
+        1024,
+        512
+      ],
+      "after": [
+        512,
+        256
+      ],
+      "beforeBytes": 47516,
+      "afterBytes": 22916
+    },
+    {
+      "name": "3.webp",
+      "channel": "base",
+      "before": [
+        1024,
+        512
+      ],
+      "after": [
+        512,
+        256
+      ],
+      "beforeBytes": 61987,
+      "afterBytes": 29994
+    },
+    {
+      "name": "4.webp",
+      "channel": "base",
+      "before": [
+        256,
+        256
+      ],
+      "after": [
+        256,
+        256
+      ],
+      "beforeBytes": 7747,
+      "afterBytes": 4330
+    },
+    {
+      "name": "5.webp",
+      "channel": "base",
+      "before": [
+        256,
+        128
+      ],
+      "after": [
+        256,
+        128
+      ],
+      "beforeBytes": 1404,
+      "afterBytes": 466
+    },
+    {
+      "name": "6.webp",
+      "channel": "base",
+      "before": [
+        512,
+        256
+      ],
+      "after": [
+        512,
+        256
+      ],
+      "beforeBytes": 36382,
+      "afterBytes": 19618
+    },
+    {
+      "name": "Vault-Shell-orm.webp",
+      "channel": "orm",
+      "before": [
+        1024,
+        512
+      ],
+      "after": [
+        512,
+        256
+      ],
+      "beforeBytes": 68444,
+      "afterBytes": 19134
+    },
+    {
+      "name": "Vault-Shell-normal.webp",
+      "channel": "normal",
+      "before": [
+        1024,
+        512
+      ],
+      "after": [
+        512,
+        256
+      ],
+      "beforeBytes": 64608,
+      "afterBytes": 15838
+    },
+    {
+      "name": "Vault-Panel-orm.webp",
+      "channel": "orm",
+      "before": [
+        512,
+        512
+      ],
+      "after": [
+        512,
+        512
+      ],
+      "beforeBytes": 27066,
+      "afterBytes": 15202
+    },
+    {
+      "name": "Vault-Panel-normal.webp",
+      "channel": "normal",
+      "before": [
+        512,
+        512
+      ],
+      "after": [
+        512,
+        512
+      ],
+      "beforeBytes": 24795,
+      "afterBytes": 9810
+    },
+    {
+      "name": "Vault-Metal-orm.webp",
+      "channel": "orm",
+      "before": [
+        1024,
+        512
+      ],
+      "after": [
+        512,
+        256
+      ],
+      "beforeBytes": 67655,
+      "afterBytes": 38584
+    },
+    {
+      "name": "Vault-Metal-normal.webp",
+      "channel": "normal",
+      "before": [
+        1024,
+        512
+      ],
+      "after": [
+        512,
+        256
+      ],
+      "beforeBytes": 42609,
+      "afterBytes": 12246
+    },
+    {
+      "name": "Vault-Edge-orm.webp",
+      "channel": "orm",
+      "before": [
+        1024,
+        512
+      ],
+      "after": [
+        512,
+        256
+      ],
+      "beforeBytes": 90706,
+      "afterBytes": 50646
+    },
+    {
+      "name": "Vault-Edge-normal.webp",
+      "channel": "normal",
+      "before": [
+        1024,
+        512
+      ],
+      "after": [
+        512,
+        256
+      ],
+      "beforeBytes": 54458,
+      "afterBytes": 15780
+    },
+    {
+      "name": "Vault-Crystal-orm.webp",
+      "channel": "orm",
+      "before": [
+        256,
+        256
+      ],
+      "after": [
+        256,
+        256
+      ],
+      "beforeBytes": 5411,
+      "afterBytes": 3526
+    },
+    {
+      "name": "Vault-Crystal-normal.webp",
+      "channel": "normal",
+      "before": [
+        256,
+        256
+      ],
+      "after": [
+        256,
+        256
+      ],
+      "beforeBytes": 7617,
+      "afterBytes": 3782
+    },
+    {
+      "name": "Vault-Crystal-emissive.webp",
+      "channel": "emissive",
+      "before": [
+        256,
+        256
+      ],
+      "after": [
+        256,
+        256
+      ],
+      "beforeBytes": 12909,
+      "afterBytes": 9090
+    },
+    {
+      "name": "Vault-Accent-orm.webp",
+      "channel": "orm",
+      "before": [
+        256,
+        128
+      ],
+      "after": [
+        256,
+        128
+      ],
+      "beforeBytes": 2200,
+      "afterBytes": 1452
+    },
+    {
+      "name": "Vault-Accent-normal.webp",
+      "channel": "normal",
+      "before": [
+        256,
+        128
+      ],
+      "after": [
+        256,
+        128
+      ],
+      "beforeBytes": 2855,
+      "afterBytes": 1220
+    },
+    {
+      "name": "Vault-Accent-emissive.webp",
+      "channel": "emissive",
+      "before": [
+        256,
+        128
+      ],
+      "after": [
+        256,
+        128
+      ],
+      "beforeBytes": 2515,
+      "afterBytes": 1236
+    },
+    {
+      "name": "Vault-Interior-orm.webp",
+      "channel": "orm",
+      "before": [
+        512,
+        256
+      ],
+      "after": [
+        512,
+        256
+      ],
+      "beforeBytes": 41995,
+      "afterBytes": 27658
+    },
+    {
+      "name": "Vault-Interior-normal.webp",
+      "channel": "normal",
+      "before": [
+        512,
+        256
+      ],
+      "after": [
+        512,
+        256
+      ],
+      "beforeBytes": 48542,
+      "afterBytes": 26712
+    }
+  ],
+  "decodedSnapshot": "/Users/loper/projects/mcroulette/artifacts/relic-v4/optimization/relic-v4-decoded.glb",
+  "gpuReview": "pending",
+  "losslessRepack": {
+    "version": "relic-v4",
+    "inputSha256": "08db22488735401b6a4920c649ae766c209b1a09a76d2826e4603775651d2652",
+    "outputSha256": "8dc4b45a8d330410d157c169b5bbfb61d6c17804f0edfd5374350a8ceefc6d20",
+    "beforeBytes": 496168,
+    "afterBytes": 483036,
+    "decodedPixelsBitExact": true,
+    "nonImageBuffersBitExact": true,
+    "jsonExceptLayoutIdentical": true,
+    "textureResolutionUnchanged": true,
+    "nonImageBuffers": [
+      {
+        "view": 0,
+        "sha256": "27cd36f54d040a260ed551f814239d06713a791456c0376b777d7217e90e7ddb"
+      },
+      {
+        "view": 1,
+        "sha256": "0748315e3097e558c4b71c1cf8ed7c5bcf868e01216946c7352dbbe4010a5a7e"
+      },
+      {
+        "view": 2,
+        "sha256": "d4edcc3c885772bec9037208e12f8dce2c6ea218282918dc078b1ba6b9357b92"
+      },
+      {
+        "view": 3,
+        "sha256": "4197f58321ae78f565d68b2a8bcc0aa1f4d0e1558b65fcc8059a53b260f33075"
+      },
+      {
+        "view": 4,
+        "sha256": "fe8211967708d7f1778d4b8b26ce6b98930f117e6e15184f7fc0e121c38acc18"
+      },
+      {
+        "view": 5,
+        "sha256": "aa975e0fffc9d763012596af4ec11375603ae74b0228922e3350cbdf5a9e2b23"
+      },
+      {
+        "view": 6,
+        "sha256": "f8ef9189988b5e0e15d15d58e101ce2112c1da01237f808a9df5aa86c9b6a588"
+      },
+      {
+        "view": 7,
+        "sha256": "84d1749622e014f54be1763d8d5936815a832b646168690e563e95fd90ef4998"
+      },
+      {
+        "view": 8,
+        "sha256": "6a89225591941c4a31226ba69cfc5af13cd5dc57a0fb9c00bc8d67d6170ee6a8"
+      },
+      {
+        "view": 9,
+        "sha256": "d4f81e624be5196886e55e9d4e7a7469b09de7fc310436f56de792030396c85a"
+      },
+      {
+        "view": 10,
+        "sha256": "cd03e49e8dcf069eabe883fc30cf1392d6b8a494d244a57b5cc82e6bb445565a"
+      },
+      {
+        "view": 11,
+        "sha256": "1082018e64531e1e15958fd7e3991207ce65f71767774afe8da9a4f7034ff46a"
+      },
+      {
+        "view": 12,
+        "sha256": "3716576062dc5b781ac213e7903ded771c5f277ec1ea548ef076e41fae332c41"
+      },
+      {
+        "view": 13,
+        "sha256": "5cfec312b4bea26aef7e9d7811aea3b4089faf15f515b29e58af9c682758f4c5"
+      },
+      {
+        "view": 14,
+        "sha256": "7ba8bcbec812d6fb0cbdd9ea2ce96847e0d916b0e24c73b523ba5bdc6202b2db"
+      },
+      {
+        "view": 15,
+        "sha256": "38824ebfc810f3ece360799c8703414ac9bc61fe718cd27ea99477ea27ed5b85"
+      }
+    ],
+    "images": [
+      {
+        "image": 0,
+        "name": "0.webp",
+        "beforeBytes": 9430,
+        "afterBytes": 9212,
+        "size": [
+          512,
+          256
+        ],
+        "decodedRGBA256": "074bf8fcaf0dd9873d0d0b7a8634de6a25f15a4233e7a03f1730796b4ea6f6bb"
+      },
+      {
+        "image": 1,
+        "name": "1.webp",
+        "beforeBytes": 6308,
+        "afterBytes": 6106,
+        "size": [
+          512,
+          512
+        ],
+        "decodedRGBA256": "9f0b6e4391a297c05c03551cb914d8d590dbba3bcc21e7c5928d2b930e00eb62"
+      },
+      {
+        "image": 2,
+        "name": "2.webp",
+        "beforeBytes": 23038,
+        "afterBytes": 22916,
+        "size": [
+          512,
+          256
+        ],
+        "decodedRGBA256": "bc9657200e61603f674841101767e4f3477c8ab23f24eedeb0dd15058c346168"
+      },
+      {
+        "image": 3,
+        "name": "3.webp",
+        "beforeBytes": 34042,
+        "afterBytes": 29994,
+        "size": [
+          512,
+          256
+        ],
+        "decodedRGBA256": "f4090da529873ac9706d59cad683e3d81324fbc257bb8d237c874e9ee1e4cafa"
+      },
+      {
+        "image": 4,
+        "name": "4.webp",
+        "beforeBytes": 4400,
+        "afterBytes": 4330,
+        "size": [
+          256,
+          256
+        ],
+        "decodedRGBA256": "906bc1b3b72724f7f34f229b59ebdd7de7475c50b3d15e12655d28feed1a82db"
+      },
+      {
+        "image": 5,
+        "name": "5.webp",
+        "beforeBytes": 466,
+        "afterBytes": 466,
+        "size": [
+          256,
+          128
+        ],
+        "decodedRGBA256": "f4945b9a5a57d1cc23c2561e618fa045ec116e8994a5a58b5addcf5330810222"
+      },
+      {
+        "image": 6,
+        "name": "6.webp",
+        "beforeBytes": 23710,
+        "afterBytes": 19618,
+        "size": [
+          512,
+          256
+        ],
+        "decodedRGBA256": "e6bbbd21914c4218be708ba17e069d9050715823ca5024043d17ff134dd09536"
+      },
+      {
+        "image": 7,
+        "name": "Vault-Shell-orm.webp",
+        "beforeBytes": 19460,
+        "afterBytes": 19134,
+        "size": [
+          512,
+          256
+        ],
+        "decodedRGBA256": "49ff97e7ca8b79f13f7f06b7d6aa0329acdaf55022a269cff9a341b2cb921042"
+      },
+      {
+        "image": 8,
+        "name": "Vault-Shell-normal.webp",
+        "beforeBytes": 16838,
+        "afterBytes": 15838,
+        "size": [
+          512,
+          256
+        ],
+        "decodedRGBA256": "bb549a63fbb4ad94d3e3481769d7007087a7773921ea6bafe567e4dd98c9c0b3"
+      },
+      {
+        "image": 9,
+        "name": "Vault-Panel-orm.webp",
+        "beforeBytes": 15304,
+        "afterBytes": 15202,
+        "size": [
+          512,
+          512
+        ],
+        "decodedRGBA256": "cf85e8c4ba957f62c03431bda078ccdddb9db95a3d72c9c6b3e9c080847ffe8c"
+      },
+      {
+        "image": 10,
+        "name": "Vault-Panel-normal.webp",
+        "beforeBytes": 9940,
+        "afterBytes": 9810,
+        "size": [
+          512,
+          512
+        ],
+        "decodedRGBA256": "dde739ae3a68ba1a830a5185e57bd626e23cc987689e1741e774e4e3ca284e7f"
+      },
+      {
+        "image": 11,
+        "name": "Vault-Metal-orm.webp",
+        "beforeBytes": 38638,
+        "afterBytes": 38584,
+        "size": [
+          512,
+          256
+        ],
+        "decodedRGBA256": "8656eb0e44950eda12a2448c88d0544d29bb35262f222cf51781fcfa271434b6"
+      },
+      {
+        "image": 12,
+        "name": "Vault-Metal-normal.webp",
+        "beforeBytes": 12480,
+        "afterBytes": 12246,
+        "size": [
+          512,
+          256
+        ],
+        "decodedRGBA256": "17644df7b1bd975056aa646f8344fa6e8ed4489a6c57b3856d66d9049798c7a0"
+      },
+      {
+        "image": 13,
+        "name": "Vault-Edge-orm.webp",
+        "beforeBytes": 50652,
+        "afterBytes": 50646,
+        "size": [
+          512,
+          256
+        ],
+        "decodedRGBA256": "82c04e625e475d5e629f53bda8861203acae8cd43a33c9ce4c77aa1f2fe699fe"
+      },
+      {
+        "image": 14,
+        "name": "Vault-Edge-normal.webp",
+        "beforeBytes": 16372,
+        "afterBytes": 15780,
+        "size": [
+          512,
+          256
+        ],
+        "decodedRGBA256": "133be7ae2af73c08a075a6a235744fe4d3612d5e8694ef3477ceafb507be9f04"
+      },
+      {
+        "image": 15,
+        "name": "Vault-Crystal-orm.webp",
+        "beforeBytes": 4278,
+        "afterBytes": 3526,
+        "size": [
+          256,
+          256
+        ],
+        "decodedRGBA256": "bb524f8a9cf3185e875942c0af9c31988792144dc296d348a57f8b0b298f7b79"
+      },
+      {
+        "image": 16,
+        "name": "Vault-Crystal-normal.webp",
+        "beforeBytes": 3830,
+        "afterBytes": 3782,
+        "size": [
+          256,
+          256
+        ],
+        "decodedRGBA256": "85b51dfb4da12d353472778a190260de62c5d0ee9467fc985267d8fa9ac2efad"
+      },
+      {
+        "image": 17,
+        "name": "Vault-Crystal-emissive.webp",
+        "beforeBytes": 9350,
+        "afterBytes": 9090,
+        "size": [
+          256,
+          256
+        ],
+        "decodedRGBA256": "874f81f58d540fa38625d7470fe98d5a3f69ee6b7e5a02d933a41584d2de3b5d"
+      },
+      {
+        "image": 18,
+        "name": "Vault-Accent-orm.webp",
+        "beforeBytes": 1460,
+        "afterBytes": 1452,
+        "size": [
+          256,
+          128
+        ],
+        "decodedRGBA256": "ca8d2b56e07250a431d7f718a2dd1cecae9410f93382f20d5de3fbd5fab17f10"
+      },
+      {
+        "image": 19,
+        "name": "Vault-Accent-normal.webp",
+        "beforeBytes": 1304,
+        "afterBytes": 1220,
+        "size": [
+          256,
+          128
+        ],
+        "decodedRGBA256": "f9909bee509472455d609a7a8c11956c2994f5cb9b11799b67073f54aee73bea"
+      },
+      {
+        "image": 20,
+        "name": "Vault-Accent-emissive.webp",
+        "beforeBytes": 1236,
+        "afterBytes": 1236,
+        "size": [
+          256,
+          128
+        ],
+        "decodedRGBA256": "ddefceba7c18e473426d6b036deaa482b8cc5c8b8f4afe2ae1146a6524a2360b"
+      },
+      {
+        "image": 21,
+        "name": "Vault-Interior-orm.webp",
+        "beforeBytes": 28372,
+        "afterBytes": 27658,
+        "size": [
+          512,
+          256
+        ],
+        "decodedRGBA256": "90a129a57ec11bae313a1ad72d08cf302780d50f6303f1b47da3f0276eb925a7"
+      },
+      {
+        "image": 22,
+        "name": "Vault-Interior-normal.webp",
+        "beforeBytes": 26790,
+        "afterBytes": 26712,
+        "size": [
+          512,
+          256
+        ],
+        "decodedRGBA256": "536bd28ead04e8fd9365dbfbdb36ec58459bac6d458494aa85ffea26512ecfe8"
+      }
+    ]
+  }
+}

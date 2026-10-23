@@ -6,7 +6,8 @@ import type { ScreenRoute } from './ports/navigation.ts';
  * player opens on purpose; nothing ever navigates there by itself.
  *
  *   inventory (main)
- *   ├── items      (the items dropped from chests, and the wallet)
+ *   ├── items      (the items dropped from chests)
+ *   ├── wallet     (balances and transactions)
  *   ├── archive
  *   ├── catalog
  *   └── case ── item
@@ -18,7 +19,7 @@ export const MAIN_SCREEN = 'inventory' as const;
 export function parentRoute(route: ScreenRoute): ScreenRoute | undefined {
   switch (route.screen) {
     case 'inventory': return undefined;
-    case 'archive': case 'items': case 'catalog': case 'not-found': return { screen: MAIN_SCREEN };
+    case 'archive': case 'items': case 'wallet': case 'catalog': case 'not-found': return { screen: MAIN_SCREEN };
     case 'case': return route.returnTo === 'archive' ? { screen: 'archive' } : { screen: MAIN_SCREEN };
     case 'item': case 'opening': case 'reward':
       return { screen: 'case', caseId: route.caseId, ...(route.instanceId ? { instanceId: route.instanceId } : {}), ...('returnTo' in route && route.returnTo ? { returnTo: route.returnTo } : {}) };

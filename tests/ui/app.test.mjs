@@ -62,6 +62,18 @@ test('the win screen displays only the selected prize and a Close command', () =
   assert.doesNotMatch(html,/Vip/);
 });
 
+test('a damaged prize says so; a destroyed chest never promises a reward', () => {
+  const damaged=render({phase:'ready',items:legacyCatalog()}, {phase:'prize-visible',catalog:legacyCatalog(),slots:[],
+    sessionId:'a',selection:{prize:legacyCatalog()[13],slots:[],targetIndex:0},plan:{},condition:'heavy'});
+  assert.match(damaged,/King/);assert.match(damaged,/Состояние: Повреждён/);assert.match(damaged,/prize--damaged/);
+  const intact=render({phase:'ready',items:legacyCatalog()}, {phase:'prize-visible',catalog:legacyCatalog(),slots:[],
+    sessionId:'a',selection:{prize:legacyCatalog()[13],slots:[],targetIndex:0},plan:{}});
+  assert.doesNotMatch(intact,/Состояние:/);
+  const destroyed=render({phase:'ready',items:legacyCatalog()}, {phase:'destroyed',catalog:legacyCatalog(),slots:[],sessionId:'a'});
+  assert.match(destroyed,/Награда не получена/);
+  assert.doesNotMatch(destroyed,/Ваша награда/);assert.doesNotMatch(destroyed,/King/);
+});
+
 test('disposed applications render no stale catalog or commands', () => {
   assert.equal(render({phase:'disposed',items:[]}), '');
 });

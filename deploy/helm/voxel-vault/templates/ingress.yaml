@@ -30,9 +30,9 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ include "voxel-vault.fullname" . }}
+                name: {{ include "voxel-vault.fullname" . }}{{ if .Values.gateway.enabled }}-gateway{{ end }}
                 port:
-                  number: {{ .Values.service.port }}
+                  number: {{ if .Values.gateway.enabled }}{{ .Values.gateway.port }}{{ else }}{{ .Values.service.port }}{{ end }}
   {{- if .Values.ingress.tlsSecretName }}
   tls:
     - hosts: [{{ .Values.ingress.host | quote }}]

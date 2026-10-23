@@ -30,11 +30,12 @@ export class ClickSound {
 
   setMuted(muted: boolean): void { this.muted = muted; if (muted) this.stop(); }
 
-  tick(): void {
+  /** `rate` pitches the tick with the strip's speed: faster cards click higher. */
+  tick(rate = 1): void {
     if (this.disposed || this.muted) return;
     const voice = this.voices.find(voice => !voice.muted && (voice.paused || voice.ended));
     if (!voice) return;
-    try { voice.currentTime = 0; void Promise.resolve(voice.play()).catch(() => {}); } catch { /* optional sound */ }
+    try { voice.playbackRate = rate; voice.currentTime = 0; void Promise.resolve(voice.play()).catch(() => {}); } catch { /* optional sound */ }
   }
 
   stop(): void {

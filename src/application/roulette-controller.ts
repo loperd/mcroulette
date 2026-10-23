@@ -13,6 +13,7 @@ import type { CatalogGateway } from './ports/catalog-gateway.ts';
 import type { ChestPresentationPort } from './ports/chest-presentation.ts';
 import type { ChestOutcome, OutcomeGateway } from './ports/outcome-gateway.ts';
 import { BREAK_MOMENTS } from '../domain/chest-breakage.ts';
+import { ITEM_STATES, type ItemState } from '../domain/case-instance.ts';
 import type { RoulettePresentationPort } from './ports/roulette-presentation.ts';
 import type { RouletteSession } from './ports/roulette-session.ts';
 import type { TransitionPresentationPort } from './ports/transition-presentation.ts';
@@ -120,7 +121,8 @@ export class RouletteController implements RouletteSession {
         this.publish({ phase: 'destroyed', sessionId: checkpoint.sessionId });
         return;
       }
-      this.outcome = checkpoint.stage === 'chest' ? checkpoint.outcome : { prize: checkpoint.selection.prize };
+      this.outcome = checkpoint.stage === 'chest' ? checkpoint.outcome
+        : { prize: checkpoint.selection.prize, ...(checkpoint.condition ? { condition: checkpoint.condition } : {}) };
       if (checkpoint.stage === 'chest') await this.startOpening(false);
       else {
         this.slots = checkpoint.selection.slots;
@@ -214,9 +216,9 @@ export class RouletteController implements RouletteSession {
       if (!this.isCurrent(operation)) return;
       if ('destroyed' in outcome) { this.showDestroyed(sessionId); return; }
       const selection = ensureTarget(this.slots, outcome.prize, this.dependencies.random);
-      const plan = createSpinPlan(selection, this.dependencies.random, this.spinSettings);
+      const plan = createSpinPlan(selection, this.spinSettings);
       this.slots = selection.slots;
-      await this.presentRoulette(operation, { sessionId, selection, plan });
+      await this.presentRoulette(operation, { sessionId, selection, plan, ...(outcome.condition ? { condition: outcome.condition } : {}) });
     });
   }
 
@@ -225,7 +227,7 @@ export class RouletteController implements RouletteSession {
     this.publish({ phase: 'destroyed', sessionId });
   }
 
-  private async presentRoulette(operation: Operation, payload: { sessionId: string; selection: import('../domain/strip.ts').TargetSelection; plan: import('../domain/spin-plan.ts').SpinPlan }): Promise<void> {
+  private async presentRoulette(operation: Operation, payload: { sessionId: string; selection: import('../domain/strip.ts').TargetSelection; plan: import('../domain/spin-plan.ts').SpinPlan; condition?: ItemState }): Promise<void> {
       const { selection, plan } = payload;
       const roulette = this.dependencies.roulette;
       if (roulette.prepareSpin) await this.invoke(operation, () => roulette.prepareSpin!(selection, operation.abort.signal));
@@ -314,7 +316,7 @@ export class RouletteController implements RouletteSession {
     let checkpoint: SessionCheckpoint;
     if (state.phase === 'destroyed') checkpoint = { stage: 'destroyed', sessionId: this.sessionId };
     else if ('selection' in state) checkpoint = { stage: state.phase === 'prize-visible' ? 'prize' : 'roulette',
-      sessionId: this.sessionId, selection: state.selection, plan: state.plan };
+      sessionId: this.sessionId, selection: state.selection, plan: state.plan, ...(state.condition ? { condition: state.condition } : {}) };
     else checkpoint = { stage: 'chest', sessionId: this.sessionId,
       ...(this.outcome ? { outcome: this.outcome } : {}) };
     this.dependencies.journal.save(checkpoint);
@@ -328,7 +330,10 @@ export class RouletteController implements RouletteSession {
 }
 
 function copyOutcome(value: ChestOutcome): ChestOutcome {
-  if (value && typeof value === 'object' && 'prize' in value) return Object.freeze({ prize: copyItem(value.prize) });
+  if (value && typeof value === 'object' && 'prize' in value) {
+    if (value.condition !== undefined && !ITEM_STATES.includes(value.condition)) throw new DomainError('INVALID_OUTCOME', 'The prize state is not supported.');
+    return Object.freeze({ prize: copyItem(value.prize), ...(value.condition ? { condition: value.condition } : {}) });
+  }
   if (value && typeof value === 'object' && 'destroyed' in value && BREAK_MOMENTS.includes(value.destroyed)) {
     return Object.freeze({ destroyed: value.destroyed });
   }

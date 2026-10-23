@@ -11,10 +11,15 @@ const baseUrl = new URL('.', document.baseURI);
 const catalog = new FixtureCatalogGateway(baseUrl), prize = new FixtureOutcomeGateway(baseUrl);
 const environment = browserFrameEnvironment(window, document);
 const costs: number[] = [];
+const intervals: number[] = [];
+let lastFrame: number | undefined;
+document.addEventListener('visibilitychange', () => { lastFrame = undefined; });
 const roulette = new CanvasRoulette(document, { environment: {
   ...environment,
   requestFrame(callback) {
     return environment.requestFrame(time => {
+      if (lastFrame !== undefined) intervals.push(time - lastFrame);
+      lastFrame = time;
       const start = performance.now(); callback(time); costs.push(performance.now() - start);
     });
   },
@@ -28,13 +33,14 @@ let items: readonly Item[] = [], operation: AbortController | undefined;
 
 async function spin(): Promise<void> {
   operation?.abort(); operation = new AbortController();
-  const current = operation; costs.length = 0; button.disabled = true; status.textContent = 'Крутим…';
+  const current = operation; costs.length = 0; intervals.length = 0; lastFrame = undefined;
+  button.disabled = true; status.textContent = 'Крутим…';
   try {
     const decided = await prize.decide(crypto.randomUUID(), current.signal);
     if (!('prize' in decided)) return;
     const winner = decided.prize;
     const selection = ensureTarget(buildStrip(items, 40, random), winner, random);
-    await roulette.spin(selection, createSpinPlan(selection, random), current.signal);
+    await roulette.spin(selection, createSpinPlan(selection), current.signal);
     if (operation === current) status.textContent = `Выпало: ${winner.title}`;
   } catch (error) {
     if (operation === current && !current.signal.aborted) status.textContent = error instanceof Error ? error.message : 'Ошибка';
@@ -51,7 +57,11 @@ void Promise.all([catalog.load(controller.signal), roulette.prepare(controller.s
 
 Object.assign(window, { canvasPreview: { spin, stats() {
   const sorted = [...costs].sort((a, b) => a - b);
+  const gaps = [...intervals].sort((a, b) => a - b);
   return { frames: sorted.length, drawSubmissionP95Ms: sorted[Math.floor(sorted.length * 0.95)] ?? null,
+    frameIntervalP95Ms: gaps[Math.floor(gaps.length * .95)] ?? null,
+    framesOver25Ms: gaps.filter(ms => ms > 25).length,
+    averageRafFps: intervals.length ? intervals.length * 1000 / intervals.reduce((sum, ms) => sum + ms, 0) : null,
     drawSubmissionMaxMs: sorted.at(-1) ?? null, canvasCount: document.querySelectorAll('canvas').length,
     backingWidth: roulette.element.width, backingHeight: roulette.element.height };
 } } });

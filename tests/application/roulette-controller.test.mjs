@@ -521,3 +521,28 @@ test('an outcome that is neither a prize nor a destruction never starts the fall
   assert.equal(h.calls.drop, undefined);
   h.controller.dispose();
 });
+
+test('a damaged prize keeps its state through the reveal and a reload; an unknown state is refused', async () => {
+  const journal = memoryJournal();
+  const first = harness({ journal, select: async () => ({ prize: legacyCatalog()[13], condition: 'heavy' }) });
+  await first.controller.initialize(); await first.controller.openChest();
+  assert.equal(first.controller.getState().phase, 'prize-visible');
+  assert.equal(first.controller.getState().condition, 'heavy');
+  assert.equal(journal.load().condition, 'heavy');
+  first.controller.dispose();
+  const restored = harness({ journal });
+  await restored.controller.initialize();
+  assert.equal(restored.controller.getState().condition, 'heavy');
+  assert.equal(restored.calls.select, undefined);
+  restored.controller.dispose();
+
+  const intact = harness();
+  await intact.controller.initialize(); await intact.controller.openChest();
+  assert.equal('condition' in intact.controller.getState(), false);
+  intact.controller.dispose();
+
+  const invalid = harness({ select: async () => ({ prize: legacyCatalog()[13], condition: 'melted' }) });
+  await invalid.controller.initialize(); await invalid.controller.openChest();
+  assert.equal(invalid.controller.getState().phase, 'failed');
+  invalid.controller.dispose();
+});

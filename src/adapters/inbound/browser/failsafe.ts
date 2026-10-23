@@ -26,6 +26,7 @@ export interface FailsafeOptions {
   readonly reporter: ErrorReporter;
   /** Leave whatever is broken: navigate to the main screen. */
   readonly goHome: () => void;
+  readonly isHome?: () => boolean;
   readonly reload?: () => void;
   readonly now?: () => number;
   readonly limits?: Partial<Record<Phase, number>>;
@@ -130,17 +131,20 @@ export class Failsafe {
       dialog.setAttribute('aria-describedby', 'failsafe-text');
       // Same card as the React ErrorNotice (error-notice.css), so every error looks alike.
       dialog.innerHTML = `<div class="error-notice__panel">
+        <button type="button" class="error-notice__close" data-action="close" aria-label="Закрыть и вернуться на главную">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+        </button>
         <span class="error-notice__mark" aria-hidden="true">!</span>
         <p class="error-notice__eyebrow">Что-то пошло не так</p>
         <h2 class="error-notice__title" id="failsafe-title">Сундук завис</h2>
         <div class="error-notice__text"><p id="failsafe-text">Мы уже знаем об ошибке. Ваши сундуки и награды на месте — можно вернуться на главную или перезагрузить страницу.</p></div>
-        <div class="error-notice__actions"><button type="button" class="btn btn-green" data-action="home">На главную</button>
-          <button type="button" class="btn btn-transparent" data-action="reload">Перезагрузить</button></div>
+        <div class="error-notice__actions"><button type="button" class="btn" data-action="home">В главное меню</button>
+          <button type="button" class="btn" data-action="reload">Перезагрузить</button></div>
         <p class="failsafe__code"></p>
       </div>`;
       dialog.addEventListener('click', event => {
         const action = (event.target as Element | null)?.closest?.('[data-action]')?.getAttribute('data-action');
-        if (action === 'home') this.goHome();
+        if (action === 'home' || action === 'close') this.goHome();
         else if (action === 'reload') (this.options.reload ?? (() => document.defaultView?.location.reload()))();
       });
       // Escape means the same as "На главную": never back into the broken state.
@@ -148,9 +152,11 @@ export class Failsafe {
       document.body.append(dialog);
       this.dialog = dialog;
     }
+    const home = this.dialog.querySelector('[data-action="home"]') as HTMLButtonElement;
+    home.hidden = this.options.isHome?.() === true;
     this.dialog.querySelector('.failsafe__code')!.textContent = `Код: ${code}`;
     try { this.dialog.showModal(); } catch { this.dialog.setAttribute('open', ''); }
-    (this.dialog.querySelector('[data-action="home"]') as HTMLButtonElement | null)?.focus();
+    (this.dialog.querySelector(home.hidden ? '[data-action="reload"]' : '[data-action="home"]') as HTMLButtonElement | null)?.focus();
   }
 
   private goHome() {
@@ -169,12 +175,21 @@ function ensureStyles(document: Document) {
   style.textContent = `
     .failsafe { padding: 0; border: 0; background: transparent; max-width: min(440px, calc(100vw - 32px)); width: 100%; overflow: visible; }
     .failsafe::backdrop { background: #07050acc; backdrop-filter: blur(4px); }
-    .failsafe .error-notice__panel { display: grid; justify-items: center; gap: 10px; padding: 34px 28px 24px; border: 1px solid #e3665a33; border-radius: 6px;
+    .failsafe .error-notice__panel { position: relative; box-sizing: border-box; width: 100%; display: grid; justify-items: center; gap: 10px; padding: 34px 28px 24px; border: 1px solid #e3665a33; border-radius: 6px;
       background: linear-gradient(145deg, #241817, #120d0d 72%); color: #e9dcd9; text-align: center; font: 15px/1.45 Manrope, system-ui, sans-serif; }
     .failsafe .error-notice__eyebrow { margin: 0; color: #e3665a; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; }
     .failsafe .error-notice__title { margin: 0; color: #f4e9e6; font-size: 24px; }
     .failsafe p { margin: 0; }
     .failsafe .error-notice__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 14px; }
+    .failsafe .error-notice__actions .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 11px 18px; border: 1px solid #ff9a8f33; border-radius: 5px;
+      background: linear-gradient(180deg, #c5483d, #a82f28); color: #fff5f2; font: 700 14px/1.2 Manrope, system-ui, sans-serif; text-transform: uppercase; cursor: pointer; box-shadow: 0 10px 24px -10px #2a0a07; }
+    .failsafe .error-notice__actions .btn[hidden] { display: none; }
+    .failsafe .error-notice__close { position: absolute; top: 8px; right: 8px; display: grid; place-items: center; width: 44px; height: 44px; padding: 0;
+      color: #ff9a8f; background: #e3665a14; border: 1px solid #e3665a33; border-radius: 6px; cursor: pointer; }
+    .failsafe button:focus-visible { outline: 2px solid #ff9a8f; outline-offset: 3px; }
+    .failsafe .error-notice__close:active { background: #e3665a33; }
+    @media (hover: hover) and (pointer: fine) { .failsafe .error-notice__close:hover { background: #e3665a26; color: #fff5f2; border-color: #e3665a66; } }
+    @media (max-width: 560px) { .failsafe .error-notice__panel { padding-inline: 18px; } .failsafe .error-notice__actions .btn { flex: 1 1 100%; } }
     .failsafe__code { margin-top: 8px !important; color: #7d625d; font-size: 11px; letter-spacing: .04em; }`;
   document.head.append(style);
 }

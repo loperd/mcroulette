@@ -10,7 +10,7 @@ export interface CasePresentation {
   readonly theme: CaseVisualTheme;
 }
 /** The worlds a chest can live in. */
-export type WorldId = 'overworld' | 'deep-mine' | 'end' | 'dragon';
+export type WorldId = 'overworld' | 'deep-mine' | 'end' | 'dragon' | 'relic-vault';
 export interface CaseVisualTheme { readonly accent: string; readonly highlight: string; readonly deep: string; readonly glow: string }
 export interface ChestModelDefinition {
   readonly revision: string; readonly path: string; readonly body: string; readonly lid: string; readonly key?: string;
@@ -75,4 +75,18 @@ const UNCOMMON_CASE = makeCase('deep-mine', 'deep-mines', 'uncommon', 'Глуб�
 const EPIC_CASE = makeCase('dragon', 'dragon-reach', 'epic', 'Предел Дракона', 'Казна Драконоборца',
   'Реликвии древней битвы, пропитанные энергией Края.',
   { shell: '#3a293f', panel: '#58406a', metal: '#9782a0', accent: '#b887ed' }, rarityTheme('epic'), 'dragon');
-export const CASES: readonly CaseDefinition[] = Object.freeze([COMMON_CASE, UNCOMMON_CASE, ENDER_CASE, EPIC_CASE]);
+/** Authored PBR materials belong to this model; Ender palette zones must not tint them. */
+export const RELIC_CASE: CaseDefinition = Object.freeze({
+  id: 'relic', collectionId: 'quantum-vault', rarity: 'legendary', appearance: createChestAppearance(),
+  presentation: Object.freeze({ brand: 'Voxel Vault', collection: 'Квантовое хранилище', title: 'Квантовый реликт',
+    description: 'Обсидиановая броня, кристаллическое ядро и технологии забытой цивилизации.',
+    backgroundPath: 'images/cases/relic-vault.svg', world: 'relic-vault',
+    theme: Object.freeze({ accent: '#51dccb', highlight: '#bbfff1', deep: '#164c52', glow: '#51dccb66' }) }),
+  model: Object.freeze({ revision: 'relic-v4-8dc4b45a', path: 'models/relic-v4-8dc4b45a.glb',
+    body: 'Body', lid: 'LidAssembly', openingClips: Object.freeze(['Vault.Open']), rotationY: 0,
+    modifications: copyModificationProfile({ schemaVersion: 1, revision: 'relic-v4-authored-pbr',
+      parts: [{ id: 'body', label: 'Корпус', nodes: ['Body'] }, { id: 'lid', label: 'Крышка', nodes: ['LidAssembly'] }],
+      colorZones: [], catalog: [] }) }),
+  catalogPath: 'api/v1/cases/relic/catalog', poster: 'images/cases/relic-vault.svg',
+});
+export const CASES: readonly CaseDefinition[] = Object.freeze([COMMON_CASE, UNCOMMON_CASE, ENDER_CASE, EPIC_CASE, RELIC_CASE]);

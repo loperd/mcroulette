@@ -23,6 +23,8 @@ export function App({ captureWreck, catalog, session, preview, sceneElement, rou
   readonly onPrizeClose?: () => void;
   readonly casePalette?: CaseVisualTheme;
   readonly openLabel?: string;
+  /** The case on the screen, by its id: what a pack the player tries is tried on. */
+  readonly caseId?: string;
   readonly availableCaseCount?: number;
   readonly archiveCount?: number;
   readonly archiveView?: boolean;
@@ -53,7 +55,7 @@ export function App({ captureWreck, catalog, session, preview, sceneElement, rou
       `linear-gradient(180deg, rgba(5, 12, 13, 0.42), rgba(5, 12, 13, 0.3) 42%, rgba(5, 12, 13, 0.68)), url("${backgroundUrl}")` } : {}),
       // Its own stacking context: the world (z-index -1) sits over the case picture, under everything else.
       isolation: 'isolate' } as CSSProperties}>
-      {world && <PixelWorldBackground world={world.id} chest={world.chest} guest={world.guest} onStill={setWorldStill} />}
+      {world && <PixelWorldBackground world={world.id} chest={world.chest} guest={world.guest} session={session} onStill={setWorldStill} />}
       <div className="app__content page-container">
         {!session && <header className="app__header">
           <p className="eyebrow">Minecraft</p>

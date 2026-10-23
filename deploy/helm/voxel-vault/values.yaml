@@ -14,6 +14,67 @@ service:
   port: 8080
   targetPort: 8080
 
+# A project-local instance of the shared Overseer Gateway is the public edge.
+# The backend keeps enforcing application permissions and resource ownership.
+gateway:
+  enabled: true
+  image:
+    repository: voxel-vault-gateway
+    tag: 973004046c53
+    pullPolicy: IfNotPresent
+  replicas: 1
+  port: 8080
+  existingSecret: voxel-vault-gateway-secrets
+  # Shared gateway configuration; the initial profile preserves existing sessions.
+  # Later auth/providers/transforms are configured here, independently of backends.
+  config:
+    server:
+      port: "${PORT}"
+    upstreams:
+      api:
+        url: "${LONCHA_UPSTREAM_URL}"
+    routes:
+      # Everything under /api/v1/ needs the gateway session: the gateway verifies the JWT and sets the
+      # trusted X-User-Id / X-Session-Id / X-Scopes / X-Internal-Token headers the API relies on.
+      # /api/v1/auth/* is served by the telegramAuth plugin, not proxied.
+      - pattern: "/api/v1/"
+        upstream: api
+      # Anonymous catalogue the API serves without an account.
+      - pattern: "GET /api/v1/cases"
+        upstream: api
+        public: true
+      - pattern: "GET /api/v1/cases/{caseID}/catalog"
+        upstream: api
+        public: true
+      - pattern: "GET /api/v1/items/{itemID}/image.svg"
+        upstream: api
+        public: true
+      - pattern: "GET /readyz"
+        upstream: api
+        public: true
+    telegramAuth:
+      mode: oidc
+      redirectUrl: ""        # set per environment: https://<frontend host>/api/v1/auth/telegram/callback
+    plugins:
+      telegramAuth: true
+      cors: true
+      csrf: false
+      realtime: false
+    cors:
+      allowedOrigins:
+        - http://localhost:5173
+        - http://localhost:4173
+  env: {}
+  networkPolicy:
+    enabled: true
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
 # Configuration = env. Two stores, nothing else (no .env files):
 #   env:     non-secret env, UPPERCASE keys → ConfigMap <fullname>-env (API and bundled Postgres)
 #   secrets: HashiCorp Vault KV → VSO → Secret (below)
@@ -27,6 +88,9 @@ env:
   WEBAUTHN_ORIGINS: "http://localhost:5173"
   COOKIE_SECURE: "false"
   DEFAULT_ROLE: "player"
+  # Explicit opt-in after offline migration and economy-cutover -action check.
+  ECONOMY_MODE: "legacy"          # legacy | maintenance | contexts
+  WALLET_ASSETS: "currency,travel-scraps,deep-ore,end-shards,dragon-scales,quantum-shards"
   # Telegram Login (OIDC): the client id is the bot id, public (it is in the authorization URL).
   TELEGRAM_CLIENT_ID: "8751479936"
   TELEGRAM_REDIRECT_URL: ""
@@ -38,6 +102,8 @@ env:
 # Keys in the KV (all env):
 #   TELEGRAM_CLIENT_SECRET   Telegram OIDC client secret (empty/absent → Telegram login off)
 #   DATABASE_URL             postgres://… (with the bundled Postgres: its Service, user, password)
+#   INVENTORY_DATABASE_URL   separate Inventory runtime connection in contexts mode
+#   WALLET_DATABASE_URL      separate Wallet runtime connection in contexts mode
 #   POSTGRES_PASSWORD        only with the bundled Postgres
 # PREREQ for vso: the KV, a read policy and a Kubernetes-auth role bound to this chart's
 # ServiceAccount exist BEFORE switching to vso, or VSO overwrites the Secret with nothing.

@@ -1,0 +1,334 @@
+{
+  "source": "assets/chests/relic-v3-pbr/relic.bbmodel",
+  "sourceSha256": "9f6fa8e48bffd54016b22627b18933df200ed359cdbaf64af6a2f767b899655d",
+  "frozenChestSha256": "e7e091625a00d2cd0de155366b8555571c2428567ea47411bb6a4c9b907cbfda",
+  "studies": [
+    {
+      "family": "obsidian",
+      "variant": "restrained",
+      "asset": "assets/chests/relic-material-lookdev/obsidian/restrained/relic.glb",
+      "sha256": "e3b260f22263a952b7db358e6b55656c8fa0b699ae1ddfd306ae56821d41452c",
+      "sourceParts": [
+        "Body.FrontInsert1"
+      ],
+      "translationAuthorUnits": [
+        -3.1500000000000004,
+        10.0,
+        6.64
+      ],
+      "camera": {
+        "direction": [
+          1.2,
+          0.55,
+          -2.2
+        ],
+        "scale": 0.47,
+        "target": [
+          0,
+          0.9640625,
+          0
+        ]
+      },
+      "atlas": [
+        256,
+        256
+      ],
+      "texelsPerBlock": 256,
+      "focusMaterial": 0,
+      "purpose": "isolated material study, not a production chest or animation asset"
+    },
+    {
+      "family": "obsidian",
+      "variant": "balanced",
+      "asset": "assets/chests/relic-material-lookdev/obsidian/balanced/relic.glb",
+      "sha256": "af29156c7eec783696c9edcd303f473b2600f343964e267099d2313ec5f8ac51",
+      "sourceParts": [
+        "Body.FrontInsert1"
+      ],
+      "translationAuthorUnits": [
+        -3.1500000000000004,
+        10.0,
+        6.64
+      ],
+      "camera": {
+        "direction": [
+          1.2,
+          0.55,
+          -2.2
+        ],
+        "scale": 0.47,
+        "target": [
+          0,
+          0.9640625,
+          0
+        ]
+      },
+      "atlas": [
+        256,
+        256
+      ],
+      "texelsPerBlock": 256,
+      "focusMaterial": 0,
+      "purpose": "isolated material study, not a production chest or animation asset"
+    },
+    {
+      "family": "obsidian",
+      "variant": "weathered",
+      "asset": "assets/chests/relic-material-lookdev/obsidian/weathered/relic.glb",
+      "sha256": "e275d1f032f69fcdc5579ffd762a1c1f69e15446a57bd7a5f8e60a7ec002321b",
+      "sourceParts": [
+        "Body.FrontInsert1"
+      ],
+      "translationAuthorUnits": [
+        -3.1500000000000004,
+        10.0,
+        6.64
+      ],
+      "camera": {
+        "direction": [
+          1.2,
+          0.55,
+          -2.2
+        ],
+        "scale": 0.47,
+        "target": [
+          0,
+          0.9640625,
+          0
+        ]
+      },
+      "atlas": [
+        256,
+        256
+      ],
+      "texelsPerBlock": 256,
+      "focusMaterial": 0,
+      "purpose": "isolated material study, not a production chest or animation asset"
+    },
+    {
+      "family": "metal",
+      "variant": "restrained",
+      "asset": "assets/chests/relic-material-lookdev/metal/restrained/relic.glb",
+      "sha256": "4cae9e9e5ff320b8ed28c90c6a282da7403428bb657ffb29eaaf6ad286483dd5",
+      "sourceParts": [
+        "Lid.CornerRoof.1.-1",
+        "LidAssembly.CornerCap.1.-1"
+      ],
+      "translationAuthorUnits": [
+        -6.465,
+        0.10000000000000142,
+        6.465
+      ],
+      "camera": {
+        "direction": [
+          1.2,
+          0.55,
+          -2.2
+        ],
+        "scale": 0.32,
+        "target": [
+          0,
+          0.8671875,
+          0
+        ]
+      },
+      "atlas": [
+        256,
+        256
+      ],
+      "texelsPerBlock": 256,
+      "focusMaterial": 2,
+      "purpose": "isolated material study, not a production chest or animation asset"
+    },
+    {
+      "family": "metal",
+      "variant": "balanced",
+      "asset": "assets/chests/relic-material-lookdev/metal/balanced/relic.glb",
+      "sha256": "521b8b904beb48ffb76fd6d7a4d956e2c38e1b761c0b164e61c59102152529f4",
+      "sourceParts": [
+        "Lid.CornerRoof.1.-1",
+        "LidAssembly.CornerCap.1.-1"
+      ],
+      "translationAuthorUnits": [
+        -6.465,
+        0.10000000000000142,
+        6.465
+      ],
+      "camera": {
+        "direction": [
+          1.2,
+          0.55,
+          -2.2
+        ],
+        "scale": 0.32,
+        "target": [
+          0,
+          0.8671875,
+          0
+        ]
+      },
+      "atlas": [
+        256,
+        256
+      ],
+      "texelsPerBlock": 256,
+      "focusMaterial": 2,
+      "purpose": "isolated material study, not a production chest or animation asset"
+    },
+    {
+      "family": "metal",
+      "variant": "weathered",
+      "asset": "assets/chests/relic-material-lookdev/metal/weathered/relic.glb",
+      "sha256": "1aeaaa5ba3bbfbe2040d84cde8abc129a4258c1e377d6056fe51a614e789b0b4",
+      "sourceParts": [
+        "Lid.CornerRoof.1.-1",
+        "LidAssembly.CornerCap.1.-1"
+      ],
+      "translationAuthorUnits": [
+        -6.465,
+        0.10000000000000142,
+        6.465
+      ],
+      "camera": {
+        "direction": [
+          1.2,
+          0.55,
+          -2.2
+        ],
+        "scale": 0.32,
+        "target": [
+          0,
+          0.8671875,
+          0
+        ]
+      },
+      "atlas": [
+        256,
+        256
+      ],
+      "texelsPerBlock": 256,
+      "focusMaterial": 2,
+      "purpose": "isolated material study, not a production chest or animation asset"
+    },
+    {
+      "family": "crystal",
+      "variant": "restrained",
+      "asset": "assets/chests/relic-material-lookdev/crystal/restrained/relic.glb",
+      "sha256": "6aa5fd75f245d8d5a0355a9a1eb6400608a656e32fc5a5c1b60eb2f5c41b3f0f",
+      "sourceParts": [
+        "Body.HeartCrystal",
+        "Body.ReliquaryFrame",
+        "Body.ReliquaryRecess",
+        "Body.CrystalClaw.-1.4.12",
+        "Body.CrystalClaw.1.4.12",
+        "Body.CrystalClaw.-1.7.62",
+        "Body.CrystalClaw.1.7.62"
+      ],
+      "translationAuthorUnits": [
+        -0.0,
+        10.25,
+        7.154999999999999
+      ],
+      "camera": {
+        "direction": [
+          1.2,
+          0.55,
+          -2.2
+        ],
+        "scale": 0.57,
+        "target": [
+          0,
+          1.0171875000000001,
+          0
+        ]
+      },
+      "atlas": [
+        256,
+        256
+      ],
+      "texelsPerBlock": 256,
+      "focusMaterial": 4,
+      "purpose": "isolated material study, not a production chest or animation asset"
+    },
+    {
+      "family": "crystal",
+      "variant": "balanced",
+      "asset": "assets/chests/relic-material-lookdev/crystal/balanced/relic.glb",
+      "sha256": "355c1f92d2f6efca7ae0bc9da2e3705a1a0f02e52fb6ccb475b436abebe06e0f",
+      "sourceParts": [
+        "Body.HeartCrystal",
+        "Body.ReliquaryFrame",
+        "Body.ReliquaryRecess",
+        "Body.CrystalClaw.-1.4.12",
+        "Body.CrystalClaw.1.4.12",
+        "Body.CrystalClaw.-1.7.62",
+        "Body.CrystalClaw.1.7.62"
+      ],
+      "translationAuthorUnits": [
+        -0.0,
+        10.25,
+        7.154999999999999
+      ],
+      "camera": {
+        "direction": [
+          1.2,
+          0.55,
+          -2.2
+        ],
+        "scale": 0.57,
+        "target": [
+          0,
+          1.0171875000000001,
+          0
+        ]
+      },
+      "atlas": [
+        256,
+        256
+      ],
+      "texelsPerBlock": 256,
+      "focusMaterial": 4,
+      "purpose": "isolated material study, not a production chest or animation asset"
+    },
+    {
+      "family": "crystal",
+      "variant": "weathered",
+      "asset": "assets/chests/relic-material-lookdev/crystal/weathered/relic.glb",
+      "sha256": "1dd1efb2d2e95616a279c4423fccce00eb46840fe60c9f3238fab8eea1afee57",
+      "sourceParts": [
+        "Body.HeartCrystal",
+        "Body.ReliquaryFrame",
+        "Body.ReliquaryRecess",
+        "Body.CrystalClaw.-1.4.12",
+        "Body.CrystalClaw.1.4.12",
+        "Body.CrystalClaw.-1.7.62",
+        "Body.CrystalClaw.1.7.62"
+      ],
+      "translationAuthorUnits": [
+        -0.0,
+        10.25,
+        7.154999999999999
+      ],
+      "camera": {
+        "direction": [
+          1.2,
+          0.55,
+          -2.2
+        ],
+        "scale": 0.57,
+        "target": [
+          0,
+          1.0171875000000001,
+          0
+        ]
+      },
+      "atlas": [
+        256,
+        256
+      ],
+      "texelsPerBlock": 256,
+      "focusMaterial": 4,
+      "purpose": "isolated material study, not a production chest or animation asset"
+    }
+  ]
+}

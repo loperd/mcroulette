@@ -15,9 +15,13 @@ import type { Player } from './application/ports/auth-gateway.ts';
 import { InventoryScreen } from './adapters/inbound/react/InventoryScreen.tsx';
 import { ApiInventory } from './adapters/outbound/data/api-inventory.ts';
 import { ApiItems } from './adapters/outbound/data/api-items.ts';
+import { ApiWallet } from './adapters/outbound/data/api-wallet.ts';
+import { WalletScreen } from './adapters/inbound/react/WalletScreen.tsx';
 import { ItemsScreen } from './adapters/inbound/react/ItemsScreen.tsx';
 import { AccountContext, type Account } from './adapters/inbound/react/AccountContext.tsx';
 import { ChestPreviewRenderer } from './adapters/outbound/chest/chest-preview-renderer.ts';
+import { ThreeItemPresentation } from './adapters/outbound/items/three-item-presentation.ts';
+import { ItemPresentationContext } from './adapters/inbound/react/ItemArt.tsx';
 import { NO_BREAKAGE } from './domain/chest-breakage.ts';
 import { destroyedBreakage } from './adapters/outbound/chest/destroyed-breakage.ts';
 import type { OutcomeGateway } from './application/ports/outcome-gateway.ts';
@@ -54,12 +58,19 @@ const navigation = new BrowserRouter(window, storage);
 // Nobody is left hanging: unexpected errors, stuck phases and render loops end in a modal with a
 // way back to the main screen, and are reported (console now, Sentry later).
 const reporter = new ConsoleErrorReporter();
-const failsafe = new Failsafe({ document, reporter, goHome: () => navigation.go({ screen: 'inventory' }, true) });
+const failsafe = new Failsafe({ document, reporter, goHome: () => navigation.go({ screen: 'inventory' }, true), isHome: () => navigation.getState().screen === 'inventory' });
 failsafe.install();
 // The player's chests live on the server only: it issues them and owns their state.
-const inventory = new ApiInventory(baseUrl, CASES, error => reporter.capture(error, { code: 'INVENTORY_SYNC_FAILED' }));
-// The items chests dropped and the wallet; read from the server whenever the items screen opens.
+// A 401 from the player's own data means the session is gone: out to the sign-in, nothing kept.
+const authenticatedFetch: typeof fetch = async (input, init) => {
+  const response = await fetch(input, init);
+  if (response.status === 401) expireSession();
+  return response;
+};
+const inventory = new ApiInventory(baseUrl, CASES, error => reporter.capture(error, { code: 'INVENTORY_SYNC_FAILED' }), authenticatedFetch);
+// Inventory and Wallet use independent gateways and state.
 const items = new ApiItems(baseUrl, error => reporter.capture(error, { code: 'ITEMS_SYNC_FAILED' }));
+const wallet = new ApiWallet(baseUrl, authenticatedFetch);
 // Chests were once kept in the browser (a demo store); nothing of that is used any more.
 try {
   const stale = /^voxel-vault:(demo-inventory-v2|demo-stock:|last-find:|session:)/;
@@ -70,6 +81,8 @@ try {
 const journals = new Map<string, MemorySessionJournal>();
 const sessionJournals = (identity: string) => { let journal = journals.get(identity); if (!journal) journals.set(identity, journal = new MemorySessionJournal()); return journal; };
 let previews: ChestPreviewRenderer | undefined;
+/** Item models for every screen and the roulette strip: one preview context for the page. */
+const itemArt = new ThreeItemPresentation(document, baseUrl);
 let runtime: ReturnType<typeof createCaseRuntime> | undefined;
 let pendingOpenInstanceId: string | undefined;
 const soundPreference = new SoundSettings(() => window.localStorage,
@@ -97,7 +110,8 @@ function createCaseRuntime(definition: CaseDefinition, instance?: CaseInstance, 
   } } : undefined;
   const sound = new ClickSound(resolvePublicAsset('audio/click.wav', baseUrl));
   sound.setMuted(soundPreference.isMuted()); scene.setSoundMuted(soundPreference.isMuted());
-  const roulette = new CanvasRoulette(document, { sound, theme });
+  const roulette = new CanvasRoulette(document, { sound, cue: cue => cue === 'wind-up' ? gameAudio.spinStart() : gameAudio.spinLock(),
+    art: (item, signal) => itemArt.has(item.id) ? itemArt.preview(item.id, signal) : undefined });
   const effectColor = definition.presentation.theme.accent;
   const transitions = new GameTransitions(browserFrameEnvironment(window, document), roulette.element);
   transitions.element.style.background = `radial-gradient(ellipse, #ffffff, ${effectColor})`;
@@ -182,16 +196,26 @@ async function checkSession() {
   }
   renderRoute();
 }
+function expireSession() {
+  if (session.state !== 'signed-in') return;
+  session = { state: 'signed-out' };
+  inventoryLoad = undefined; account = undefined;
+  inventory.clear();
+  const previous = runtime; runtime = undefined; previous?.dispose();
+  renderRoute();
+}
 /** The player's chests are read from the server once signed in, before any screen shows them. */
 let inventoryLoad: Promise<void> | undefined;
-/** The header's wallet and profile; the wallet is read once signed in and again by the items screen. */
+/** The header's wallet and profile; balances refresh after workshop operations. */
 let account: Account | undefined;
 function accountOf(player: Player): Account {
   if (account?.player !== player) {
-    account = { player, items, signOut() {
+    wallet.reset(player.economyMode ?? 'legacy');
+    account = { player, wallet, signOut() {
       void auth.signOut().catch(error => reporter.capture(error, { code: 'SIGN_OUT_FAILED' })).finally(() => window.location.reload());
     } };
     void items.load().catch(error => reporter.capture(error, { code: 'ITEMS_LOAD_FAILED' }));
+    void wallet.load().catch(error => reporter.capture(error, { code: 'WALLET_LOAD_FAILED' }));
   }
   return account;
 }
@@ -240,16 +264,18 @@ function renderRoute() {
   if (import.meta.env.DEV) (window as unknown as { __caseRuntime?: unknown }).__caseRuntime = runtime;
   if (!definition) {
     if (route.screen === 'inventory' || route.screen === 'archive' || route.screen === 'catalog') previews ??= new ChestPreviewRenderer(document, baseUrl);
-    root.render(<StrictMode><AccountContext.Provider value={signedIn()}>{route.screen === 'inventory' || route.screen === 'archive'
-      ? <InventoryScreen key={route.screen} mode={route.screen} inventory={inventory} cases={CASES} navigation={navigation} storage={storage} renderer={previews!} soundPreference={soundPreference} />
+    root.render(<StrictMode><AccountContext.Provider value={signedIn()}><ItemPresentationContext.Provider value={itemArt}>{route.screen === 'inventory' || route.screen === 'archive'
+      ? <InventoryScreen key={route.screen} mode={route.screen} inventory={inventory} items={items} cases={CASES} navigation={navigation} storage={storage} renderer={previews!} soundPreference={soundPreference} />
       : route.screen === 'items'
       ? <ItemsScreen items={items} navigation={navigation} archiveCount={inventory.getState().filter(isConsumed).length}
         chestCount={inventory.getState().filter(item => item.status === 'available').length} soundPreference={soundPreference} />
+      : route.screen === 'wallet'
+      ? <WalletScreen wallet={wallet} navigation={navigation} soundPreference={soundPreference} />
       : route.screen === 'catalog'
       ? <CaseDirectory instances={inventory.getState()} cases={CASES} navigation={navigation} storage={storage} renderer={previews!} soundPreference={soundPreference} />
       : <><SoundControl preference={soundPreference} /><main className="page-shell case-directory"><div className="feedback"><h1>Сундук не найден</h1><p>Возможно, ссылка устарела.</p>
         <button className="btn btn-transparent" onClick={() => navigation.go({ screen: 'inventory' }, true)}>К сундукам</button></div></main></>}
-      <GlobalSearch navigation={navigation} cases={CASES} inventory={inventory} baseUrl={baseUrl} /></AccountContext.Provider></StrictMode>);
+      <GlobalSearch navigation={navigation} cases={CASES} inventory={inventory} baseUrl={baseUrl} /></ItemPresentationContext.Provider></AccountContext.Provider></StrictMode>);
     return;
   }
   const current = runtime!;
@@ -259,10 +285,10 @@ function renderRoute() {
     : caseOpenAction(inventory.getState(), definition.id, current.instanceId);
   const state = current.application.session!.getState();
   if (!fresh && route.screen === 'case' && state.phase === 'prize-visible') void current.application.session!.closePrize();
-  root.render(<StrictMode><AccountContext.Provider value={signedIn()}><NavigationContext.Provider value={{ navigation, storage }}>
+  root.render(<StrictMode><AccountContext.Provider value={signedIn()}><ItemPresentationContext.Provider value={itemArt}><NavigationContext.Provider value={{ navigation, storage }}>
     <GlobalSearch navigation={navigation} cases={CASES} inventory={inventory} baseUrl={baseUrl} />
     <CasePresentationContext.Provider value={definition.presentation}>
-      <App captureWreck={() => { const state = current.application.session!.getState(); return 'sessionId' in state ? loadWreck(state.sessionId) : undefined; }} inspectedCase={instance} casePalette={definition.presentation.theme} availableCaseCount={action.availableCount} archiveCount={inventory.getState().filter(isConsumed).length} archiveView={archiveView}
+      <App captureWreck={() => { const state = current.application.session!.getState(); return 'sessionId' in state ? loadWreck(state.sessionId) : undefined; }} caseId={definition.id} inspectedCase={instance} casePalette={definition.presentation.theme} availableCaseCount={action.availableCount} archiveCount={inventory.getState().filter(isConsumed).length} archiveView={archiveView}
         openLabel={action.label}
         onOpenRequest={() => {
           const { target, action: offer } = caseOpenAction(inventory.getState(), definition.id, current.instanceId);
@@ -279,7 +305,7 @@ function renderRoute() {
         onRetryInitialization={current.application.initialize} backgroundUrl={resolvePublicAsset(definition.presentation.backgroundPath, baseUrl)}
         world={{ id: definition.presentation.world, chest: current.scene.handles, guest: current.scene.guest }} />
     </CasePresentationContext.Provider>
-  </NavigationContext.Provider></AccountContext.Provider></StrictMode>);
+  </NavigationContext.Provider></ItemPresentationContext.Provider></AccountContext.Provider></StrictMode>);
   if (fresh) current.initialize();
 }
 let lastScreen = navigation.getState().screen;

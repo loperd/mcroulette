@@ -1,0 +1,55 @@
+{
+  "revision": "relic-v3-geometry-review-runtime",
+  "status": "awaiting-gpu-and-visual-review",
+  "closedEnvelope": {
+    "min": [
+      -0.5,
+      0,
+      -0.5
+    ],
+    "max": [
+      0.5,
+      1,
+      0.5
+    ]
+  },
+  "units": "one GLB unit = one block",
+  "authoringScale": 16,
+  "front": "-Z",
+  "body": "Body",
+  "lid": "LidAssembly",
+  "pivot": [
+    0.0,
+    0.659375,
+    0.478125
+  ],
+  "openingClips": [
+    "Vault.Open"
+  ],
+  "rotationY": 0,
+  "openAngleDegrees": 105,
+  "materials": [
+    "Vault.Shell",
+    "Vault.Panel",
+    "Vault.Metal",
+    "Vault.Edge",
+    "Vault.Crystal",
+    "Vault.Accent",
+    "Vault.Interior"
+  ],
+  "runtimeProfile": "not activated; existing reference model is unchanged",
+  "bbmodel": "free format mesh + PBR texture groups; canonical factors in materials.json; controlled re-export required",
+  "controlledExport": "python3.13 scripts/chests/optimize-relic-runtime.py --versions relic-v3-geometry",
+  "authoringSource": "assets/chests/relic-v3-geometry/relic.bbmodel",
+  "sourceSha256": "46b58c67cb2c5cfcc2158f65d7eda418bce84c126f322556ea98cda9a728c5aa",
+  "compression": {
+    "geometry": "KHR_draco_mesh_compression",
+    "textures": "EXT_texture_webp",
+    "maxTextureEdge": 512,
+    "quantizationBits": {
+      "position": 16,
+      "normal": 12,
+      "uv": 16
+    }
+  }
+}

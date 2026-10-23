@@ -74,9 +74,13 @@ POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-$(openssl rand -hex 24)}
 # Non-secret parts come from values.yaml `env:`; keep them in sync if you change them there.
 DB_USER=${POSTGRES_USER:-voxel} DB_NAME=${POSTGRES_DB:-voxel_vault}
 DATABASE_URL="postgres://$DB_USER:$POSTGRES_PASSWORD@$FULLNAME-postgres:5432/$DB_NAME?sslmode=disable"
+# Locally Identity and Security share the one database; the peer token is the gateway's INTERNAL_TOKEN.
+IDENTITY_DATABASE_URL=$DATABASE_URL SECURITY_DATABASE_URL=$DATABASE_URL
+GATEWAY_INTERNAL_TOKEN=$(k -n "$APP_NS" get secret voxel-vault-gateway-secrets -o jsonpath='{.data.INTERNAL_TOKEN}' | base64 -d)
 # JSON through stdin: no secret ever appears in a process list or shell history.
 TELEGRAM_CLIENT_SECRET=$TELEGRAM_CLIENT_SECRET POSTGRES_PASSWORD=$POSTGRES_PASSWORD DATABASE_URL=$DATABASE_URL \
-  python3 -c 'import json, os; print(json.dumps({k: os.environ[k] for k in ("TELEGRAM_CLIENT_SECRET", "POSTGRES_PASSWORD", "DATABASE_URL")}))' \
+  IDENTITY_DATABASE_URL=$IDENTITY_DATABASE_URL SECURITY_DATABASE_URL=$SECURITY_DATABASE_URL GATEWAY_INTERNAL_TOKEN=$GATEWAY_INTERNAL_TOKEN TG_OIDC_CLIENT_SECRET=$TELEGRAM_CLIENT_SECRET \
+  python3 -c 'import json, os; print(json.dumps({k: os.environ[k] for k in ("TELEGRAM_CLIENT_SECRET", "POSTGRES_PASSWORD", "DATABASE_URL", "IDENTITY_DATABASE_URL", "SECURITY_DATABASE_URL", "GATEWAY_INTERNAL_TOKEN", "TG_OIDC_CLIENT_SECRET")}))' \
   | vault kv put -mount="$MOUNT" "$KV_PATH" - >/dev/null
 
 echo "✓ Vault ready. Now:"

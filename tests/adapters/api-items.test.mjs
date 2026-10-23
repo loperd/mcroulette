@@ -34,7 +34,7 @@ test('items come with their prices; one the rulebook no longer describes is skip
   assert.equal(loaded, true);
   assert.deepEqual(list.map(item => [item.id, item.state, item.offers.repair?.value, item.offers.mergeWith]), [['a', 'heavy', 16, 'z'], ['b', 'intact', undefined, undefined]]);
   assert.equal(list[0].item.image, 'https://example.test/api/v1/items/mine-pick/image.svg');
-  assert.deepEqual(balances, { 'deep-ore': 30, currency: 5 });
+  assert.equal(balances, undefined, 'Wallet is not part of Inventory state');
 });
 
 test('an action is a same-origin POST; the list is read again afterwards', async () => {
@@ -49,7 +49,7 @@ test('an action is a same-origin POST; the list is read again afterwards', async
   assert.deepEqual(server.requests, [['/a%20b/repair', 'POST', 'same-origin', {}]]);
   await settle(); await settle();
   assert.equal(items.getState().items[0].state, 'slight');
-  assert.equal(items.getState().balances['deep-ore'], 14);
+  assert.equal(items.getState().balances, undefined);
 });
 
 test('a merge says whether the item that stayed was mended', async () => {
@@ -76,4 +76,37 @@ test('a refusal is reported, thrown, and the list read again', async () => {
   await settle(); await settle();
   assert.equal(errors.length, 1);
   assert.equal(reads, 2);
+});
+
+test('a workshop waits for the saga and translates exact quoted units only on completion', async () => {
+  const id = 'a'.repeat(64), requests = [];
+  const op = { operationId: id, itemId: 'a', action: 'repair', stage: 'awaiting_funds', quote: { asset: 'deep-ore', units: '16' } };
+  const items = new ApiItems('https://example.test/', () => {}, async (url, init = {}) => {
+    requests.push([new URL(url).pathname, init]);
+    if (init.method === 'POST') return new Response(JSON.stringify(op), { status: 202 });
+    if (new URL(url).pathname.includes('/operations/')) return new Response(JSON.stringify({ ...op, stage: 'completed' }));
+    return new Response(JSON.stringify({ items: [] }));
+  });
+  assert.deepEqual(await items.work('a', 'repair'), { resource: 'deep-ore', value: 16 });
+  assert.ok(requests[0][1].headers['Idempotency-Key']);
+  assert.ok(requests.some(([path]) => path.endsWith(id)));
+});
+
+test('an uncertain POST reply retains its key when the player retries', async () => {
+  const keys = []; let attempts = 0;
+  const items = new ApiItems('https://example.test/', () => {}, async (_url, init = {}) => {
+    if (!init.method) return new Response(JSON.stringify({ items: [] }));
+    keys.push(init.headers['Idempotency-Key']); if (++attempts === 1) throw new Error('lost reply');
+    return new Response(JSON.stringify({ resource: 'deep-ore', value: 16 }));
+  });
+  await assert.rejects(items.work('a', 'repair')); await items.work('a', 'repair');
+  assert.equal(keys[0], keys[1]);
+});
+
+test('canceled or unresolved operations are not reported as successful purchases', async () => {
+  for (const stage of ['canceled', 'restored', 'reconciliation_required']) {
+    const items = new ApiItems('https://example.test/', () => {}, async (_url, init = {}) => new Response(JSON.stringify(init.method
+      ? { operationId: 'b'.repeat(64), itemId: 'a', action: 'sell', stage, quote: { asset: 'currency', units: '20' } } : { items: [] }), { status: init.method ? 202 : 200 }));
+    await assert.rejects(items.work('a', 'sell'), error => ['OPERATION_REJECTED', 'OPERATION_PENDING'].includes(error.code));
+  }
 });

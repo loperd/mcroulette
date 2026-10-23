@@ -39,3 +39,25 @@ test('preview cache releases old backing buffers at its fixed budget', async () 
   assert.equal(images.filter(image => image.width > 0).length,12);
   renderer.dispose(); assert.ok(images.every(image => image.width === 0));
 });
+
+test('previews work without AbortSignal.any and lifetime cancellation releases an in-flight canvas', async () => {
+  const descriptor = Object.getOwnPropertyDescriptor(AbortSignal, 'any');
+  Object.defineProperty(AbortSignal, 'any', { configurable: true, value: undefined });
+  const pending = deferred(), controller = new AbortController();
+  const renderer = new ChestPreviewRenderer({}, base, async () => pending.promise);
+  try {
+    const result = renderer.render(ENDER_CASE, createChestAppearance(), controller.signal);
+    const rejected = assert.rejects(result, { name: 'AbortError' });
+    await flush(); renderer.dispose();
+    const canvas = { width: 640, height: 520 }; pending.resolve(canvas);
+    await rejected;
+    assert.equal(canvas.width * canvas.height, 0);
+    const other = new ChestPreviewRenderer({}, base, async () => ({ width: 640, height: 520 }));
+    try { assert.equal((await other.render(ENDER_CASE, createChestAppearance(), controller.signal)).width, 640); }
+    finally { other.dispose(); }
+  } finally {
+    renderer.dispose();
+    if (descriptor) Object.defineProperty(AbortSignal, 'any', descriptor);
+    else delete AbortSignal.any;
+  }
+});

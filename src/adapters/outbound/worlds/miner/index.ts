@@ -7,11 +7,11 @@ import { miningProps } from './props.ts';
 import { atmosphere } from './atmosphere.ts';
 
 /** The cavern's light: a blue-grey from above, the rust of the rock below, the lanterns' warm glow. */
-const LIGHT = { sky: '#6c87b4', ground: '#724025', key: '#ffb37a' };
+const LIGHT = { sky: '#6c87b4', ground: '#724025', key: '#ffb37a', from: [.35, .6, 1] as const };
 
 /** An independent, entirely geometric stage for the miner chest. No backdrop image. */
 export const MINER_VAULT: StageBuilder<ChestHandles> = {
-  id: 'miner-vault-fortress-v1',
+  id: 'miner-vault-fortress-v3',
   build(seed) {
     let state = seed >>> 0;
     const p = new MineParts(() => { state = (Math.imul(state, 1664525) + 1013904223) >>> 0; return state / 4294967296; });
@@ -24,8 +24,9 @@ export const MINER_VAULT: StageBuilder<ChestHandles> = {
       sky: { top: '#0a1221', horizon: '#182132', bottom: '#100c10' },
       fog: { color: '#202332', near: 27, far: 100 },
       // The chest falls onto its plinth in front of the gate (the physics' ground is the stone that is
-      // drawn) and is lit in the cavern's colours; the camera stands 9 blocks off, the gate framing it.
-      camera: { position: [0, PLINTH_TOP + 2.45, 9], target: [0, PLINTH_TOP + .75, 0], fov: 50, drift: .1, focus: [.5, .44] },
+      // drawn) and is lit in the cavern's colours; the camera stands 5.8 blocks off, the gate framing it.
+      // Keep the floating preview above the intro controls, which start halfway down the screen.
+      camera: { position: [0, PLINTH_TOP + 2.4, 5.8], target: [0, PLINTH_TOP + .75, 0], fov: 50, drift: .1, focus: [.5, .39] },
       anchor: [0, PLINTH_TOP, 0], ground: { boxes: footing() }, light: LIGHT, flicker: .1,
     };
   },

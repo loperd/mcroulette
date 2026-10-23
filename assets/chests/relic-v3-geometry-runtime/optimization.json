@@ -1,0 +1,449 @@
+{
+  "source": "/Users/loper/projects/mcroulette/assets/chests/relic-v3-geometry/relic.glb",
+  "runtime": "/Users/loper/projects/mcroulette/assets/chests/relic-v3-geometry-runtime/relic.glb",
+  "sourceSha256": "46b58c67cb2c5cfcc2158f65d7eda418bce84c126f322556ea98cda9a728c5aa",
+  "runtimeSha256": "4053f1b2c88ec0ff749c610e64bd5444553280e23896f455415c79a304e4a287",
+  "bytesBefore": 452620,
+  "bytesAfter": 134120,
+  "textureRGBA8WithMipsBefore": 50517,
+  "textureRGBA8WithMipsAfter": 50517,
+  "triangles": 6388,
+  "drawPrimitives": 14,
+  "quantizationBits": {
+    "position": 16,
+    "normal": 12,
+    "uv": 16
+  },
+  "triangleOrder": "preserved",
+  "hierarchyAnimation": "unchanged",
+  "maxTextureEdge": 512,
+  "webp": "lossless after explicit downscale; renormalized normals and linear-light color resize",
+  "attributes": [
+    {
+      "attribute": "POSITION",
+      "maxAbsoluteError": 6.3925981521606445e-06
+    },
+    {
+      "attribute": "NORMAL",
+      "maxAbsoluteError": 0.0006912085809744895
+    },
+    {
+      "attribute": "TEXCOORD_0",
+      "maxAbsoluteError": 6.92903995513916e-06
+    },
+    {
+      "attribute": "POSITION",
+      "maxAbsoluteError": 6.139278411865234e-06
+    },
+    {
+      "attribute": "NORMAL",
+      "maxAbsoluteError": 0.0006912085809744895
+    },
+    {
+      "attribute": "TEXCOORD_0",
+      "maxAbsoluteError": 6.139278411865234e-06
+    },
+    {
+      "attribute": "POSITION",
+      "maxAbsoluteError": 7.420778274536133e-06
+    },
+    {
+      "attribute": "NORMAL",
+      "maxAbsoluteError": 0.0006912085809744895
+    },
+    {
+      "attribute": "TEXCOORD_0",
+      "maxAbsoluteError": 7.515773177146912e-06
+    },
+    {
+      "attribute": "POSITION",
+      "maxAbsoluteError": 7.3909759521484375e-06
+    },
+    {
+      "attribute": "NORMAL",
+      "maxAbsoluteError": 0.0006912085809744895
+    },
+    {
+      "attribute": "TEXCOORD_0",
+      "maxAbsoluteError": 7.3909759521484375e-06
+    },
+    {
+      "attribute": "POSITION",
+      "maxAbsoluteError": 7.051974534988403e-06
+    },
+    {
+      "attribute": "NORMAL",
+      "maxAbsoluteError": 0.0006912085809744895
+    },
+    {
+      "attribute": "TEXCOORD_0",
+      "maxAbsoluteError": 6.8247318267822266e-06
+    },
+    {
+      "attribute": "POSITION",
+      "maxAbsoluteError": 5.863606929779053e-06
+    },
+    {
+      "attribute": "NORMAL",
+      "maxAbsoluteError": 0.0006912085809744895
+    },
+    {
+      "attribute": "TEXCOORD_0",
+      "maxAbsoluteError": 7.107853889465332e-06
+    },
+    {
+      "attribute": "POSITION",
+      "maxAbsoluteError": 5.997717380523682e-06
+    },
+    {
+      "attribute": "NORMAL",
+      "maxAbsoluteError": 0.0006912085809744895
+    },
+    {
+      "attribute": "TEXCOORD_0",
+      "maxAbsoluteError": 6.079673767089844e-06
+    },
+    {
+      "attribute": "POSITION",
+      "maxAbsoluteError": 5.8710575103759766e-06
+    },
+    {
+      "attribute": "NORMAL",
+      "maxAbsoluteError": 0.0006912085809744895
+    },
+    {
+      "attribute": "TEXCOORD_0",
+      "maxAbsoluteError": 6.0498714447021484e-06
+    },
+    {
+      "attribute": "POSITION",
+      "maxAbsoluteError": 3.814697265625e-06
+    },
+    {
+      "attribute": "NORMAL",
+      "maxAbsoluteError": 0.0006912085809744895
+    },
+    {
+      "attribute": "TEXCOORD_0",
+      "maxAbsoluteError": 5.21540641784668e-06
+    },
+    {
+      "attribute": "POSITION",
+      "maxAbsoluteError": 7.431022822856903e-06
+    },
+    {
+      "attribute": "NORMAL",
+      "maxAbsoluteError": 0.0006912085809744895
+    },
+    {
+      "attribute": "TEXCOORD_0",
+      "maxAbsoluteError": 7.450580596923828e-06
+    },
+    {
+      "attribute": "POSITION",
+      "maxAbsoluteError": 7.420778274536133e-06
+    },
+    {
+      "attribute": "NORMAL",
+      "maxAbsoluteError": 0.0006912085809744895
+    },
+    {
+      "attribute": "TEXCOORD_0",
+      "maxAbsoluteError": 7.361173629760742e-06
+    },
+    {
+      "attribute": "POSITION",
+      "maxAbsoluteError": 1.4826655387878418e-06
+    },
+    {
+      "attribute": "NORMAL",
+      "maxAbsoluteError": 0.0006654262542724609
+    },
+    {
+      "attribute": "TEXCOORD_0",
+      "maxAbsoluteError": 1.4901161193847656e-06
+    },
+    {
+      "attribute": "POSITION",
+      "maxAbsoluteError": 5.8710575103759766e-06
+    },
+    {
+      "attribute": "NORMAL",
+      "maxAbsoluteError": 0.0006912085809744895
+    },
+    {
+      "attribute": "TEXCOORD_0",
+      "maxAbsoluteError": 6.303191184997559e-06
+    },
+    {
+      "attribute": "POSITION",
+      "maxAbsoluteError": 4.577450454235077e-06
+    },
+    {
+      "attribute": "NORMAL",
+      "maxAbsoluteError": 0.0006912085809744895
+    },
+    {
+      "attribute": "TEXCOORD_0",
+      "maxAbsoluteError": 4.0531158447265625e-06
+    }
+  ],
+  "textures": [
+    {
+      "name": "0.webp",
+      "channel": "base",
+      "before": [
+        64,
+        64
+      ],
+      "after": [
+        64,
+        64
+      ],
+      "beforeBytes": 3901,
+      "afterBytes": 2074
+    },
+    {
+      "name": "1.webp",
+      "channel": "base",
+      "before": [
+        64,
+        64
+      ],
+      "after": [
+        64,
+        64
+      ],
+      "beforeBytes": 3613,
+      "afterBytes": 1854
+    },
+    {
+      "name": "2.webp",
+      "channel": "base",
+      "before": [
+        16,
+        16
+      ],
+      "after": [
+        16,
+        16
+      ],
+      "beforeBytes": 371,
+      "afterBytes": 172
+    },
+    {
+      "name": "3.webp",
+      "channel": "base",
+      "before": [
+        16,
+        16
+      ],
+      "after": [
+        16,
+        16
+      ],
+      "beforeBytes": 312,
+      "afterBytes": 130
+    },
+    {
+      "name": "4.webp",
+      "channel": "base",
+      "before": [
+        16,
+        16
+      ],
+      "after": [
+        16,
+        16
+      ],
+      "beforeBytes": 408,
+      "afterBytes": 200
+    },
+    {
+      "name": "5.webp",
+      "channel": "base",
+      "before": [
+        16,
+        16
+      ],
+      "after": [
+        16,
+        16
+      ],
+      "beforeBytes": 434,
+      "afterBytes": 208
+    },
+    {
+      "name": "6.webp",
+      "channel": "base",
+      "before": [
+        16,
+        16
+      ],
+      "after": [
+        16,
+        16
+      ],
+      "beforeBytes": 218,
+      "afterBytes": 84
+    }
+  ],
+  "decodedSnapshot": "/Users/loper/projects/mcroulette/artifacts/relic-v4/optimization/relic-v3-geometry-decoded.glb",
+  "gpuReview": "pending",
+  "losslessRepack": {
+    "version": "relic-v3-geometry",
+    "inputSha256": "998d0d8848e8167173db6cab4f598b798314ac696f0a3ad385329ce6dbfcb21a",
+    "outputSha256": "4053f1b2c88ec0ff749c610e64bd5444553280e23896f455415c79a304e4a287",
+    "beforeBytes": 135028,
+    "afterBytes": 134120,
+    "decodedPixelsBitExact": true,
+    "nonImageBuffersBitExact": true,
+    "jsonExceptLayoutIdentical": true,
+    "textureResolutionUnchanged": true,
+    "nonImageBuffers": [
+      {
+        "view": 0,
+        "sha256": "7b277463da4323bbbb0c06b2d0423d85be537b289e6d378421d865c93f0b9575"
+      },
+      {
+        "view": 1,
+        "sha256": "df3e908ef8a312d6a83d3d97f2c95ff88dc7ad387979c4bceee2b55cb46b20a6"
+      },
+      {
+        "view": 2,
+        "sha256": "fbf726381fe6ce8e37785ba0a67032b4062918181d9d20d71b3ffd144b93b454"
+      },
+      {
+        "view": 3,
+        "sha256": "2e488018b704eb74847361e6cf25f8c5bc08b22e4a1bafa5017968327a88597d"
+      },
+      {
+        "view": 4,
+        "sha256": "f45bb1535ea6c73c5c46402c59b8f404207a170a1cef516bdab945989de0eb72"
+      },
+      {
+        "view": 5,
+        "sha256": "b88c6e9fcb199f6e5824081cdc90f915b78aec54bce375639bc864de315a6bc1"
+      },
+      {
+        "view": 6,
+        "sha256": "9a038f4a74e2d27d9149c04a75079ec42cf73b2cacfcde62f56a2098a06ca3cc"
+      },
+      {
+        "view": 7,
+        "sha256": "cbf7306ee904c45c6cedca2d2fc75c2a64f89e6774d4d2d784f7711dc0d7e8af"
+      },
+      {
+        "view": 8,
+        "sha256": "f67085a8095ba8494345f03170403031528e6f0f2b1d831526ef54017b011a07"
+      },
+      {
+        "view": 9,
+        "sha256": "671afaf06a42e25b0616c49176c7a23f671ed79ab28636f9a30c89cff4b74965"
+      },
+      {
+        "view": 10,
+        "sha256": "77c66068961cb13f4554b79c5dcce740cb093e5e315945378ae8b676d4e00bf7"
+      },
+      {
+        "view": 11,
+        "sha256": "f6d4d16723eb52bdb9bd42cbb2a593bf20e4684a95941d3a3a1f20eaabfa0f03"
+      },
+      {
+        "view": 12,
+        "sha256": "d36fb05544109bdb8fa8836095bdbbde550aaea54e205a3cc02132d3746d1861"
+      },
+      {
+        "view": 13,
+        "sha256": "8017376c4be61d08a019a6e467e8d12fe6c318444004927ca631a651e59d9b5b"
+      },
+      {
+        "view": 14,
+        "sha256": "7ba8bcbec812d6fb0cbdd9ea2ce96847e0d916b0e24c73b523ba5bdc6202b2db"
+      },
+      {
+        "view": 15,
+        "sha256": "38824ebfc810f3ece360799c8703414ac9bc61fe718cd27ea99477ea27ed5b85"
+      }
+    ],
+    "images": [
+      {
+        "image": 0,
+        "name": "0.webp",
+        "beforeBytes": 2540,
+        "afterBytes": 2074,
+        "size": [
+          64,
+          64
+        ],
+        "decodedRGBA256": "f8f7360a46cb8eb26fd76b9d055f0eaeacf5415c5703d993d6d19feae89ddec8"
+      },
+      {
+        "image": 1,
+        "name": "1.webp",
+        "beforeBytes": 2254,
+        "afterBytes": 1854,
+        "size": [
+          64,
+          64
+        ],
+        "decodedRGBA256": "bf70c2cb011bb7582d8e03c57f837918b7d70e2a64783a9691fba73e7424f8be"
+      },
+      {
+        "image": 2,
+        "name": "2.webp",
+        "beforeBytes": 188,
+        "afterBytes": 172,
+        "size": [
+          16,
+          16
+        ],
+        "decodedRGBA256": "22dce79a2c4d4e33f414b3f40e97fa2a4f17d4c1f7cb2c4f91457c5042ebd31e"
+      },
+      {
+        "image": 3,
+        "name": "3.webp",
+        "beforeBytes": 138,
+        "afterBytes": 130,
+        "size": [
+          16,
+          16
+        ],
+        "decodedRGBA256": "c603334c9e728d78e9a054bf24f1f0bb8146479f80149ec90c4c98136f3d84eb"
+      },
+      {
+        "image": 4,
+        "name": "4.webp",
+        "beforeBytes": 210,
+        "afterBytes": 200,
+        "size": [
+          16,
+          16
+        ],
+        "decodedRGBA256": "6ffc2e546481a4d518547b3a06ea496d248a1c956485188d284ecd554d16df1c"
+      },
+      {
+        "image": 5,
+        "name": "5.webp",
+        "beforeBytes": 208,
+        "afterBytes": 208,
+        "size": [
+          16,
+          16
+        ],
+        "decodedRGBA256": "e17b7020bc24e954cfcaa971f6d2d14be4c21af5e8746e6e04312d6b86f9ca89"
+      },
+      {
+        "image": 6,
+        "name": "6.webp",
+        "beforeBytes": 92,
+        "afterBytes": 84,
+        "size": [
+          16,
+          16
+        ],
+        "decodedRGBA256": "b5d8cefbe831e05b95c6abd042dfb394e5046dbb0b939c4343ba1c5802d14e6a"
+      }
+    ]
+  }
+}

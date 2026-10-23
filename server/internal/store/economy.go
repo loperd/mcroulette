@@ -11,6 +11,7 @@ import (
 	"github.com/voxel-vault/api/internal/domain/chest"
 	"github.com/voxel-vault/api/internal/domain/inventory"
 	"github.com/voxel-vault/api/internal/domain/wallet"
+	"github.com/voxel-vault/api/internal/economycutover/adapters/legacy"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -24,7 +25,12 @@ type Tx struct{ db *gorm.DB }
 
 // Transact runs fn in a transaction; an error from fn rolls everything back.
 func Transact(ctx context.Context, db *gorm.DB, fn func(Tx) error) error {
-	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error { return fn(Tx{db: tx}) })
+	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := legacy.GuardWrite(ctx, tx.Statement.ConnPool); err != nil {
+			return err
+		}
+		return fn(Tx{db: tx})
+	})
 }
 
 func (t Tx) locked() *gorm.DB { return t.db.Clauses(clause.Locking{Strength: "UPDATE"}) }
@@ -137,7 +143,7 @@ func unmarshal(data []byte, to any) error {
 // lockOwner serialises changes to one player's inventory and wallet on the user row: their rows
 // may not exist yet, so they cannot be locked themselves.
 func (t Tx) lockOwner(owner string) error {
-	var user User
+	var user EconomyOwner
 	found := t.locked().Select("id").Where("id = ?", owner).Limit(1).Find(&user)
 	if found.Error == nil && found.RowsAffected == 0 {
 		return ErrNotFound
@@ -147,7 +153,7 @@ func (t Tx) lockOwner(owner string) error {
 
 // FirstStarter locks the player and marks their starter grant; true the first time only.
 func (t Tx) FirstStarter(owner string) (bool, error) {
-	var user User
+	var user EconomyOwner
 	found := t.locked().Select("id", "starter_granted_at").Where("id = ?", owner).Limit(1).Find(&user)
 	if found.Error != nil {
 		return false, found.Error
@@ -158,7 +164,7 @@ func (t Tx) FirstStarter(owner string) (bool, error) {
 	if user.StarterGrantedAt != nil {
 		return false, nil
 	}
-	return true, t.db.Model(&User{}).Where("id = ?", owner).Update("starter_granted_at", time.Now()).Error
+	return true, t.db.Model(&EconomyOwner{}).Where("id = ?", owner).Update("starter_granted_at", time.Now()).Error
 }
 
 // OpenedAt is when each of an owner's opened chests was opened.

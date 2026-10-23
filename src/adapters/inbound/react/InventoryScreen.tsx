@@ -3,10 +3,11 @@ import { isConsumed } from '../../../domain/case-instance.ts';
 import { partConditions } from '../../../domain/chest-appearance.ts';
 import { RARITIES } from '../../../domain/item.ts';
 import { damageLevel, groupInventory } from '../../../application/inventory-groups.ts';
-import { useContext, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { CASE_RARITY_LABELS, type CaseDefinition, type CaseRarity } from '../../../config/cases.ts';
 import type { Navigation } from '../../../application/ports/navigation.ts';
 import type { PlayerInventory } from '../../../application/ports/player-inventory.ts';
+import type { ItemsState, PlayerItems } from '../../../application/ports/player-items.ts';
 import type { ScreenStorage } from '../../outbound/browser/screen-storage.ts';
 import type { ChestPreviewRenderer } from '../../outbound/chest/chest-preview-renderer.ts';
 import { useObservableState } from './use-observable-state.ts';
@@ -15,20 +16,20 @@ import { ScreenHeader } from './ScreenHeader.tsx';
 import { InventoryTabs } from './InventoryTabs.tsx';
 import { ChestMerge } from './ChestMerge.tsx';
 import type { CaseInstance } from '../../../domain/case-instance.ts';
-import { AccountContext } from './AccountContext.tsx';
 import type { SoundPreference } from './SoundControl.tsx';
 
-const NO_ITEMS = { getState: () => undefined, subscribe: () => () => {} };
+const EMPTY_ITEMS: ItemsState = Object.freeze({ loaded: false, items: Object.freeze([]) });
+const NO_ITEMS = { getState: () => EMPTY_ITEMS, subscribe: () => () => {} };
 
-export function InventoryScreen({ inventory, cases, navigation, storage, renderer, soundPreference, mode = 'inventory' }: {
+export function InventoryScreen({ inventory, items, cases, navigation, storage, renderer, soundPreference, mode = 'inventory' }: {
   readonly soundPreference?: SoundPreference;
   readonly mode?: 'inventory' | 'archive';
   readonly inventory: PlayerInventory; readonly cases: readonly CaseDefinition[]; readonly navigation: Navigation;
+  readonly items?: PlayerItems;
   readonly storage: ScreenStorage; readonly renderer: Pick<ChestPreviewRenderer, 'render'>;
 }) {
   const instances = useObservableState(inventory);
-  const account = useContext(AccountContext);
-  const owned = useObservableState(account?.items ?? NO_ITEMS);
+  const owned = useObservableState(items ?? NO_ITEMS);
   const saved = useRef(storage.read(mode === 'archive' ? 'screen:archive' : 'screen:inventory', value => {
     const v = value && typeof value === 'object' ? value as Record<string, unknown> : {};
     return { rarity: typeof v.rarity === 'string' && ['common','uncommon','rare','epic','legendary'].includes(v.rarity) ? v.rarity : 'all',

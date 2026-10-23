@@ -8,6 +8,12 @@ import { chestLook } from '../../src/config/chest-look.ts';
 const settle = () => new Promise(resolve => setTimeout(resolve, 0));
 const map = { id: 'traveler-map', title: 'Карта', image: 'images/map.webp', type: 'legendary', chance: 12 };
 
+test('exact unsigned seed strings retain their low 32 bits for visual appearance', async () => {
+  const { inventory } = await loadedInventory([{ id:'large',caseId:'traveler',seed:'9007199254740993' }]);
+  assert.deepEqual(inventory.getState()[0].appearance,chestLook(CASES.find(c=>c.id==='traveler'),1,[]));
+  await assert.rejects(loadedInventory([{id:'overflow',caseId:'traveler',seed:'18446744073709551616'}]));
+});
+
 test('chests come from the server with their contents; their look is the traits the server froze', async () => {
   const traveler = CASES.find(item => item.id === 'traveler');
   const traits = [{ id: 'body-cracks', intensity: .9, seed: 1 }, { id: 'not-on-this-model', intensity: .5, seed: 2 }];
@@ -102,4 +108,12 @@ test('merge odds that are not percents are refused', async () => {
   const lying = async (url, init) => url.includes('/merge') ? { ok: true, status: 200, json: async () => ({ traits: [{ id: 'moss', keep: 140, upgrade: 0 }], contents: { total: 2, kept: 1, keep: 50 } }) } : server.fetcher(url, init);
   const inventory = new ApiInventory('https://example.test/', CASES, () => {}, lying);
   await assert.rejects(inventory.mergeOdds('a', 'b'), /percent/);
+});
+
+test('clear forgets the list: a gone session leaves no chests to look at', async () => {
+  const { inventory } = await loadedInventory([{ id: 'a', caseId: 'traveler', seed: 3 }]);
+  assert.equal(inventory.getState().length, 1);
+  inventory.clear();
+  assert.deepEqual(inventory.getState(), []);
+  assert.equal(inventory.isLoaded(), false, 'the next sign-in reads it again');
 });

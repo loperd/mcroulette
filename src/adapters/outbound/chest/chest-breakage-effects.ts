@@ -1,4 +1,5 @@
-import RAPIER, { type RigidBody, type World } from '@dimforge/rapier3d-compat';
+import type { ColliderDesc, RigidBody, World } from '@dimforge/rapier3d-compat';
+import { physicsEngine } from '../../../../packages/blockworld/src/physics.ts';
 import { AdditiveBlending, Box3, BoxGeometry, Color, CylinderGeometry, DataTexture, DoubleSide, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial,
   NearestFilter, PlaneGeometry, PointLight, Quaternion, RepeatWrapping, RGBAFormat, RingGeometry, ShaderMaterial, SRGBColorSpace, Vector3,
   type BufferGeometry, type Material, type Object3D } from 'three';
@@ -75,9 +76,10 @@ const RIGID_SCALE: Record<'chip' | 'shard' | 'flake', [number, number, number]> 
  * whatever is still standing, then come to rest on a face. Light debris follows the part's
  * modifications: rust flakes, moss leaves, ice, rune sparks.
  *
- * Requires RAPIER.init() to have completed (the chest scene does so before creating this).
+ * Requires physicsReady() to have completed (the chest scene's world does so).
  */
 export class ChestBreakageEffects {
+  private readonly engine = physicsEngine();
   private readonly sources: PartSource[] = [];
   /** Parts outside the breakage: they ride on the carrier and fall when it is destroyed. */
   private readonly riders: Mesh[][] = [];
@@ -265,9 +267,9 @@ export class ChestBreakageEffects {
 
   private requirePhysics(): World {
     if (this.physics) return this.physics;
-    const world = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
-    const floor = world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(0, this.floorY - .5, 0));
-    world.createCollider(RAPIER.ColliderDesc.cuboid(20, .5, 20).setFriction(.9).setRestitution(.05), floor);
+    const world = new this.engine.World({ x: 0, y: -9.81, z: 0 });
+    const floor = world.createRigidBody(this.engine.RigidBodyDesc.fixed().setTranslation(0, this.floorY - .5, 0));
+    world.createCollider(this.engine.ColliderDesc.cuboid(20, .5, 20).setFriction(.9).setRestitution(.05), floor);
     this.physics = world;
     return world;
   }
@@ -288,8 +290,8 @@ export class ChestBreakageEffects {
       const centre = local.getCenter(new Vector3()).applyMatrix4(mesh.matrixWorld);
       if (!body) {
         const half = local.getSize(new Vector3()).multiply(scale).multiplyScalar(.5);
-        body = world.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(centre.x, centre.y, centre.z).setRotation(rotation));
-        world.createCollider(RAPIER.ColliderDesc.cuboid(Math.abs(half.x), Math.abs(half.y), Math.abs(half.z)).setFriction(.8), body);
+        body = world.createRigidBody(this.engine.RigidBodyDesc.kinematicPositionBased().setTranslation(centre.x, centre.y, centre.z).setRotation(rotation));
+        world.createCollider(this.engine.ColliderDesc.cuboid(Math.abs(half.x), Math.abs(half.y), Math.abs(half.z)).setFriction(.8), body);
         this.partBodies.set(mesh, body);
       } else {
         body.setNextKinematicTranslation(centre); body.setNextKinematicRotation(rotation);
@@ -432,7 +434,7 @@ export class ChestBreakageEffects {
       const plane = mesh.geometry.type === 'PlaneGeometry';
       if (plane) half.z = .006; // thick enough not to tunnel through the floor
       this.addBody(world, mesh, new Matrix4().makeScale(scale.x, scale.y, scale.z), position, rotation,
-        RAPIER.ColliderDesc.cuboid(half.x, half.y, half.z), half.x * half.y * half.z * 8 * (plane ? .3 : 1.2), new Vector3(), 'shatter', 'opening', 0);
+        this.engine.ColliderDesc.cuboid(half.x, half.y, half.z), half.x * half.y * half.z * 8 * (plane ? .3 : 1.2), new Vector3(), 'shatter', 'opening', 0);
       const entry = this.bodies[this.bodies.length - 1]!;
       entry.body.setLinvel({ x: 0, y: 0, z: 0 }, true); entry.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
       // A leaf of vines or web is mostly air: it flutters down instead of dropping like a stone.
@@ -535,7 +537,7 @@ export class ChestBreakageEffects {
       this.world.add(object);
       const away = fragment.centre.clone().sub(core);
       const delay = source.pattern === 'crumble' ? (1 - (cell.centre.y - box.min.y) / height) * .5 + this.next() * .2 : 0;
-      this.addBody(world, object, new Matrix4(), fragment.centre, new Quaternion(), RAPIER.ColliderDesc.convexHull(fragment.hull),
+      this.addBody(world, object, new Matrix4(), fragment.centre, new Quaternion(), this.engine.ColliderDesc.convexHull(fragment.hull),
         fragment.volume * STONE_DENSITY, away, source.pattern, moment, delay);
     }
   }
@@ -570,16 +572,16 @@ export class ChestBreakageEffects {
     this.world.add(object);
     // Body frame at the box centre; the clone keeps its exact world pose relative to it.
     const offset = new Matrix4().makeTranslation(-centre.x, -centre.y, -centre.z).multiply(mesh.matrixWorld);
-    this.addBody(world, object, offset, centre, new Quaternion(), RAPIER.ColliderDesc.cuboid(half.x, half.y, half.z),
+    this.addBody(world, object, offset, centre, new Quaternion(), this.engine.ColliderDesc.cuboid(half.x, half.y, half.z),
       half.x * half.y * half.z * 8 * STONE_DENSITY, centre.clone().sub(core), 'fall', moment, 0);
   }
 
   private addBody(world: World, object: Object3D, offset: Matrix4, at: Vector3, rotation: Quaternion,
-    collider: RAPIER.ColliderDesc | null, mass: number, away: Vector3, pattern: BreakPattern, moment: BreakMoment, delay: number) {
+    collider: ColliderDesc | null, mass: number, away: Vector3, pattern: BreakPattern, moment: BreakMoment, delay: number) {
     if (!collider) { object.removeFromParent(); return; }
     // Always dynamic: a delayed piece only gets its push later. A static placeholder would be a
     // wall in the middle of the pile that stops every other piece dead.
-    const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic()
+    const body = world.createRigidBody(this.engine.RigidBodyDesc.dynamic()
       .setTranslation(at.x, at.y, at.z).setRotation(rotation).setLinearDamping(.08).setAngularDamping(.35).setCcdEnabled(true));
     world.createCollider(collider.setDensity(STONE_DENSITY).setFriction(.85).setRestitution(.08), body);
     const direction = away.lengthSq() < 1e-6 ? new Vector3(this.next() - .5, 0, this.next() - .5) : away.clone();
@@ -656,7 +658,7 @@ export class ChestBreakageEffects {
         const half = { x: edge * scale[0] / 2, y: edge * scale[1] / 2, z: edge * scale[2] / 2 };
         const offset = new Matrix4().makeScale(edge * scale[0], edge * scale[1], edge * scale[2]);
         const tilt = new Quaternion().setFromAxisAngle(new Vector3(this.next(), this.next(), this.next()).normalize(), this.next() * 6);
-        this.addBody(this.requirePhysics(), object, offset, point, tilt, RAPIER.ColliderDesc.cuboid(half.x, half.y, half.z),
+        this.addBody(this.requirePhysics(), object, offset, point, tilt, this.engine.ColliderDesc.cuboid(half.x, half.y, half.z),
           half.x * half.y * half.z * 8 * STONE_DENSITY, away, 'shatter', moment, 0);
       } else {
         const light = LIGHT[debris.shape];

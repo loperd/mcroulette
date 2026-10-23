@@ -18,7 +18,6 @@ import (
 	"github.com/voxel-vault/api/internal/domain/rulebook"
 	"github.com/voxel-vault/api/internal/domain/rulebook/rulebooktest"
 	"github.com/voxel-vault/api/internal/rulebookjson"
-	"github.com/voxel-vault/api/internal/store"
 )
 
 func TestParseGrantsReadsTheStarterChests(t *testing.T) {
@@ -79,7 +78,7 @@ func call(t *testing.T, handler http.HandlerFunc, player, id, body string, into 
 	t.Helper()
 	r := httptest.NewRequest("POST", "/", strings.NewReader(body))
 	r.SetPathValue("instanceID", id)
-	r = r.WithContext(context.WithValue(r.Context(), userContextKey, store.User{ID: player}))
+	r = r.WithContext(context.WithValue(r.Context(), userContextKey, User{ID: player}))
 	w := httptest.NewRecorder()
 	handler(w, r)
 	if into != nil && w.Code < 300 {
@@ -150,7 +149,7 @@ func TestItemsAreListedWithTheirPricesAndWorkedForThem(t *testing.T) {
 	}
 	r := httptest.NewRequest("POST", "/", nil)
 	r.SetPathValue("itemID", "a")
-	r = r.WithContext(context.WithValue(r.Context(), userContextKey, store.User{ID: "p"}))
+	r = r.WithContext(context.WithValue(r.Context(), userContextKey, User{ID: "p"}))
 	w := httptest.NewRecorder()
 	s.workItem(app.Repair)(w, r)
 	var paid amountDTO
@@ -171,7 +170,7 @@ func TestMergeOddsComeBeforeTheMerge(t *testing.T) {
 	a, b := issued[0].ID, issued[1].ID
 	odds := func(player string) (int, mergeOddsDTO) {
 		r := httptest.NewRequest("GET", "/?a="+a+"&b="+b, nil)
-		r = r.WithContext(context.WithValue(r.Context(), userContextKey, store.User{ID: player}))
+		r = r.WithContext(context.WithValue(r.Context(), userContextKey, User{ID: player}))
 		w := httptest.NewRecorder()
 		s.mergeOdds(w, r)
 		var dto mergeOddsDTO

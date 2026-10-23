@@ -1,4 +1,4 @@
-import { AdditiveBlending, BufferAttribute, BufferGeometry, DoubleSide, Mesh, MeshBasicMaterial, PlaneGeometry, PointLight, Points, PointsMaterial, ShaderMaterial } from 'three';
+import { AdditiveBlending, BufferAttribute, BufferGeometry, DoubleSide, InstancedMesh, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry, PointLight, Points, PointsMaterial, ShaderMaterial } from 'three';
 import type { Living } from '../../../../../packages/blockworld/src/index.ts';
 import type { ChestHandles } from '../../../../application/ports/chest-handles.ts';
 import { MineParts } from './parts.ts';
@@ -32,11 +32,15 @@ export function atmosphere(p: MineParts): Living<ChestHandles>[] {
   }
   const ore = p.group('10-luminous-cyan-ore-veins');
   const crystalMaterial = new MeshBasicMaterial({ color: '#21d5f6' });
+  const crystals = new InstancedMesh(p.box, crystalMaterial, 110), crystal = new Object3D();
+  crystals.name = 'cyan-ore-crystals';
   for (let i = 0; i < 110; i++) {
-    const crystal = new Mesh(p.box, crystalMaterial); const side = i % 2 ? -1 : 1;
+    const side = i % 2 ? -1 : 1;
     crystal.position.set(side * (20 + p.rand() * 4), 3 + p.rand() * 27, -45 + p.rand() * 55);
-    crystal.scale.set(.12 + p.rand() * .35, .2 + p.rand() * .6, .2); crystal.rotation.z = p.rand(); ore.add(crystal);
+    crystal.scale.set(.12 + p.rand() * .35, .2 + p.rand() * .6, .2); crystal.rotation.z = p.rand();
+    crystal.updateMatrix(); crystals.setMatrixAt(i, crystal.matrix);
   }
+  crystals.computeBoundingSphere(); ore.add(crystals);
   for (const side of [-1, 1]) { const light = new PointLight('#15bdeb', 100, 30, 1.8); light.position.set(side * 21, 15, -8); ore.add(light); }
   const mist = p.group('11-ground-mist');
   const mistMaterial = new ShaderMaterial({

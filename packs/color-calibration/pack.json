@@ -1,0 +1,133 @@
+{
+  "format": 1,
+  "id": "color-calibration",
+  "version": "1.0.0",
+  "requires": {
+    "blockworld": 1
+  },
+  "credits": {
+    "authors": [
+      "Voxel Vault contributors"
+    ],
+    "license": "CC0-1.0",
+    "source": "Painted and modelled by scripts/packs/make-sample-ruin.mjs; no third-party assets."
+  },
+  "textures": {
+    "ref_grey": "textures/ref_grey.png",
+    "ref_orange": "textures/ref_orange.png",
+    "compass_n": "textures/compass_n.png",
+    "compass_s": "textures/compass_s.png",
+    "compass_e": "textures/compass_e.png",
+    "compass_w": "textures/compass_w.png",
+    "compass_u": "textures/compass_u.png",
+    "compass_d": "textures/compass_d.png"
+  },
+  "blocks": [
+    {
+      "name": "grey",
+      "textures": {
+        "all": "ref_grey"
+      }
+    },
+    {
+      "name": "orange",
+      "textures": {
+        "all": "ref_orange"
+      }
+    },
+    {
+      "name": "compass",
+      "textures": {
+        "north": "compass_n",
+        "south": "compass_s",
+        "east": "compass_e",
+        "west": "compass_w",
+        "up": "compass_u",
+        "down": "compass_d"
+      }
+    }
+  ],
+  "structure": {
+    "size": [
+      9,
+      3,
+      5
+    ],
+    "origin": [
+      -4.5,
+      0,
+      -2.5
+    ],
+    "sides": "open",
+    "cells": "structure.u16"
+  },
+  "models": {
+    "color-reference": "models/color-reference.glb"
+  },
+  "objects": [
+    {
+      "model": "color-reference",
+      "at": [
+        6,
+        1,
+        2.5
+      ]
+    }
+  ],
+  "markers": {
+    "key": {
+      "at": [
+        4.5,
+        3,
+        5
+      ]
+    }
+  },
+  "cameras": {
+    "front": {
+      "eye": [
+        4.5,
+        2.4,
+        8.6
+      ],
+      "look": [
+        4.5,
+        1.35,
+        2.5
+      ],
+      "fov": 40,
+      "drift": 0
+    }
+  },
+  "environment": {
+    "sky": {
+      "top": "#8c96a3",
+      "horizon": "#c4c8cc",
+      "bottom": "#5c6066"
+    },
+    "fog": {
+      "color": "#c4c8cc",
+      "near": 400,
+      "far": 800
+    },
+    "blocks": {
+      "sky": [
+        1,
+        1,
+        1
+      ],
+      "minimum": 0,
+      "occlusion": 0
+    },
+    "light": {
+      "sky": "#ffffff",
+      "ground": "#808080",
+      "key": "#ffffff",
+      "from": "key",
+      "objects": {
+        "key": 1.5,
+        "fill": 1
+      }
+    }
+  }
+}

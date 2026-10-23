@@ -48,9 +48,12 @@ rules:
   - apiGroups: [apps]
     resources: [deployments, replicasets, statefulsets]
     verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [batch]
+    resources: [jobs]
+    verbs: [get, list, watch, create, update, patch, delete]
   # The public entrance (templates/ingress.yaml).
   - apiGroups: [networking.k8s.io]
-    resources: [ingresses]
+    resources: [ingresses, networkpolicies]
     verbs: [get, list, watch, create, update, patch, delete]
   # Vault Secrets Operator objects of the chart.
   - apiGroups: [secrets.hashicorp.com]

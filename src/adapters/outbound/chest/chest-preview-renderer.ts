@@ -19,7 +19,12 @@ export class ChestPreviewRenderer {
     this.document = document; this.baseUrl = baseUrl; this.draw = draw ?? this.drawAsset;
   }
   render(definition: CaseDefinition, metadata: ChestAppearance, signal: AbortSignal): Promise<HTMLCanvasElement> {
-    const appearance = copyChestAppearance(metadata), combined = AbortSignal.any([signal, this.lifetime.signal]);
+    const appearance = copyChestAppearance(metadata), operation = new AbortController();
+    const sources = [signal, this.lifetime.signal];
+    const abort = () => operation.abort(sources.find(source => source.aborted)?.reason);
+    for (const source of sources) source.addEventListener('abort', abort, { once: true });
+    if (sources.some(source => source.aborted)) abort();
+    const combined = operation.signal;
     const key = chestAppearanceKey(`${definition.model.path}:${definition.model.revision}:${definition.model.modifications.revision}`, appearance);
     const result = this.queue.then(async () => {
       combined.throwIfAborted();
@@ -35,7 +40,9 @@ export class ChestPreviewRenderer {
       return canvas;
     });
     this.queue = result.catch(() => {});
-    return result;
+    // Safari on iPhone X has no AbortSignal.any(). Explicit listeners also let completed
+    // thumbnail jobs detach from the renderer's lifetime immediately.
+    return result.finally(() => { for (const source of sources) source.removeEventListener('abort', abort); });
   }
   dispose(): void {
     this.lifetime.abort();

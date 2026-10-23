@@ -94,9 +94,13 @@ type amountDTO struct {
 }
 
 func (s *Server) inventoryRoutes() {
+	if s.contexts != nil {
+		s.contextRoutes()
+		return
+	}
 	player := func(method, path string, handler http.HandlerFunc) {
 		pattern := strings.NewReplacer("{instanceID}", ":instanceID", "{itemID}", ":itemID").Replace(path)
-		h := s.requirePermission(pattern, method, handler)
+		h := s.requirePermission(pattern, method, s.guardEconomy(handler))
 		if method != http.MethodGet {
 			h = s.sameOrigin(h)
 		}
@@ -112,7 +116,7 @@ func (s *Server) inventoryRoutes() {
 	for name, action := range map[string]app.Workshop{"repair": app.Repair, "salvage": app.Salvage, "sell": app.Sell} {
 		player("POST", "/api/v1/inventory/items/{itemID}/"+name, s.workItem(action))
 	}
-	s.mux.HandleFunc("POST /api/v1/admin/users/{userID}/chests", s.sameOrigin(s.requirePermission("/api/v1/admin/users/:userID/chests", "POST", s.grantChests)))
+	s.mux.HandleFunc("POST /api/v1/admin/users/{userID}/chests", s.sameOrigin(s.requirePermission("/api/v1/admin/users/:userID/chests", "POST", s.guardEconomy(s.grantChests))))
 }
 
 func (s *Server) listInventory(w http.ResponseWriter, r *http.Request) {
@@ -307,11 +311,11 @@ func (s *Server) grantChests(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userID := r.PathValue("userID")
-	var found int64
-	if err := s.db.WithContext(r.Context()).Model(&store.User{}).Where("id = ?", userID).Count(&found).Error; err != nil {
+	found, err := s.identity.Profiles.Exists(r.Context(), userID)
+	if err != nil {
 		writeError(w, 500, "could not issue chests")
 		return
-	} else if found == 0 {
+	} else if !found {
 		writeError(w, 404, "user not found")
 		return
 	}

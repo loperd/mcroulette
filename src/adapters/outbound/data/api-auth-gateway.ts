@@ -26,8 +26,10 @@ export class ApiAuthGateway implements AuthGateway {
   }
 
   async providers(signal?: AbortSignal): Promise<AuthProviders> {
-    const value = await this.json(await this.send('GET', 'api/v1/auth/providers', undefined, signal)) as Record<string, unknown>;
-    return { passkey: value.passkey === true, telegram: value.telegram === true };
+    const value = await this.json(await this.send('GET', 'api/v1/auth/config', undefined, signal)) as Record<string, unknown>;
+    const passkeys = value.passkeys as { enabled?: boolean } | undefined;
+    const telegram = value.telegram as { enabled?: boolean } | undefined;
+    return { passkey: passkeys?.enabled === true, telegram: telegram?.enabled === true };
   }
 
   async register(handle: string, displayName: string): Promise<Player> {
@@ -104,7 +106,7 @@ function decodePlayer(value: unknown): Player {
     throw new AuthError('UNAVAILABLE', 'The server sent an invalid player.');
   }
   const roles = Array.isArray(dto.roles) ? dto.roles.filter((role): role is string => typeof role === 'string') : [];
-  return Object.freeze({ id: dto.id, handle: dto.handle, displayName: dto.displayName, roles: Object.freeze(roles) });
+  return Object.freeze({ id: dto.id, handle: dto.handle, displayName: dto.displayName, roles: Object.freeze(roles), ...(dto.economyMode === 'contexts' || dto.economyMode === 'legacy' ? { economyMode: dto.economyMode } : {}) });
 }
 
 // WebAuthn JSON <-> binary. Modern browsers parse the server's JSON themselves; older ones need this.

@@ -1,0 +1,35 @@
+{
+  "family": "metal",
+  "variant": "weathered",
+  "asset": "assets/chests/relic-material-lookdev/metal/weathered/relic.glb",
+  "sha256": "1aeaaa5ba3bbfbe2040d84cde8abc129a4258c1e377d6056fe51a614e789b0b4",
+  "sourceParts": [
+    "Lid.CornerRoof.1.-1",
+    "LidAssembly.CornerCap.1.-1"
+  ],
+  "translationAuthorUnits": [
+    -6.465,
+    0.10000000000000142,
+    6.465
+  ],
+  "camera": {
+    "direction": [
+      1.2,
+      0.55,
+      -2.2
+    ],
+    "scale": 0.32,
+    "target": [
+      0,
+      0.8671875,
+      0
+    ]
+  },
+  "atlas": [
+    256,
+    256
+  ],
+  "texelsPerBlock": 256,
+  "focusMaterial": 2,
+  "purpose": "isolated material study, not a production chest or animation asset"
+}

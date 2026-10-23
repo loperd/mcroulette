@@ -62,8 +62,8 @@ test('passkey failures become reasons the login screen can explain', async () =>
   finally { if (previous) globalThis.PublicKeyCredential = previous; }
 });
 
-test('providers and the Telegram redirect come from the API', async () => {
-  const gateway = new ApiAuthGateway(base, async () => json(200, { passkey: true, telegram: true }));
+test('providers and the Telegram redirect come from the shared gateway', async () => {
+  const gateway = new ApiAuthGateway(base, async () => json(200, { passkeys: { enabled: true }, telegram: { enabled: true } }));
   assert.deepEqual(await gateway.providers(), { passkey: true, telegram: true });
   assert.equal(gateway.telegramUrl, 'https://example.test/game/api/v1/auth/telegram/start');
 });

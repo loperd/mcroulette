@@ -1,0 +1,5 @@
+{
+  "repository": "https://gitlab.com/overseerio/gateway.git",
+  "commit": "973004046c535fff18f969366ff92d528edde1de",
+  "image": "voxel-vault-gateway:973004046c53"
+}

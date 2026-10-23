@@ -4,21 +4,38 @@
 # Frontend: https://voxelvault.mono.place      — Cloudflare (static build); /api/* goes to the API,
 #                                                 so the browser sees one origin (session cookie, passkeys).
 # API:      https://api-voxelvault.mono.place  — this chart, on the VPS cluster.
-# CI sets image.tag to the release tag (0.3.0; rollback = the previous release).
+# CI sets image.tag to the release tag. After economy cutover, use compatible context
+# images for recovery; reverting a release cannot undo the source fence or ledger imports.
 image:
   repository: ghcr.io/loperd/mcroulette-api
   pullPolicy: IfNotPresent
 imagePullSecrets:
+  - name: gitlab-registry
   - name: ghcr-pull                # read:packages token, created once (deploy/bootstrap/README.md)
 
 ingress:
   enabled: true
   host: api-voxelvault.mono.place
 
+gateway:
+  image:
+    repository: registry.gitlab.com/overseerio/gateway
+    tag: "97300404"
+  # SESSION_SECRET and INTERNAL_TOKEN come from the same Vault path as the API secret.
+  existingSecret: voxel-vault-secrets
+  config:
+    telegramAuth:
+      redirectUrl: "https://voxelvault.mono.place/api/v1/auth/telegram/callback"
+    cors:
+      allowedOrigins:
+        - https://voxelvault.mono.place
+
+
 env:
   FRONTEND_URL: "https://voxelvault.mono.place/"
   WEBAUTHN_RP_ID: "voxelvault.mono.place"
   WEBAUTHN_ORIGINS: "https://voxelvault.mono.place"
+  ALLOWED_ORIGINS: "https://voxelvault.mono.place"
   COOKIE_SECURE: "true"
   # BotFather: trusted origin https://voxelvault.mono.place, this redirect URI.
   TELEGRAM_REDIRECT_URL: "https://voxelvault.mono.place/api/v1/auth/telegram/callback"
@@ -31,4 +48,4 @@ secrets:
     address: "http://vault.vault.svc:8200"
     role: "voxel-vault-prod"
     mount: "secret"
-    path: "prod/voxel-vault"
+    path: "prod/voxel-vault/gateway"

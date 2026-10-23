@@ -4,12 +4,13 @@ import { SoundControl } from './SoundControl.tsx';
 import { BrandMark } from './BrandMark.tsx';
 import { ProfileChip, WalletChip } from './AccountContext.tsx';
 
-type Section = 'inventory' | 'archive' | 'catalog';
+type Section = 'inventory' | 'archive' | 'catalog' | 'wallet';
 
 const LINKS: readonly { readonly id: Section; readonly label: string; readonly route: ScreenRoute }[] = [
   { id: 'inventory', label: 'Инвентарь', route: { screen: 'inventory' } },
   { id: 'catalog', label: 'Все кейсы', route: { screen: 'catalog' } },
   { id: 'archive', label: 'Архив', route: { screen: 'archive' } },
+  { id: 'wallet', label: 'Кошелёк', route: { screen: 'wallet' } },
 ];
 
 export function ScreenHeader({ navigation, active, archiveCount, soundPreference }: {
@@ -19,7 +20,7 @@ export function ScreenHeader({ navigation, active, archiveCount, soundPreference
   readonly soundPreference?: SoundPreference;
 }) {
   return <header className="screen-header">
-    <a className="screen-header__brand" href="#/inventory" onClick={event => {
+    <a className="screen-header__brand" aria-label="Voxel Vault" href="#/inventory" onClick={event => {
       if (!navigation) return;
       event.preventDefault();
       navigation.go({ screen: 'inventory' });
@@ -33,7 +34,7 @@ export function ScreenHeader({ navigation, active, archiveCount, soundPreference
         <span aria-hidden="true">⌕</span><span>Поиск</span><kbd>⌘K</kbd>
       </button>
       {soundPreference && <SoundControl preference={soundPreference} />}
-      <WalletChip onOpenItems={() => navigation?.go({ screen: 'items' })} />
+      <WalletChip onOpenWallet={() => navigation?.go({ screen: 'wallet' })} />
       <ProfileChip />
     </div>
   </header>;

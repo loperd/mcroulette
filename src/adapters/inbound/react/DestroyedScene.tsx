@@ -28,8 +28,8 @@ export function DestroyedScene({ actionRef, onClose, availableCaseCount, returnL
     </div>
     <div className="prize__details">
       <span className="prize__rarity"><span aria-hidden="true">◆</span> Сундук разрушен</span>
-      <p className="prize__label">Ваша награда</p>
-      <h2 id="prize-title">Потеряна</h2>
+      <p className="prize__label">Итог открытия</p>
+      <h2 id="prize-title">Награда не получена</h2>
       <p className="prize__source">Сундук «{casePresentation.title}» разлетелся вместе с тем, что было внутри</p>
     </div>
     <footer className="prize__actions">

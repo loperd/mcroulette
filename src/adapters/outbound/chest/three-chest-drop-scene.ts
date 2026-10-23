@@ -5,7 +5,7 @@ import {
   ACESFilmicToneMapping, AnimationMixer, Box3, Color, LoopOnce, Sphere, DirectionalLight, Group, HemisphereLight, Mesh, PointLight, type Object3D,
   PerspectiveCamera, PlaneGeometry, Quaternion, Scene, ShadowMaterial, Vector3,
 } from 'three';
-import type { Guest, GuestWorld } from '../../../../packages/blockworld/src/index.ts';
+import { guestKey, type Guest, type GuestWorld } from '../../../../packages/blockworld/src/index.ts';
 import type { ChestDropPort } from '../../../application/ports/chest-preview.ts';
 import type { ChestPresentationPort } from '../../../application/ports/chest-presentation.ts';
 import type { ChestHandles } from '../../../application/ports/chest-handles.ts';
@@ -26,6 +26,10 @@ import { ChestOpeningEffects } from './chest-opening-effects.ts';
 import { PREVIEW_POSE, SPAWN_POSE } from './physics-config.ts';
 import { CHEST_WIDTH } from './chest-bounds.ts';
 
+/** The chest's own light, used unless its world says otherwise (see GuestLight): key from above-behind-right. */
+const KEY_POSITION: [number, number, number] = [3, 6, -4];
+const KEY_DISTANCE = Math.hypot(...KEY_POSITION), KEY_STRENGTH = 3, FILL_STRENGTH = 2;
+
 /** The chest is a block and a half wide: bigger than the world's blocks, the thing that matters. */
 const BLOCKS_WIDE = 1.5;
 /** Its units to a block. */
@@ -33,6 +37,8 @@ const UNIT = CHEST_WIDTH / BLOCKS_WIDE;
 
 /** Opening: the chest rises, spinning, to where it falls from (seconds), then charges. */
 const RISE = 1.15, CHARGE = 1.35;
+// The intro: the panels slide in first, then the chest lowers from above the view and hangs.
+const ENTRY_DELAY = .5, ENTRY_SECONDS = 1.2, ENTRY_HEIGHT = 7;
 /** Turns about its own axis on the way up: fast in the middle, settling to face the viewer again. */
 const RISE_TURNS = 2;
 
@@ -123,6 +129,8 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     look: { toneMapping: ACESFilmicToneMapping, exposure: 1.1, srgb: true, shadows: true, clipping: true },
     enter: world => { void this.enter(world); },
     leave: () => this.leave(),
+    // The world was lit another way (a lighting preset): the chest follows it.
+    relight: () => { if (this.world) this.lightBy(this.world); },
   };
   private readonly entranceTimeline: FrameTimeline;
   private previewEntrance?: Animation;
@@ -328,12 +336,12 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
       this.impactEffects = new ChestImpactEffects(scene, effectColor);
       this.breakageEffects = this.createBreakageEffects(scene);
       this.mixer = new AnimationMixer(this.assets.animationRoot);
-      const sky = new HemisphereLight(0xffffff, 0x435846, 2);
+      const sky = new HemisphereLight(0xffffff, 0x435846, FILL_STRENGTH);
       this.skyLight = sky;
       scene.add(sky);
-      const light = new DirectionalLight(0xffffff, 3);
+      const light = new DirectionalLight(0xffffff, KEY_STRENGTH);
       this.keyLight = light;
-      light.position.set(3, 6, -4);
+      light.position.set(...KEY_POSITION);
       light.castShadow = true;
       light.shadow.mapSize.set(1024, 1024);
       light.shadow.camera.left = -5; light.shadow.camera.right = 5;
@@ -372,6 +380,11 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
     this.skyLight?.color.set(light?.sky ?? 0xffffff);
     this.skyLight?.groundColor.set(light?.ground ?? 0x435846);
     this.keyLight?.color.set(light?.key ?? 0xffffff);
+    // Where the world's key is and how strong, when it says: the chest lit by the light the blocks are.
+    const from = guestKey(world, KEY_DISTANCE);
+    this.keyLight?.position.set(...(from ?? KEY_POSITION));
+    if (this.keyLight) this.keyLight.intensity = light?.keyStrength ?? KEY_STRENGTH;
+    if (this.skyLight) this.skyLight.intensity = light?.fillStrength ?? FILL_STRENGTH;
   }
 
   async preview(signal: AbortSignal): Promise<void> {
@@ -489,10 +502,11 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
             // At full power the beam is a force: whatever lies loose on top is blown away.
             if (elapsed / (clipDuration + 0.3) >= BEAM_AT) this.breakageEffects?.beam(1);
           }
-          this.fractureEffects?.update(delta, false);
+          const effectStep = Math.min(delta, 0.1);
+          this.fractureEffects?.update(effectStep, false);
           // After the pose: the energy build-up swells and shakes the chest on top of it.
-          this.breakageEffects?.update(delta, elapsed / (clipDuration + 0.3));
-          this.applyWorld(delta);
+          this.breakageEffects?.update(effectStep, elapsed / (clipDuration + 0.3));
+          this.applyWorld(effectStep);
           this.render();
           // A destroyed chest has nothing left to open: end shortly after the burst settles.
           const wrecked = destroyed && this.breakageEffects?.broken === true
@@ -577,12 +591,15 @@ export class ThreeChestDropScene implements ChestDropPort, ChestPresentationPort
       this.syncPose();
       // Floating: a slow bob over its spot.
       this.assets!.visual.position.y += Math.sin(this.previewTime * 1.6) * 0.045;
+      const entry = Math.min(Math.max((this.previewTime - ENTRY_DELAY) / ENTRY_SECONDS, 0), 1);
+      this.assets!.visual.position.y += ENTRY_HEIGHT * (1 - entry) ** 3;
       this.breakageEffects?.update(delta);
       this.applyWorld(Math.min(deltaSeconds, 0.1));
       this.render(); return;
     }
     if (this.mode === 'stopped') { this.worldOnly(Math.min(deltaSeconds, 0.1)); return; }
-    if (this.mode === 'opening') { this.opening?.advance(Math.min(deltaSeconds, 0.1)); return; }
+    // Opening time follows visible elapsed time, even when rendering is slow.
+    if (this.mode === 'opening') { this.opening?.advance(deltaSeconds); return; }
     if (this.mode !== 'drop') return;
     let simulated = 0;
     this.stepper.advance(deltaSeconds, step => { this.physics!.step(step); simulated += step; });

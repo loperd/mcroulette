@@ -1,0 +1,35 @@
+{
+  "family": "metal",
+  "variant": "balanced",
+  "asset": "assets/chests/relic-material-lookdev/metal/balanced/relic.glb",
+  "sha256": "521b8b904beb48ffb76fd6d7a4d956e2c38e1b761c0b164e61c59102152529f4",
+  "sourceParts": [
+    "Lid.CornerRoof.1.-1",
+    "LidAssembly.CornerCap.1.-1"
+  ],
+  "translationAuthorUnits": [
+    -6.465,
+    0.10000000000000142,
+    6.465
+  ],
+  "camera": {
+    "direction": [
+      1.2,
+      0.55,
+      -2.2
+    ],
+    "scale": 0.32,
+    "target": [
+      0,
+      0.8671875,
+      0
+    ]
+  },
+  "atlas": [
+    256,
+    256
+  ],
+  "texelsPerBlock": 256,
+  "focusMaterial": 2,
+  "purpose": "isolated material study, not a production chest or animation asset"
+}

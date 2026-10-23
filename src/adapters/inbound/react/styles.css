@@ -3,9 +3,11 @@
 @import './case-directory.css';
 @import './inventory.css';
 @import './items.css';
+@import './wallet.css';
 @import './chest-merge.css';
 @import './error-notice.css';
 @import './login.css';
+@import './item-art.css';
 
 .screen-header { display: flex; align-items: center; justify-content: space-between; gap: 24px; min-height: 52px; padding-bottom: 12px; border-bottom: 1px solid #ffffff12; color: #dce8e1; }
 .screen-header__brand { display: inline-flex; align-items: center; gap: 10px; color: inherit; font-size: 16px; font-weight: 650; text-decoration: none; white-space: nowrap; }
@@ -62,10 +64,7 @@ h1 { margin-top: 8px; font-size: clamp(2rem, 6vw, 3.5rem); line-height: 1.1; let
 .prize { display: grid; justify-items: center; gap: 20px; padding: 40px 20px; text-align: center; }
 .prize img { object-fit: contain; }
 .prize h2 { font-size: 2rem; }
-.prize--common h2 { color: #b4c2ba; }
-.prize--rare h2 { color: #cda1ff; }
-.prize--epic h2 { color: #f08ee8; }
-.prize--legendary h2 { color: #ffab82; }
+.prize:not(.prize--destroyed) h2 { color: var(--prize-color); }
 
 @media (max-width: 480px) {
   .app { padding: 32px 16px; }
@@ -91,7 +90,7 @@ h1 { margin-top: 8px; font-size: clamp(2rem, 6vw, 3.5rem); line-height: 1.1; let
 .game-viewport .chest-canvas { height: 100%; }
 .game-viewport__roulette { position: absolute; inset: 0; display: grid; align-items: center; pointer-events: none; }
 .roulette { position: relative; width: 100%; overflow: hidden; }
-.roulette--canvas { display: block; height: 100%; }
+.roulette--canvas { display: block; position: absolute; inset: 0; width: 100%; height: 100%; }
 @media (max-width: 480px) {
   .chest-preview { min-height: 300px; }
   .chest-preview__viewport, .chest-canvas { height: 300px; }
@@ -109,6 +108,8 @@ h1 { margin-top: 8px; font-size: clamp(2rem, 6vw, 3.5rem); line-height: 1.1; let
 .intro-scene__description { color: #c2cdd5; }
 .intro-scene__catalog { min-height: 0; flex: 1; overflow: auto; overscroll-behavior: contain; }
 .intro-scene__bottom .actions { flex: 0 0 auto; margin-top: 16px; }
+.intro-scene__top { animation: intro-top-return 0.5s var(--ease-out) backwards; }
+.intro-scene__bottom { animation: intro-bottom-return 0.5s var(--ease-out) backwards; }
 .intro-scene--clearing .intro-scene__top { transform: translateY(-100%); }
 .intro-scene--clearing .intro-scene__bottom { transform: translateY(100%); }
 .intro-scene--clearing .intro-scene__top, .intro-scene--clearing .intro-scene__bottom { will-change: transform; }
@@ -273,18 +274,11 @@ h1 { margin-top: 8px; font-size: clamp(2rem, 6vw, 3.5rem); line-height: 1.1; let
 .roulette-heading .eyebrow { color: var(--case-accent); font-size: 12px; }
 .roulette-heading h2 { margin: 12px 0 10px; font-size: clamp(22px, 3vw, 34px); font-weight: 550; letter-spacing: -.035em; }
 .roulette-heading > p:last-child { font-size: 12px; color: #8ca6a9; }
-.roulette-caption { position: absolute; bottom: 18svh; inset-inline: 20px; text-align: center; color: #8ca6a9; font-size: 12px; letter-spacing: .04em; pointer-events: none; }
-.roulette-caption span { display: block; margin-bottom: 12px; font-size: 20px; color: var(--case-accent); }
 [data-home-design='gallery'] .roulette-scene { background: radial-gradient(ellipse at center, #3c3325f0, #14120ff7 72%); }
-[data-home-design='gallery'] .roulette-heading .eyebrow, [data-home-design='gallery'] .roulette-caption { color: #b5a58a; }
+[data-home-design='gallery'] .roulette-heading .eyebrow { color: #b5a58a; }
 [data-home-design='minimal'] .roulette-scene { background: #11191cf7; }
 [data-home-design='minimal'] .roulette-heading h2 { font-size: 24px; font-weight: 450; }
-[data-home-design='minimal'] .roulette-caption span { display: none; }
-@media (max-height: 520px) { .roulette-heading { top: 20px; } .roulette-heading > p:last-child { display: none; } .roulette-caption { bottom: 24px; } }
-.roulette-pointer { --pointer-color: #91f0d4; position: absolute; top: 50%; left: 50%; width: 18px; height: 148px; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; justify-content: space-between; pointer-events: none; filter: drop-shadow(0 0 5px #63dbba44); }
-.roulette-pointer i { position: absolute; top: 14px; bottom: 14px; width: 1px; background: linear-gradient(transparent, var(--pointer-color) 22%, var(--pointer-color) 78%, transparent); opacity: .7; }
-.roulette-pointer span { display: block; width: 12px; height: 8px; background: var(--pointer-color); clip-path: polygon(0 0, 100% 0, 50% 100%); }
-.roulette-pointer span:last-child { transform: rotate(180deg); }
+@media (max-height: 520px) { .roulette-heading { top: 20px; } .roulette-heading > p:last-child { display: none; } }
 [data-home-design='gallery'] .roulette-pointer { --pointer-color: #ead09a; }
 [data-home-design='minimal'] .roulette-pointer { --pointer-color: #e0e8ed; filter: none; }
 /* Reward is a separate screen with its own lifetime and rarity palette. */
@@ -318,10 +312,18 @@ h1 { margin-top: 8px; font-size: clamp(2rem, 6vw, 3.5rem); line-height: 1.1; let
 .prize__wreck { position: relative; width: min(340px, 62vw); height: min(300px, 32svh); object-fit: contain; filter: drop-shadow(0 18px 24px #0008); animation: prize-arrive 600ms var(--ease-out) both; }
 [data-home-design='gallery'] .prize { background: radial-gradient(ellipse at 50% 42%, #3c3329, #14120ff7 70%); }
 [data-home-design='minimal'] .prize { background: #11191c; }
-[data-home-design='minimal'] .prize__aura { display: none; }
+[data-home-design='minimal'] .prize__aura, [data-home-design='minimal'] .prize__rays { display: none; }
+.prize__rays { position: absolute; inset: -18%; z-index: -2; border-radius: 50%; background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--prize-primary, var(--prize-color)) 22%, transparent) 0 6deg, transparent 6deg 30deg); mask-image: radial-gradient(closest-side, #000 20%, transparent); animation: prize-rays 24s linear infinite, prize-rays-in 900ms var(--ease-out) both; }
+.prize--legendary .prize__rays, .prize--epic .prize__rays { background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--prize-primary) 34%, transparent) 0 5deg, transparent 5deg 20deg); }
+.prize--common .prize__rays { opacity: .55; }
+.prize__condition { margin-top: 8px; color: #f0a58f; font-size: 13px; letter-spacing: .04em; }
+.prize--damaged .prize__art > img { filter: drop-shadow(0 18px 24px #0006) saturate(.7); }
+.prize--broken .prize__art > img, .prize--heavy .prize__art > img { filter: drop-shadow(0 18px 24px #0006) saturate(.45) brightness(.82); }
+@keyframes prize-rays { to { transform: rotate(360deg); } }
+@keyframes prize-rays-in { from { opacity: 0; scale: .6; } }
 @keyframes prize-arrive { from { opacity: 0; transform: translateY(16px) scale(.94); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @media (max-height: 650px) { .prize { padding-top: 20px; } .prize__art { margin-block: 10px; height: 26svh; } .prize__art > img { height: 24svh; } .prize__label { margin-top: 12px; } .prize__actions { margin-top: 18px; } }
-@media (prefers-reduced-motion: reduce) { .prize__art > img { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .prize__art > img, .prize__rays { animation: none; } }
 .item__inspect { display: block; width: 100%; border: 0; padding: 0; color: inherit; background: transparent; text-align: inherit; cursor: pointer; border-radius: 3px; }
 .item__inspect .item__preview { transition: border-color 160ms ease, background-color 160ms ease; }
 @media (hover: hover) and (pointer: fine) { .item__inspect:hover .item__preview { border-color: #86ead060; background-color: #86ead00c; } }
@@ -383,7 +385,7 @@ h1 { margin-top: 8px; font-size: clamp(2rem, 6vw, 3.5rem); line-height: 1.1; let
 
 .case-atmosphere { background: radial-gradient(ellipse at 50% 63%, color-mix(in srgb, var(--case-accent) 15%, transparent), transparent 52%); }
 .case-atmosphere span { background: var(--case-accent-highlight); box-shadow: 0 0 8px var(--case-accent-glow); }
-.case-caption, .case-heading .eyebrow, .roulette-heading .eyebrow, .roulette-caption span { color: var(--case-accent-highlight); }
+.case-caption, .case-heading .eyebrow, .roulette-heading .eyebrow { color: var(--case-accent-highlight); }
 .case-open-bar { border-bottom-color: color-mix(in srgb, var(--case-accent) 17%, transparent); }
 .case-open-bar__copy .eyebrow { color: color-mix(in srgb, var(--case-accent-highlight) 66%, #8eaaa4); }
 .case-open-bar__copy:has(.case-owned-count) .case-owned-count strong { color: var(--case-accent-highlight); background: color-mix(in srgb, var(--case-accent) 12%, transparent); box-shadow: inset 0 1px color-mix(in srgb, var(--case-accent-highlight) 20%, transparent), inset 0 -2px #0003; }
@@ -511,49 +513,22 @@ button:focus:not(:focus-visible), [role='button']:focus:not(:focus-visible) { ou
 @media (max-width: 720px) {
   .page-shell, .roulette-scene, .prize { background-attachment: scroll; }
 }
-.roulette-focus {
-  position: absolute;
-  z-index: 1;
-  top: 44%;
-  left: 50%;
-  width: min(220px, 22vw);
-  height: 184px;
-  transform: translate(-50%, -50%);
-  border: 1px solid color-mix(in srgb, var(--case-accent-highlight, #a2d5ff) 76%, white 24%);
-  border-radius: 5px;
-  background: linear-gradient(145deg, color-mix(in srgb, var(--case-accent) 8%, transparent), transparent 55%);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--case-accent) 22%, transparent), 0 0 24px color-mix(in srgb, var(--case-accent) 35%, transparent), inset 0 0 22px color-mix(in srgb, var(--case-accent) 12%, transparent);
-  pointer-events: none;
-}
-.roulette-focus::before { content: ''; position: absolute; inset: -12px; z-index: -1; border-radius: 8px; background: color-mix(in srgb, var(--case-accent) 12%, transparent); filter: blur(18px); }
-.roulette-focus i { position: absolute; left: 12px; right: 12px; height: 1px; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--case-accent-highlight, #a2d5ff) 70%, transparent), transparent); }
-.roulette-focus i:first-child { top: 5px; }
-.roulette-focus i:last-child { bottom: 5px; }
-.roulette-heading { z-index: 2; }
-.game-viewport__roulette { z-index: 1; }
-.roulette-focus { z-index: 2; }
-.roulette-pointer { top: 44%; height: 206px; z-index: 3; }
-.roulette-pointer i { opacity: 0; }
-.roulette-pointer span { width: 16px; height: 11px; background: var(--case-accent-highlight, var(--pointer-color)); filter: drop-shadow(0 0 7px color-mix(in srgb, var(--case-accent) 65%, transparent)); }
-.roulette-caption { bottom: 29svh; z-index: 3; color: #d4e3ec; }
-.roulette-caption span { display: inline-grid; place-items: center; width: 34px; height: 34px; margin-bottom: 10px; border: 1px solid color-mix(in srgb, var(--case-accent) 75%, transparent); border-radius: 50%; color: var(--case-accent-highlight, var(--case-accent)); font-size: 21px; box-shadow: 0 0 18px color-mix(in srgb, var(--case-accent) 35%, transparent), inset 0 0 12px color-mix(in srgb, var(--case-accent) 16%, transparent); }
-body:has(.game-viewport .roulette-scene:not([hidden])) .scene-status { bottom: 8svh; width: min(340px, calc(100vw - 40px)); inset-inline: 0; margin-inline: auto; padding: 12px 20px; border: 1px solid #a4cce72b; border-radius: 5px; background: linear-gradient(110deg, #101923e8, #10141be8 50%, #101923e8); box-shadow: inset 0 1px #ffffff12, 0 10px 36px #0008; color: #d8e3e9; }
-@media (max-width: 560px) {
-  .roulette-focus { width: min(210px, 48vw); height: 176px; }
-  .roulette-pointer { height: 198px; }
-  .roulette-caption { bottom: 22svh; }
-  body:has(.game-viewport .roulette-scene:not([hidden])) .scene-status { bottom: 5svh; }
-}
-@media (min-width: 721px) and (max-width: 1280px) and (min-height: 900px) {
-  .roulette-heading { top: 8.5svh; }
+:root { --roulette-band: clamp(150px, min(30svh, 56vw), 300px); }
+/* One stage box: the canvas fills it, the pointer is its centre (where the canvas lands the prize). */
+.roulette-stage { position: absolute; z-index: 1; inset-inline: 0; top: 50%; height: var(--roulette-band); transform: translateY(-50%); }
+.roulette-stage .game-viewport__roulette { z-index: 1; }
+.roulette-beam { position: absolute; left: 50%; top: -42%; bottom: -42%; width: calc(var(--roulette-band) * .95); transform: translateX(-50%); background: radial-gradient(ellipse closest-side, color-mix(in srgb, var(--case-accent, #59a9ef) 38%, transparent), transparent); opacity: .5; transition: opacity 450ms var(--ease-out), filter 450ms var(--ease-out); pointer-events: none; }
+.roulette-stage:has(.roulette--canvas[data-state='locked']) .roulette-beam { opacity: 1; filter: brightness(1.4) saturate(1.2); }
+.roulette-pointer { --pointer-color: var(--case-accent-highlight, #91f0d4); position: absolute; z-index: 2; left: 50%; top: -16px; bottom: -16px; width: 18px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; justify-content: space-between; pointer-events: none; filter: drop-shadow(0 0 7px color-mix(in srgb, var(--pointer-color) 60%, transparent)); }
+.roulette-pointer span { display: block; width: 16px; height: 11px; background: var(--pointer-color); clip-path: polygon(0 0, 100% 0, 50% 100%); }
+.roulette-pointer span:last-child { transform: rotate(180deg); }
+.roulette-heading { z-index: 2; top: max(24px, calc(50% - var(--roulette-band) / 2 - 168px)); }
+/* The phase caption sits under the strip as plain text, not a boxed control. */
+body:has(.game-viewport .roulette-scene:not([hidden])) .scene-status { top: calc(50% + var(--roulette-band) / 2 + 30px); bottom: auto; inset-inline: 0; width: max-content; max-width: calc(100vw - 40px); margin-inline: auto; padding: 0; border: 0; background: none; box-shadow: none; color: #d8e3e9; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; }
+@media (min-width: 900px) and (min-height: 900px) {
   .roulette-heading .eyebrow { font-size: 14px; }
-  .roulette-heading h2 { font-size: clamp(40px, 4.5vw, 54px); }
-  .roulette-heading > p:last-child { font-size: 17px; }
-  .game-viewport__roulette { transform: translateY(4.7svh) scale(1.45); }
-  .roulette-focus { top: 46%; transform: translate(-50%, -50%) scale(1.45); }
-  .roulette-pointer { top: 46%; transform: translate(-50%, -50%) scale(1.5); }
-  .roulette-caption { bottom: 21svh; font-size: 16px; }
-  .roulette-caption span { width: 40px; height: 40px; }
+  .roulette-heading h2 { font-size: clamp(34px, 3.6vw, 48px); }
+  .roulette-heading > p:last-child { font-size: 15px; }
 }
 @media (max-width: 560px) { :root { --page-gutter: 16px; } }
 
@@ -565,3 +540,16 @@ body:has(.game-viewport .roulette-scene:not([hidden])) .scene-status { bottom: 8
   box-shadow: inset 0 0 0 100vmax color-mix(in srgb, var(--case-accent, #86ead0) 14%, transparent), 0 0 20px color-mix(in srgb, var(--case-accent, #86ead0) 28%, transparent);
 }
 @media (forced-colors: active) { :focus-visible { outline: 2px solid Highlight; outline-offset: 2px; } }
+
+.header-chip--wallet { min-width: 0; max-width: 190px; }
+.header-chip--wallet strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 560px) {
+  .screen-header { grid-template-columns: 34px minmax(0, 1fr); height: auto; min-height: 0; flex-basis: auto; }
+  .screen-header__brand { min-width: 0; }
+  .screen-header__wordmark { display: none; }
+  .screen-header__tools { min-width: 0; justify-content: flex-end; }
+  .header-chip--wallet { max-width: 140px; }
+  .screen-header__nav { min-width: 0; width: 100%; }
+  .wallet-screen__transactions li { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .wallet-screen__transactions li > span { justify-self: end; font-size: 18px; max-width: 100%; }
+}

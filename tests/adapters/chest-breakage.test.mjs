@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import RAPIER from '@dimforge/rapier3d-compat';
+import { physicsReady } from '../../packages/blockworld/src/physics.ts';
 import { Box3, BoxGeometry, Group, Matrix4, Mesh, MeshStandardMaterial, PlaneGeometry, Scene, Vector3 } from 'three';
 import { buildFragment, fractureCells } from '../../src/adapters/outbound/chest/chest-fracture-geometry.ts';
 import { random } from '../../src/adapters/outbound/chest/chest-surface-patterns.ts';
@@ -10,7 +10,7 @@ import { copyChestBreakage } from '../../src/domain/chest-breakage.ts';
 import { changeChestAppearance, createChestAppearance } from '../../src/domain/chest-appearance.ts';
 import { ENDER_CASE } from '../../src/config/cases.ts';
 
-await RAPIER.init();
+await physicsReady();
 const profile = ENDER_CASE.model.modifications;
 const box = new Box3(new Vector3(-1, 0, -1), new Vector3(1, 1, 1));
 

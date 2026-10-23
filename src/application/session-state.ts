@@ -1,3 +1,4 @@
+import type { ItemState } from '../domain/case-instance.ts';
 import type { Item } from '../domain/item.ts';
 import type { SpinPlan } from '../domain/spin-plan.ts';
 import type { StripSlot, TargetSelection } from '../domain/strip.ts';
@@ -26,6 +27,8 @@ export type SessionDetails =
     readonly sessionId: string;
     readonly selection: TargetSelection;
     readonly plan: SpinPlan;
+    /** The prize fell damaged; absent means intact. */
+    readonly condition?: ItemState;
   }
   | { readonly phase: 'failed'; readonly failure: SessionFailure };
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useScreenNavigation } from './NavigationContext.tsx';
 import { ItemDetails, rarityLabels } from './ItemDetails.tsx';
+import { ItemArt } from './ItemArt.tsx';
 import type { Item } from '../../../domain/item.ts';
 
 export function Catalog({ items }: { readonly items: readonly Item[] }) {
@@ -38,7 +39,7 @@ export function Catalog({ items }: { readonly items: readonly Item[] }) {
             <button className="item__inspect" type="button" onClick={() => setSelected(item)}
               aria-label={`Рассмотреть ${item.title}`} aria-haspopup="dialog">
             <div className="item__preview">
-              <img src={item.image} alt="" width="120" height="120" loading="lazy" />
+              <ItemArt item={item} size={120} />
             </div>
             <h3 className="item__title">{item.title}</h3>
             <span className="item__rarity">{rarityLabels[item.rarity]}</span>

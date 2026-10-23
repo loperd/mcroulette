@@ -1,4 +1,4 @@
-import { CanvasTexture, NearestFilter, NearestMipmapNearestFilter, NoColorSpace } from 'three';
+import { CanvasTexture, DataTexture, NearestFilter, NearestMipmapNearestFilter, NoColorSpace, RGBAFormat, UnsignedByteType } from 'three';
 
 /**
  * Block textures the way Minecraft draws them: 16×16 pixels per face, a few shades per material,
@@ -12,7 +12,25 @@ type Rand = () => number;
 type Painter = (px: (x: number, y: number, color: string | null) => void, rand: Rand) => void;
 
 const pick = (rand: Rand, colors: readonly string[]) => colors[Math.floor(rand() * colors.length)]!;
-const speckle = (colors: readonly string[]): Painter => (px, rand) => { for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) px(x, y, pick(rand, colors)); };
+const luminance = (hex: string) => { const v = parseInt(hex.slice(1), 16); return (v >> 16) * .3 + (v >> 8 & 255) * .59 + (v & 255) * .11; };
+/**
+ * A material's shades in patches, as the game's textures have them: a coarse, wrapping value noise
+ * (2-pixel cells) with a little per-pixel grain, cut into the palette from dark to light. Pixel-by-
+ * pixel picks would read as television noise, and a field of blocks as one carpet.
+ */
+const speckle = (colors: readonly string[]): Painter => (px, rand) => {
+  const shades = [...colors].sort((a, b) => luminance(a) - luminance(b)), cells = 8, step = TILE / cells;
+  const grid = Array.from({ length: cells * cells }, () => rand());
+  const at = (cx: number, cy: number) => grid[(cy % cells) * cells + (cx % cells)]!;
+  const smooth = (t: number) => t * t * (3 - 2 * t);
+  for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) {
+    const gx = x / step, gy = y / step, cx = Math.floor(gx), cy = Math.floor(gy), fx = smooth(gx - cx), fy = smooth(gy - cy);
+    const top = at(cx, cy) + (at(cx + 1, cy) - at(cx, cy)) * fx, bottom = at(cx, cy + 1) + (at(cx + 1, cy + 1) - at(cx, cy + 1)) * fx;
+    // Blending pulls values to the middle; stretched back so the darkest and lightest shades show.
+    const value = Math.min(.999, Math.max(0, ((top + (bottom - top) * fy) * .75 + rand() * .25 - .5) * 1.35 + .5));
+    px(x, y, shades[Math.floor(value * shades.length)]!);
+  }
+};
 
 /** Clusters of a colour on a base (ores, dark patches in stone). */
 function clusters(px: Parameters<Painter>[0], rand: Rand, colors: readonly string[], count: number, size = 2): void {
@@ -107,6 +125,63 @@ const PAINTERS: Record<string, Painter> = {
     for (let y = 0; y < 16; y++) { px(7, y, '#f8f4ff'); px(8, y, '#e6dcf2'); }
   },
   amethyst: (px, rand) => { speckle(['#8a5cc8', '#a678e0', '#7346b0', '#c29af2'])(px, rand); },
+  // Appended: earlier tiles keep their place (and their seeds) in the atlas.
+  stone_bricks: (px, rand) => {
+    speckle(['#7d7d7d', '#858585', '#777777', '#8c8c8c'])(px, rand);
+    // Two courses of bricks, the upper offset by half a brick; dark mortar under and between them.
+    for (let x = 0; x < TILE; x++) { px(x, 7, '#525252'); px(x, 15, '#525252'); px(x, 6, '#6a6a6a'); px(x, 14, '#6a6a6a'); }
+    for (let y = 0; y < 7; y++) px(0, y, '#525252');
+    for (let y = 8; y < 15; y++) px(8, y, '#525252');
+    for (let x = 1; x < 16; x++) { if (x !== 8) px(x, 8, '#9a9a9a'); px(x, 0, '#9a9a9a'); }
+  },
+  mossy_stone_bricks: (px, rand) => {
+    PAINTERS.stone_bricks!(px, rand);
+    // Moss creeps down from the top and along the mortar.
+    for (let x = 0; x < TILE; x++) for (let y = 0; y < TILE; y++) {
+      const reach = 3 + Math.sin(x * 1.3) * 2 + (y === 7 || y === 15 ? 6 : 0);
+      if (y < reach && rand() < .7) px(x, y, pick(rand, ['#5d7a3a', '#6b8a40', '#4f6a32']));
+    }
+  },
+  deepslate_bricks: (px, rand) => {
+    speckle(['#4a4a50', '#444449', '#505056', '#3f3f44'])(px, rand);
+    // Four courses of short bricks, each course offset; dark joints only (a lit edge per brick reads,
+    // seen at an angle, as rows of glyphs).
+    for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) {
+      const course = y >> 2, joint = (x + (course % 2) * 4) % 8 === 7;
+      if (y % 4 === 3 || joint) px(x, y, '#2a2a2e');
+    }
+  },
+  deepslate_tiles: (px, rand) => {
+    speckle(['#3d3d42', '#38383d', '#434348'])(px, rand);
+    // Joints a shade darker, not lines of light: from a distance a floor, not a grid.
+    for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) if (y % 8 === 7 || x % 8 === 7) px(x, y, '#2e2e33');
+  },
+  reinforced_deepslate: (px, rand) => {
+    speckle(['#323636', '#2c3030', '#383c3c'])(px, rand);
+    // A faint bone-coloured rim, broken: pale marks repeated per block read as rows of glyphs.
+    for (let i = 0; i < TILE; i++) for (const [x, y] of [[i, 0], [0, i]] as const) if (rand() < .6) px(x, y, pick(rand, ['#5e5b50', '#6a665a']));
+  },
+  sculk: (px, rand) => { speckle(['#0d1f24', '#0a181c', '#11292e', '#0f2328'])(px, rand); clusters(px, rand, ['#1aa6b0', '#29d2da'], 3, 1); },
+  soul_lantern: (px) => {
+    for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) {
+      const rim = x < 2 || x > 13 || y < 2 || y > 13;
+      px(x, y, rim ? '#2b2f33' : (x + y) % 5 === 0 ? '#bff6ff' : '#6fe6ff');
+    }
+  },
+  candle: (px) => { for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) px(x, y, y < 3 ? '#ffd27a' : x % 5 === 0 ? '#d8cba2' : '#ece1bd'); },
+  chain: (px) => {
+    for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) px(x, y, null);
+    // Links alternately face-on and edge-on down the middle columns.
+    for (let y = 0; y < TILE; y++) { const open = y % 6 < 3; px(7, y, '#3a3f47'); px(8, y, open ? '#5a606a' : '#3a3f47'); if (open && y % 6 === 1) { px(6, y, '#2a2e34'); px(9, y, '#2a2e34'); } }
+  },
+  calcite: (px, rand) => { speckle(['#dfe0dc', '#d2d4d0', '#e9eae6', '#c6c8c3'])(px, rand); },
+  amethyst_cluster: (px, rand) => {
+    for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) px(x, y, null);
+    // Shards from the base, the middle one tallest; a light edge on each.
+    for (const [x0, h] of [[3, 7], [7, 12], [11, 8], [5, 5], [10, 4]] as const) for (let y = TILE - h; y < TILE; y++) {
+      px(x0, y, pick(rand, ['#a678e0', '#8a5cc8'])); px(x0 + 1, y, y < TILE - h + 2 ? '#e6cdfb' : '#c29af2');
+    }
+  },
 };
 
 export type TileName = keyof typeof PAINTERS;
@@ -141,4 +216,38 @@ export function blockAtlas(): { texture: CanvasTexture; uv: (name: string) => [n
   }
   const { texture, uv } = atlas;
   return { texture, uv: name => uv.get(name) ?? uv.get('stone')! };
+}
+
+/** A tile's pixels: TILE×TILE RGBA, rows from the top. */
+export interface TilePixels { readonly name: string; readonly rgba: Uint8Array }
+
+/**
+ * An atlas of a world pack's own tiles: its own texture (not the built-in atlas, not shared with
+ * another pack), owned by whoever made it and freed by `dispose`. `uv` of a tile it does not hold
+ * throws: a pack never shows stone in place of a missing texture.
+ */
+export function packAtlas(tiles: readonly TilePixels[]): { texture: DataTexture; uv: (name: string) => [number, number, number, number]; dispose(): void } {
+  const rows = Math.max(1, Math.ceil(tiles.length / COLUMNS)), width = COLUMNS * TILE;
+  // A power of two in height, so every mip level halves cleanly.
+  const height = 2 ** Math.ceil(Math.log2(rows * TILE)), data = new Uint8Array(width * height * 4);
+  const uv = new Map<string, [number, number, number, number]>();
+  tiles.forEach(({ name, rgba }, index) => {
+    if (rgba.length !== TILE * TILE * 4) throw new Error(`Tile "${name}" is not ${TILE}×${TILE} RGBA.`);
+    if (uv.has(name)) throw new Error(`Tile "${name}" is given twice.`);
+    const col = index % COLUMNS, row = Math.floor(index / COLUMNS);
+    // Texture rows run up from v 0: the tile's top row goes highest, as the built-in atlas has it.
+    for (let y = 0; y < TILE; y++) data.set(rgba.subarray(y * TILE * 4, (y + 1) * TILE * 4), ((row * TILE + TILE - 1 - y) * width + col * TILE) * 4);
+    const inset = .02;
+    uv.set(name, [(col * TILE + inset) / width, (row * TILE + inset) / height, (col * TILE + TILE - inset) / width, (row * TILE + TILE - inset) / height]);
+  });
+  const texture = new DataTexture(data, width, height, RGBAFormat, UnsignedByteType);
+  texture.magFilter = NearestFilter; texture.minFilter = NearestMipmapNearestFilter; texture.generateMipmaps = true;
+  // Shown as painted, like the built-in atlas: PNG values go to the screen unchanged.
+  texture.colorSpace = NoColorSpace;
+  texture.needsUpdate = true;
+  return {
+    texture,
+    uv: name => { const at = uv.get(name); if (!at) throw new Error(`The pack atlas has no tile "${name}".`); return at; },
+    dispose: () => texture.dispose(),
+  };
 }

@@ -6,38 +6,46 @@ import (
 )
 
 type Config struct {
-	Address          string
-	DatabaseURL      string
-	FrontendURL      string
-	RPID             string
-	RPDisplayName    string
-	RPOrigins        []string
-	CookieSecure     bool
-	DefaultRole      string
-	TelegramClientID string
-	TelegramSecret   string
-	TelegramRedirect string
+	Address        string
+	DatabaseURL    string
+	FrontendURL    string
+	AllowedOrigins []string
+	DefaultRole    string
 	// Chests every new player gets once, as "case:count,case:count".
 	StarterChests string
 	// The chest economy's rulebook: types, items, traits and the rules that tune them.
-	EconomyPath string
+	EconomyPath          string
+	EconomyMode          string
+	InventoryDatabaseURL string
+	WalletDatabaseURL    string
+	WalletAssets         []string
+	IdentityDatabaseURL  string
+	GatewayInternalToken string
+	IdentityGatewayID    string
+	SecurityDatabaseURL  string
+	SecurityPolicyPath   string
+	IdentityProviders    []string
 }
 
 func Load() Config {
 	return Config{
-		Address:          env("HTTP_ADDRESS", ":8080"),
-		DatabaseURL:      env("DATABASE_URL", "postgres://voxel:voxel@localhost:5432/voxel_vault?sslmode=disable"),
-		FrontendURL:      env("FRONTEND_URL", "http://localhost:5173/"),
-		RPID:             env("WEBAUTHN_RP_ID", "localhost"),
-		RPDisplayName:    env("WEBAUTHN_RP_NAME", "Voxel Vault"),
-		RPOrigins:        split(env("WEBAUTHN_ORIGINS", "http://localhost:5173,http://localhost:4173")),
-		CookieSecure:     strings.EqualFold(env("COOKIE_SECURE", "false"), "true"),
-		DefaultRole:      env("DEFAULT_ROLE", "player"),
-		TelegramClientID: os.Getenv("TELEGRAM_CLIENT_ID"),
-		TelegramSecret:   os.Getenv("TELEGRAM_CLIENT_SECRET"),
-		TelegramRedirect: os.Getenv("TELEGRAM_REDIRECT_URL"),
-		StarterChests:    env("STARTER_CHESTS", "traveler:10,deep-mine:5,ender:5,dragon:3"),
-		EconomyPath:      env("ECONOMY_CONFIG", "config/economy.json"),
+		Address:              env("HTTP_ADDRESS", ":8080"),
+		DatabaseURL:          env("DATABASE_URL", "postgres://voxel:voxel@localhost:5432/voxel_vault?sslmode=disable"),
+		FrontendURL:          env("FRONTEND_URL", "http://localhost:5173/"),
+		AllowedOrigins:       split(env("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:4173")),
+		DefaultRole:          env("DEFAULT_ROLE", "player"),
+		StarterChests:        env("STARTER_CHESTS", "traveler:10,deep-mine:5,ender:5,dragon:3"),
+		EconomyPath:          env("ECONOMY_CONFIG", "config/economy.json"),
+		EconomyMode:          env("ECONOMY_MODE", "legacy"),
+		InventoryDatabaseURL: os.Getenv("INVENTORY_DATABASE_URL"),
+		WalletDatabaseURL:    os.Getenv("WALLET_DATABASE_URL"),
+		WalletAssets:         split(os.Getenv("WALLET_ASSETS")),
+		IdentityDatabaseURL:  os.Getenv("IDENTITY_DATABASE_URL"),
+		GatewayInternalToken: os.Getenv("GATEWAY_INTERNAL_TOKEN"),
+		IdentityGatewayID:    env("IDENTITY_GATEWAY_ID", "project-gateway"),
+		SecurityDatabaseURL:  os.Getenv("SECURITY_DATABASE_URL"),
+		SecurityPolicyPath:   env("SECURITY_POLICY_FILE", "config/security.json"),
+		IdentityProviders:    split(env("IDENTITY_PROVIDERS", "telegram")),
 	}
 }
 

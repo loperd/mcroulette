@@ -23,6 +23,8 @@ export interface OwnedItem {
   readonly item: Item;
   readonly state: ItemState;
   readonly origin: string;
+  readonly status?: 'available' | 'locked';
+  readonly operationId?: string;
   /** Absent for an item the rulebook no longer knows: it cannot be worked. */
   readonly offers?: ItemOffers;
 }
@@ -57,6 +59,8 @@ export function copyOwnedItem(value: OwnedItem): OwnedItem {
   }
   return Object.freeze({
     id: value.id, item: copyItem(value.item), state: value.state, origin: value.origin,
+    ...(value.status === 'locked' || value.status === 'available' ? { status: value.status } : {}),
+    ...(typeof value.operationId === 'string' ? { operationId: value.operationId } : {}),
     ...(offers ? { offers: Object.freeze({
       ...(offers.repair ? { repair: copyAmount(offers.repair) } : {}),
       salvage: copyAmount(offers.salvage), sell: copyAmount(offers.sell), mergeRepair: offers.mergeRepair,

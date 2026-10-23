@@ -1,0 +1,102 @@
+[
+  {
+    "material": "Vault.Shell",
+    "size": [
+      1024,
+      512
+    ],
+    "faceCharts": 452,
+    "pixelsPerBlock": 128,
+    "gutterPixels": 4,
+    "maps": {
+      "orm": "Vault-Shell-orm.png",
+      "normal": "Vault-Shell-normal.png"
+    }
+  },
+  {
+    "material": "Vault.Panel",
+    "size": [
+      512,
+      512
+    ],
+    "faceCharts": 130,
+    "pixelsPerBlock": 128,
+    "gutterPixels": 4,
+    "maps": {
+      "orm": "Vault-Panel-orm.png",
+      "normal": "Vault-Panel-normal.png"
+    }
+  },
+  {
+    "material": "Vault.Metal",
+    "size": [
+      1024,
+      512
+    ],
+    "faceCharts": 1166,
+    "pixelsPerBlock": 128,
+    "gutterPixels": 4,
+    "maps": {
+      "orm": "Vault-Metal-orm.png",
+      "normal": "Vault-Metal-normal.png"
+    }
+  },
+  {
+    "material": "Vault.Edge",
+    "size": [
+      1024,
+      512
+    ],
+    "faceCharts": 952,
+    "pixelsPerBlock": 128,
+    "gutterPixels": 4,
+    "maps": {
+      "orm": "Vault-Edge-orm.png",
+      "normal": "Vault-Edge-normal.png"
+    }
+  },
+  {
+    "material": "Vault.Crystal",
+    "size": [
+      256,
+      256
+    ],
+    "faceCharts": 176,
+    "pixelsPerBlock": 128,
+    "gutterPixels": 4,
+    "maps": {
+      "orm": "Vault-Crystal-orm.png",
+      "normal": "Vault-Crystal-normal.png",
+      "emissive": "Vault-Crystal-emissive.png"
+    }
+  },
+  {
+    "material": "Vault.Accent",
+    "size": [
+      256,
+      128
+    ],
+    "faceCharts": 224,
+    "pixelsPerBlock": 128,
+    "gutterPixels": 4,
+    "maps": {
+      "orm": "Vault-Accent-orm.png",
+      "normal": "Vault-Accent-normal.png",
+      "emissive": "Vault-Accent-emissive.png"
+    }
+  },
+  {
+    "material": "Vault.Interior",
+    "size": [
+      512,
+      256
+    ],
+    "faceCharts": 42,
+    "pixelsPerBlock": 128,
+    "gutterPixels": 4,
+    "maps": {
+      "orm": "Vault-Interior-orm.png",
+      "normal": "Vault-Interior-normal.png"
+    }
+  }
+]

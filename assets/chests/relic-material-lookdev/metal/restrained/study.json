@@ -1,0 +1,35 @@
+{
+  "family": "metal",
+  "variant": "restrained",
+  "asset": "assets/chests/relic-material-lookdev/metal/restrained/relic.glb",
+  "sha256": "4cae9e9e5ff320b8ed28c90c6a282da7403428bb657ffb29eaaf6ad286483dd5",
+  "sourceParts": [
+    "Lid.CornerRoof.1.-1",
+    "LidAssembly.CornerCap.1.-1"
+  ],
+  "translationAuthorUnits": [
+    -6.465,
+    0.10000000000000142,
+    6.465
+  ],
+  "camera": {
+    "direction": [
+      1.2,
+      0.55,
+      -2.2
+    ],
+    "scale": 0.32,
+    "target": [
+      0,
+      0.8671875,
+      0
+    ]
+  },
+  "atlas": [
+    256,
+    256
+  ],
+  "texelsPerBlock": 256,
+  "focusMaterial": 2,
+  "purpose": "isolated material study, not a production chest or animation asset"
+}

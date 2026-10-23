@@ -1,6 +1,6 @@
 {
   "name": "mcroulette",
-  "version": "0.3.0",
+  "version": "0.3.11",
   "private": true,
   "type": "module",
   "license": "GPL-3.0-or-later",
@@ -18,11 +18,13 @@
     "typecheck:core": "tsc -p tsconfig.domain.json && tsc -p tsconfig.core.json && tsc -p tsconfig.adapters.json",
     "test:ui": "tsc -p tsconfig.ui-tests.json && node --test tests/ui/*.test.mjs",
     "test:all": "npm test && npm run test:ui && npm run test:physics",
-    "assets:sync": "node scripts/sync-draco.mjs",
+    "items:build": "node scripts/items/build-items.mjs",
+    "assets:sync": "node scripts/sync-draco.mjs && node scripts/sync-relic.mjs",
     "postinstall": "npm run assets:sync",
     "predev": "npm run assets:sync",
     "test:physics": "node --test tests/physics/*.test.mjs",
-    "typecheck:scene": "tsc -p tsconfig.scene.json"
+    "typecheck:scene": "tsc -p tsconfig.scene.json",
+    "perf:mobile": "npm run build && node scripts/mobile-performance.mjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "0.21.0",
@@ -35,8 +37,9 @@
     "@types/react-dom": "^19.3.0",
     "@types/three": "~0.186.0",
     "@vitejs/plugin-react": "6.1.2",
+    "happy-dom": "20.14.5",
+    "playwright": "^1.64.1",
     "typescript": "7.0.2",
-    "vite": "8.3.4",
-    "happy-dom": "20.14.5"
+    "vite": "8.3.4"
   }
 }

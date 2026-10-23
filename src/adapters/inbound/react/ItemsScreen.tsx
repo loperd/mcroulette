@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'react';
-import { canAfford, CURRENCY, isDamaged, type Amount, type OwnedItem } from '../../../domain/owned-item.ts';
+import { useContext, useEffect, useState } from 'react';
+import { isDamaged, type Amount, type OwnedItem } from '../../../domain/owned-item.ts';
+import { EMPTY_WALLET } from '../../../application/ports/player-wallet.ts';
+import { AccountContext } from './AccountContext.tsx';
 import type { Navigation } from '../../../application/ports/navigation.ts';
 import type { PlayerItems, WorkshopAction } from '../../../application/ports/player-items.ts';
-import { ITEM_STATE_LABELS, RESOURCES, resourceGlyph, resourceTitle } from '../../../config/resources.ts';
+import { ITEM_STATE_LABELS, resourceTitle } from '../../../config/resources.ts';
 import { rarityLabels } from './ItemDetails.tsx';
 import { ScreenHeader } from './ScreenHeader.tsx';
+import { ItemArt } from './ItemArt.tsx';
 import { InventoryTabs } from './InventoryTabs.tsx';
 import type { SoundPreference } from './SoundControl.tsx';
 import { useObservableState } from './use-observable-state.ts';
@@ -13,13 +16,6 @@ type Filter = 'all' | 'damaged';
 type Pending = { readonly id: string; readonly action: WorkshopAction | 'merge' };
 
 const amountText = (amount: Amount) => `${amount.value} ${resourceTitle(amount.resource)}`;
-
-/** The resources to show: currency first, then every known material, then any the server added. */
-function walletResources(balances: Readonly<Record<string, number>>, items: readonly OwnedItem[]): readonly string[] {
-  const used = new Set([CURRENCY, ...Object.keys(RESOURCES), ...Object.keys(balances)]);
-  for (const item of items) if (item.offers) used.add(item.offers.salvage.resource);
-  return [...used];
-}
 
 /**
  * The player's items and wallet. A damaged item can be repaired one step for its collection's
@@ -32,6 +28,9 @@ export function ItemsScreen({ items, navigation, archiveCount, chestCount, sound
   readonly archiveCount?: number; readonly soundPreference?: SoundPreference;
 }) {
   const state = useObservableState(items);
+  const account = useContext(AccountContext);
+  const wallet = useObservableState(account?.wallet ?? EMPTY_WALLET);
+  const canPay = (amount: Amount) => !wallet.loaded || BigInt(wallet.balances.find(b => b.asset === amount.resource)?.available ?? '0') >= BigInt(amount.value);
   const [filter, setFilter] = useState<Filter>('all');
   const [confirm, setConfirm] = useState<Pending>();
   const [busy, setBusy] = useState<Pending>();
@@ -47,8 +46,8 @@ export function ItemsScreen({ items, navigation, archiveCount, chestCount, sound
   const run = async (pending: Pending, act: () => Promise<string>) => {
     setConfirm(undefined); setBusy(pending); setNotice(undefined);
     try { setNotice({ text: await act() }); }
-    catch { setNotice({ text: 'Сервер не принял действие. Список обновлён — попробуй ещё раз.', failed: true }); }
-    finally { setBusy(undefined); }
+    catch (error) { setNotice({ text: (error as { code?: string })?.code === 'OPERATION_PENDING' ? 'Действие ещё проверяется. Предмет появится после подтверждения.' : 'Не удалось подтвердить действие. Список обновлён.', failed: true }); }
+    finally { setBusy(undefined); void account?.wallet.load().catch(() => {}); }
   };
   const work = (item: OwnedItem, action: WorkshopAction) => {
     if ((action === 'salvage' || action === 'sell') && (confirm?.id !== item.id || confirm.action !== action)) { setConfirm({ id: item.id, action }); return; }
@@ -71,11 +70,6 @@ export function ItemsScreen({ items, navigation, archiveCount, chestCount, sound
       <p>Повреждённое можно починить материалом своей коллекции, объединить с таким же, разобрать на материал или продать.</p></div>
     </div>
     <InventoryTabs navigation={navigation} active="items" chests={chestCount} items={state.items.length} />
-    <section className="wallet" aria-label="Кошелёк">
-      {walletResources(state.balances, state.items).map(id => <div key={id} className={`wallet__entry${id === CURRENCY ? ' wallet__entry--currency' : ''}`}>
-        <span aria-hidden="true">{resourceGlyph(id)}</span><span>{resourceTitle(id)}</span><strong>{state.balances[id] ?? 0}</strong>
-      </div>)}
-    </section>
     <div className="inventory__toolbar"><nav aria-label="Состояние предмета">
       <button type="button" aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>Все</button>
       <button type="button" aria-pressed={filter === 'damaged'} onClick={() => setFilter('damaged')}>Повреждённые <span>{damagedCount}</span></button>
@@ -86,16 +80,16 @@ export function ItemsScreen({ items, navigation, archiveCount, chestCount, sound
     <section className="inventory__grid items-grid" aria-label="Мои предметы">
       {visible.map(item => {
         const offers = item.offers, twin = offers?.mergeWith;
-        const disabled = !!busy;
+        const disabled = !!busy || item.status === 'locked';
         const asking = (action: WorkshopAction) => confirm?.id === item.id && confirm.action === action;
         return <article key={item.id} className={`item-card item-card--${item.item.rarity} item-card--${item.state}`} aria-busy={busy?.id === item.id || undefined}>
           <div className="item-card__top"><span className={`item-card__rarity`}>{rarityLabels[item.item.rarity]}</span>
             <span className={`item-card__state item-card__state--${item.state}`}>{ITEM_STATE_LABELS[item.state]}</span></div>
-          <div className="item-card__art"><img src={item.item.image} alt="" /></div>
+          <div className="item-card__art"><ItemArt item={item.item} size={110} condition={item.state} /></div>
           <h2>{item.item.title}</h2>
           {offers ? <div className="item-card__actions">
-            {offers.repair && <button type="button" disabled={disabled || !canAfford(state.balances, offers.repair)} onClick={() => work(item, 'repair')}
-              title={canAfford(state.balances, offers.repair) ? undefined : `Нужно ${amountText(offers.repair)}`}>
+            {offers.repair && <button type="button" disabled={disabled || !canPay(offers.repair)} onClick={() => work(item, 'repair')}
+              title={canPay(offers.repair) ? undefined : `Нужно ${amountText(offers.repair)}`}>
               Починить <small>−{amountText(offers.repair)}</small></button>}
             {twin && <button type="button" disabled={disabled} onClick={() => merge(item, twin)}>
               Объединить <small>шанс починки {offers.mergeRepair}%</small></button>}
@@ -103,7 +97,7 @@ export function ItemsScreen({ items, navigation, archiveCount, chestCount, sound
               {asking('salvage') ? 'Точно разобрать?' : 'Разобрать'} <small>+{amountText(offers.salvage)}</small></button>
             <button type="button" className={asking('sell') ? 'item-card__confirm' : undefined} disabled={disabled} onClick={() => work(item, 'sell')}>
               {asking('sell') ? 'Точно продать?' : 'Продать'} <small>+{amountText(offers.sell)}</small></button>
-          </div> : <p className="item-card__retired">Этого предмета больше нет в правилах — с ним ничего не сделать.</p>}
+          </div> : item.status === 'locked' ? <div className="item-card__retired"><p>Операция обрабатывается…</p><button type="button" onClick={() => { void items.load().catch(() => setFailed(true)); }}>Обновить</button></div> : <p className="item-card__retired">Этого предмета больше нет в правилах — с ним ничего не сделать.</p>}
         </article>;
       })}
     </section>

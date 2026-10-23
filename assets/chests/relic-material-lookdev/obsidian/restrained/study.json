@@ -1,0 +1,34 @@
+{
+  "family": "obsidian",
+  "variant": "restrained",
+  "asset": "assets/chests/relic-material-lookdev/obsidian/restrained/relic.glb",
+  "sha256": "e3b260f22263a952b7db358e6b55656c8fa0b699ae1ddfd306ae56821d41452c",
+  "sourceParts": [
+    "Body.FrontInsert1"
+  ],
+  "translationAuthorUnits": [
+    -3.1500000000000004,
+    10.0,
+    6.64
+  ],
+  "camera": {
+    "direction": [
+      1.2,
+      0.55,
+      -2.2
+    ],
+    "scale": 0.47,
+    "target": [
+      0,
+      0.9640625,
+      0
+    ]
+  },
+  "atlas": [
+    256,
+    256
+  ],
+  "texelsPerBlock": 256,
+  "focusMaterial": 0,
+  "purpose": "isolated material study, not a production chest or animation asset"
+}

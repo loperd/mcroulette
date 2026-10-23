@@ -76,6 +76,19 @@ class GameAudio {
     this.noiseBurst(.03, .04 * level, 1400, 500, 'lowpass');
   }
 
+  /** The roulette draws back before it runs: a low swell rising into the spin. */
+  spinStart(): void {
+    this.tone(90, 180, .45, .04, 'triangle');
+    this.noiseBurst(.5, .015, 400, 2400, 'bandpass');
+  }
+
+  /** The prize card locks under the pointer: a short, solid latch. */
+  spinLock(): void {
+    this.tone(320, 180, .09, .07, 'square');
+    this.tone(640, 640, .25, .025, 'triangle');
+    this.noiseBurst(.05, .03, 1600, 700, 'lowpass');
+  }
+
   /** Outcome: a rising arpeggio, brighter for rarer rewards. */
   reward(rarity: RewardRarity): void {
     const notes = { common: [523, 659, 784], uncommon: [523, 659, 784, 1047], rare: [587, 740, 880, 1175], epic: [622, 784, 932, 1245, 1568],

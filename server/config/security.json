@@ -1,0 +1,90 @@
+{
+  "version": "project-roles-v1",
+  "roles": [
+    {
+      "id": "player",
+      "permissions": [
+        {
+          "resource": "/api/v1/me",
+          "action": "GET"
+        },
+        {
+          "resource": "/identity/accounts/*",
+          "action": "LINK"
+        },
+        {
+          "resource": "/api/v1/inventory",
+          "action": "GET"
+        },
+        {
+          "resource": "/api/v1/inventory/*/claim",
+          "action": "POST"
+        },
+        {
+          "resource": "/api/v1/inventory/*/open",
+          "action": "POST"
+        },
+        {
+          "resource": "/api/v1/inventory/merge",
+          "action": "GET"
+        },
+        {
+          "resource": "/api/v1/inventory/merge",
+          "action": "POST"
+        },
+        {
+          "resource": "/api/v1/inventory/items",
+          "action": "GET"
+        },
+        {
+          "resource": "/api/v1/inventory/items/merge",
+          "action": "POST"
+        },
+        {
+          "resource": "/api/v1/inventory/items/*/repair",
+          "action": "POST"
+        },
+        {
+          "resource": "/api/v1/inventory/items/*/salvage",
+          "action": "POST"
+        },
+        {
+          "resource": "/api/v1/inventory/items/*/sell",
+          "action": "POST"
+        },
+        {
+          "resource": "/api/v1/inventory/operations/*",
+          "action": "GET"
+        },
+        {
+          "resource": "/api/v1/inventory/operations/*/cancel",
+          "action": "POST"
+        },
+        {
+          "resource": "/api/v1/wallet",
+          "action": "GET"
+        },
+        {
+          "resource": "/api/v1/wallet/transactions",
+          "action": "GET"
+        }
+      ]
+    },
+    {
+      "id": "admin",
+      "parents": [
+        "player"
+      ],
+      "permissions": [
+        {
+          "resource": "/api/v1/admin/users/*/chests",
+          "action": "POST"
+        },
+        {
+          "resource": "/api/v1/access/users/*/roles",
+          "action": "POST"
+        }
+      ]
+    }
+  ]
+}

@@ -30,13 +30,13 @@ func openTestDB(t *testing.T) (*gorm.DB, string) {
 		t.Fatal(err)
 	}
 	owner := fmt.Sprintf("t%d", time.Now().UnixNano())[:20]
-	if err := db.Create(&store.User{ID: owner, Handle: owner, DisplayName: owner}).Error; err != nil {
+	if err := db.Create(&store.EconomyOwner{ID: owner}).Error; err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		for _, model := range []any{&store.ChestInstance{}, &store.InventoryItem{}, &store.WalletBalance{}, &store.User{}} {
+		for _, model := range []any{&store.ChestInstance{}, &store.InventoryItem{}, &store.WalletBalance{}, &store.EconomyOwner{}} {
 			column := "user_id"
-			if _, isUser := model.(*store.User); isUser {
+			if _, isUser := model.(*store.EconomyOwner); isUser {
 				column = "id"
 			}
 			db.Where(column+" = ?", owner).Delete(model)

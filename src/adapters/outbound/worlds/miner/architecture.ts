@@ -77,7 +77,7 @@ export function cavern(p: MineParts): void {
     mark.position.set(Math.cos(a) * 1.95, .5, Math.sin(a) * 1.95); mark.rotation.y = -a;
     mark.scale.set(.22, .06, i % 3 ? .4 : .6); floor.add(mark);
   }
-  const glow = new PointLight('#4fd8f0', 45, 9, 1.6); glow.position.set(0, 1, 2.6); floor.add(glow);
+  const glow = new PointLight('#4fd8f0', 22, 9, 1.6); glow.position.set(0, 1, 2.6); floor.add(glow);
   for (const x of [-3.6, 3.6]) p.lantern(floor, x, -.17, 2.6, .8, true);
   for (let i = 0; i < 80; i++) {
     const x = (p.rand() - .5) * 52, z = p.rand() * 22 - 5;

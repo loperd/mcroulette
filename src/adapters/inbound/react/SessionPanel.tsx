@@ -55,13 +55,8 @@ export function SessionPanel({ session, items, onOpenGesture, recentFind, onOpen
   }
   if (state.phase === 'failed') {
     return (
-      <><SoundControlIfPresent preference={soundPreference} /><ErrorNotice title="Не удалось подготовить сундук" actions={<>
-        <Button onClick={() => { void session.retry(); }}>Повторить</Button>
-        {state.failure.recovery !== 'initialize' && (
-          <Button variant="transparent"
-            onClick={() => { void session.resetAfterError(); }}>Вернуться к сундуку</Button>
-        )}
-      </>}>
+      <><SoundControlIfPresent preference={soundPreference} /><ErrorNotice title="Не удалось подготовить сундук" actions={<Button onClick={() => { void session.retry(); }}>Повторить</Button>}
+        onClose={state.failure.recovery !== 'initialize' ? () => { void session.resetAfterError(); } : undefined}>
         <p>Сундук и награды на месте — попробуйте ещё раз.</p>
       </ErrorNotice></>
     );
@@ -74,7 +69,7 @@ export function SessionPanel({ session, items, onOpenGesture, recentFind, onOpen
   }
   if (state.phase === 'prize-visible') {
     return (
-      <><SoundControlIfPresent preference={soundPreference} /><PrizeScene availableCaseCount={availableCaseCount} returnLabel={onPrizeClose ? 'К сундуку' : undefined} prize={state.selection.prize} actionRef={actionButton} onClose={() => { if (onPrizeClose) onPrizeClose(); else void session.closePrize(); }} /></>
+      <><SoundControlIfPresent preference={soundPreference} /><PrizeScene availableCaseCount={availableCaseCount} returnLabel={onPrizeClose ? 'К сундуку' : undefined} prize={state.selection.prize} condition={state.condition} actionRef={actionButton} onClose={() => { if (onPrizeClose) onPrizeClose(); else void session.closePrize(); }} /></>
     );
   }
   return <><SoundControlIfPresent preference={soundPreference} /><p className="scene-status" role="status" aria-live="polite">{PHASE_LABELS[state.phase]}</p></>;

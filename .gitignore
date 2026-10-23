@@ -8,7 +8,9 @@ coverage/
 !.env.example
 .DS_Store
 !README.md
-!docs/rewrite/*.md
+!AGENTS.md
+!docs/**/*.md
+!assets/chests/**/README.md
 
 .test-build/
 
@@ -17,3 +19,12 @@ public/vendor/draco/
 .blender/
 *.blend1
 **/__pycache__/
+
+# Third-party builds for local research only: no rights to publish.
+/research/
+
+# Generated captures, benchmarks, and review sheets stay local.
+/artifacts/
+
+# Local editor recovery files.
+*.swp

@@ -1,43 +1,28 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { Player } from '../../../application/ports/auth-gateway.ts';
-import type { ItemsState, PlayerItems } from '../../../application/ports/player-items.ts';
+import { EMPTY_WALLET, type PlayerWallet } from '../../../application/ports/player-wallet.ts';
 import { CURRENCY } from '../../../domain/owned-item.ts';
-import { resourceGlyph, resourceTitle } from '../../../config/resources.ts';
+import { resourceGlyph } from '../../../config/resources.ts';
 import { useObservableState } from './use-observable-state.ts';
 
 /** The signed-in player and their wallet, for the header of every screen. */
 export interface Account {
   readonly player: Player;
-  readonly items: PlayerItems;
+  readonly wallet: PlayerWallet;
   signOut(): void;
 }
 
 export const AccountContext = createContext<Account | undefined>(undefined);
 
-const NOTHING: ItemsState = Object.freeze({ loaded: false, items: [], balances: {} });
-const NO_ITEMS = { getState: () => NOTHING, subscribe: () => () => {} };
-
-/** Coins in the header; pressing them shows every balance and the way to the items. */
-export function WalletChip({ onOpenItems }: { readonly onOpenItems: () => void }) {
+/** The balance comes from Wallet; the button opens its own section. */
+export function WalletChip({ onOpenWallet }: { readonly onOpenWallet: () => void }) {
   const account = useContext(AccountContext);
-  const { loaded, balances } = useObservableState(account?.items ?? NO_ITEMS);
-  const [open, setOpen] = useOutsideClose();
+  const { loaded, balances } = useObservableState(account?.wallet ?? EMPTY_WALLET);
   if (!account) return null;
-  const resources = Object.keys(balances).filter(id => id !== CURRENCY && balances[id]! > 0);
-  return <div className="header-popover" ref={open.ref}>
-    <button type="button" className="header-chip header-chip--wallet" aria-expanded={open.value} aria-label={`Монеты: ${balances[CURRENCY] ?? 0}`}
-      onClick={() => setOpen(!open.value)}>
-      <span aria-hidden="true">{resourceGlyph(CURRENCY)}</span><strong>{loaded ? balances[CURRENCY] ?? 0 : '…'}</strong>
-    </button>
-    {open.value && <div className="header-popover__panel" role="dialog" aria-label="Кошелёк">
-      <dl className="header-wallet">
-        <div><dt><span aria-hidden="true">{resourceGlyph(CURRENCY)}</span> {resourceTitle(CURRENCY)}</dt><dd>{balances[CURRENCY] ?? 0}</dd></div>
-        {resources.map(id => <div key={id}><dt><span aria-hidden="true">{resourceGlyph(id)}</span> {resourceTitle(id)}</dt><dd>{balances[id]}</dd></div>)}
-      </dl>
-      {resources.length === 0 && <p className="header-popover__hint">Материалы дают разобранные предметы.</p>}
-      <button type="button" className="header-popover__action" onClick={() => { setOpen(false); onOpenItems(); }}>К предметам</button>
-    </div>}
-  </div>;
+  const coins = balances.find(b => b.asset === CURRENCY)?.available ?? '0';
+  return <button type="button" className="header-chip header-chip--wallet" title={loaded ? coins : undefined} aria-label={`Кошелёк. Монеты: ${loaded ? coins : 'загрузка'}`} onClick={onOpenWallet}>
+    <span aria-hidden="true">{resourceGlyph(CURRENCY)}</span><strong>{loaded ? coins : '…'}</strong>
+  </button>;
 }
 
 /** The player's name in the header; pressing it shows who is signed in and the way out. */

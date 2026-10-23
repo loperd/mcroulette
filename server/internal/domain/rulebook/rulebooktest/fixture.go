@@ -16,7 +16,7 @@ func count(v float64) rulebook.Param {
 }
 
 // Definition is one collection with one twelve-item type (5/3/2/1/1), a damage, an aging, an
-// exclusive weather pair and one End trait, and the starting balance of chest-metadata.md.
+// exclusive weather pair and one End trait, and the starting balance of docs/reference/economy.md.
 func Definition() rulebook.Definition {
 	pool := []rulebook.Item{}
 	for i, rarity := range []string{"common", "common", "common", "common", "common", "uncommon", "uncommon", "uncommon", "rare", "rare", "epic", "legendary"} {

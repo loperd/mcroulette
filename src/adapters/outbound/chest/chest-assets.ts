@@ -60,8 +60,10 @@ export async function loadChestAssets(baseUrl: URL, signal: AbortSignal, definit
   signal.throwIfAborted();
 
   const draco = new DRACOLoader()
-    .setDecoderPath(resolvePublicAsset('vendor/draco/', baseUrl))
-    .setDecoderConfig({ type: 'wasm' }).setWorkerLimit(1);
+    .setDecoderPath({
+      js: resolvePublicAsset('vendor/draco/draco_wasm_wrapper.js', baseUrl),
+      wasm: resolvePublicAsset('vendor/draco/draco_decoder.wasm', baseUrl),
+    }).setWorkerLimit(1);
   const loader = new GLTFLoader().setDRACOLoader(draco);
   let model: Group | undefined;
   let modelDisposed = false;

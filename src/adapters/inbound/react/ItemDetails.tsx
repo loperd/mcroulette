@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import type { Item } from '../../../domain/item.ts';
 import { Button } from './Button.tsx';
+import { ItemArt } from './ItemArt.tsx';
 import { storyFor } from './item-stories.ts';
 import { useCasePresentation } from './case-presentation.ts';
 
@@ -36,7 +37,7 @@ export function ItemDetails({ item, onClose, browse }: {
       <div className="item-details__portrait">
         <p className="eyebrow">{casePresentation.collection}</p>
         <div className="item-details__art"><span className="item-details__sigil" aria-hidden="true">◇</span>
-          <img key={item.id} src={item.image} alt="" width="320" height="320" />
+          <ItemArt key={item.id} item={item} size={320} live />
         </div>
         <span className="item-details__rarity"><span aria-hidden="true">◆</span> {rarityLabels[item.rarity]}</span>
         <p className="item-details__symbol">{story.symbol}</p>

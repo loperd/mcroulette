@@ -1,0 +1,351 @@
+{
+  "format": 1,
+  "id": "sample-ruin",
+  "version": "1.0.0",
+  "requires": {
+    "blockworld": 1
+  },
+  "credits": {
+    "authors": [
+      "Voxel Vault contributors"
+    ],
+    "license": "CC0-1.0",
+    "source": "Painted and modelled by scripts/packs/make-sample-ruin.mjs; no third-party assets."
+  },
+  "textures": {
+    "ruin_bricks": "textures/ruin_bricks.png",
+    "ruin_moss": "textures/ruin_moss.png",
+    "ruin_floor": "textures/ruin_floor.png",
+    "ruin_turf": "textures/ruin_turf.png",
+    "ruin_soil": "textures/ruin_soil.png",
+    "log_bark": "textures/log_bark.png",
+    "log_end": "textures/log_end.png",
+    "ruin_planks": "textures/ruin_planks.png",
+    "ruin_lamp": "textures/ruin_lamp.png"
+  },
+  "blocks": [
+    {
+      "name": "turf",
+      "textures": {
+        "top": "ruin_turf",
+        "side": "ruin_soil",
+        "bottom": "ruin_soil"
+      }
+    },
+    {
+      "name": "bricks",
+      "textures": {
+        "all": "ruin_bricks"
+      }
+    },
+    {
+      "name": "mossy_bricks",
+      "textures": {
+        "all": "ruin_moss"
+      }
+    },
+    {
+      "name": "floor",
+      "textures": {
+        "all": "ruin_floor"
+      }
+    },
+    {
+      "name": "pillar",
+      "textures": {
+        "side": "log_bark",
+        "top": "log_end"
+      }
+    },
+    {
+      "name": "bench",
+      "model": "parts",
+      "textures": {
+        "all": "ruin_planks"
+      },
+      "parts": [
+        {
+          "from": [
+            0,
+            6,
+            2
+          ],
+          "to": [
+            16,
+            8,
+            14
+          ]
+        },
+        {
+          "from": [
+            1,
+            0,
+            3
+          ],
+          "to": [
+            3,
+            6,
+            13
+          ],
+          "faces": {
+            "east": {
+              "texture": "ruin_bricks",
+              "uv": [
+                0,
+                10,
+                10,
+                16
+              ]
+            },
+            "west": {
+              "texture": "ruin_bricks",
+              "uv": [
+                0,
+                10,
+                10,
+                16
+              ]
+            },
+            "north": {
+              "texture": "ruin_bricks",
+              "uv": [
+                0,
+                10,
+                2,
+                16
+              ]
+            },
+            "south": {
+              "texture": "ruin_bricks",
+              "uv": [
+                0,
+                10,
+                2,
+                16
+              ]
+            }
+          }
+        },
+        {
+          "from": [
+            13,
+            0,
+            3
+          ],
+          "to": [
+            15,
+            6,
+            13
+          ],
+          "faces": {
+            "east": {
+              "texture": "ruin_bricks",
+              "uv": [
+                0,
+                10,
+                10,
+                16
+              ]
+            },
+            "west": {
+              "texture": "ruin_bricks",
+              "uv": [
+                0,
+                10,
+                10,
+                16
+              ]
+            },
+            "north": {
+              "texture": "ruin_bricks",
+              "uv": [
+                0,
+                10,
+                2,
+                16
+              ]
+            },
+            "south": {
+              "texture": "ruin_bricks",
+              "uv": [
+                0,
+                10,
+                2,
+                16
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "lamp",
+      "textures": {
+        "all": "ruin_lamp"
+      },
+      "light": 14
+    }
+  ],
+  "structure": {
+    "size": [
+      12,
+      8,
+      12
+    ],
+    "origin": [
+      -6,
+      0,
+      -6
+    ],
+    "sides": "open",
+    "cells": "structure.u16"
+  },
+  "models": {
+    "brazier": "models/brazier.glb"
+  },
+  "objects": [
+    {
+      "model": "brazier",
+      "at": [
+        3.5,
+        2,
+        3.5
+      ]
+    },
+    {
+      "model": "brazier",
+      "at": [
+        8.5,
+        2,
+        3.5
+      ],
+      "rotation": [
+        0,
+        45,
+        0
+      ]
+    }
+  ],
+  "markers": {
+    "altar": {
+      "at": [
+        5.5,
+        3,
+        5.5
+      ],
+      "front": "south",
+      "tags": [
+        "guest"
+      ]
+    },
+    "lamp": {
+      "at": [
+        9.5,
+        4.5,
+        9.5
+      ]
+    }
+  },
+  "cameras": {
+    "hero": {
+      "eye": [
+        5.5,
+        5.2,
+        15
+      ],
+      "look": "altar",
+      "fov": 50,
+      "focus": [
+        0.5,
+        0.48
+      ],
+      "drift": 0.1
+    },
+    "high": {
+      "eye": [
+        15,
+        11,
+        15
+      ],
+      "look": [
+        5.5,
+        2,
+        5.5
+      ],
+      "fov": 45,
+      "drift": 0
+    }
+  },
+  "environment": {
+    "sky": {
+      "top": "#1b2a4a",
+      "horizon": "#c98b5a",
+      "bottom": "#2a1c14"
+    },
+    "fog": {
+      "color": "#4a3a30",
+      "near": 22,
+      "far": 70
+    },
+    "blocks": {
+      "sky": [
+        0.85,
+        0.88,
+        1.0
+      ],
+      "glow": [
+        1.0,
+        0.76,
+        0.48
+      ],
+      "minimum": 0.06,
+      "occlusion": 0.65
+    },
+    "sun": {
+      "direction": [
+        -0.55,
+        0.6,
+        0.45
+      ],
+      "color": "#ffb070",
+      "strength": 0.3,
+      "scatter": 0.6
+    },
+    "light": {
+      "sky": "#8b9cc0",
+      "ground": "#5a3f2c",
+      "key": "#ffc890",
+      "from": "lamp",
+      "objects": {
+        "key": 1.6,
+        "fill": 0.9
+      },
+      "guest": {
+        "key": 4,
+        "fill": 1.6
+      }
+    }
+  },
+  "lighting": {
+    "rig": [
+      {
+        "id": "brazier-west",
+        "type": "fire",
+        "at": [
+          3.5,
+          2.65,
+          3.5
+        ]
+      },
+      {
+        "id": "brazier-east",
+        "type": "fire",
+        "at": [
+          8.5,
+          2.65,
+          3.5
+        ]
+      }
+    ]
+  }
+}

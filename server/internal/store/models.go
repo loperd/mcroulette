@@ -1,74 +1,12 @@
 package store
 
-import (
-	"encoding/json"
-	"time"
+import "time"
 
-	"github.com/go-webauthn/webauthn/webauthn"
-)
-
-type User struct {
-	ID          string `gorm:"primaryKey;size:32"`
-	Handle      string `gorm:"uniqueIndex;size:80;not null"`
-	DisplayName string `gorm:"size:160;not null"`
-	// When the player got the starter chests (once per account; nil until the first inventory read).
+// EconomyOwner serializes the original economy and retains its starter marker.
+// It carries only an opaque subject, never identity or authentication data.
+type EconomyOwner struct {
+	ID               string `gorm:"primaryKey;size:160"`
 	StarterGrantedAt *time.Time
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
-	Credentials      []Credential `gorm:"foreignKey:UserID"`
-}
-
-func (u *User) WebAuthnID() []byte          { return []byte(u.ID) }
-func (u *User) WebAuthnName() string        { return u.Handle }
-func (u *User) WebAuthnDisplayName() string { return u.DisplayName }
-func (u *User) WebAuthnCredentials() []webauthn.Credential {
-	credentials := make([]webauthn.Credential, 0, len(u.Credentials))
-	for _, row := range u.Credentials {
-		var credential webauthn.Credential
-		if json.Unmarshal(row.Data, &credential) == nil {
-			credentials = append(credentials, credential)
-		}
-	}
-	return credentials
-}
-
-type Credential struct {
-	ID           uint   `gorm:"primaryKey"`
-	UserID       string `gorm:"index;size:32;not null"`
-	CredentialID string `gorm:"uniqueIndex;size:512;not null"`
-	Data         []byte `gorm:"type:jsonb;not null"`
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-}
-
-type Identity struct {
-	ID        uint   `gorm:"primaryKey"`
-	UserID    string `gorm:"index;size:32;not null"`
-	Provider  string `gorm:"uniqueIndex:idx_provider_subject;size:32;not null"`
-	Subject   string `gorm:"uniqueIndex:idx_provider_subject;size:160;not null"`
-	CreatedAt time.Time
-}
-
-type Ceremony struct {
-	ID        string    `gorm:"primaryKey;size:64"`
-	UserID    string    `gorm:"index;size:32;not null"`
-	Kind      string    `gorm:"size:24;not null"`
-	Session   []byte    `gorm:"type:jsonb;not null"`
-	ExpiresAt time.Time `gorm:"index;not null"`
-}
-
-type OAuthFlow struct {
-	State     string    `gorm:"primaryKey;size:64"`
-	Nonce     string    `gorm:"size:64;not null"`
-	Verifier  string    `gorm:"size:256;not null"`
-	ExpiresAt time.Time `gorm:"index;not null"`
-}
-
-type Session struct {
-	TokenHash string    `gorm:"primaryKey;size:64"`
-	UserID    string    `gorm:"index;size:32;not null"`
-	ExpiresAt time.Time `gorm:"index;not null"`
-	CreatedAt time.Time
 }
 
 type ChestType struct {
@@ -108,7 +46,7 @@ type ChestInstance struct {
 	RewardID  *string `gorm:"size:96"`
 	DropState string  `gorm:"size:16;not null;default:''"`
 	OpenedAt  *time.Time
-	// The chest's metadata (docs/rewrite/chest-metadata.md), frozen with the rulebook revision.
+	// The chest's metadata (docs/reference/economy.md), frozen with the rulebook revision.
 	Revision      string  `gorm:"size:64;not null;default:''"`
 	Contents      []byte  `gorm:"type:jsonb"`
 	Traits        []byte  `gorm:"type:jsonb"`
