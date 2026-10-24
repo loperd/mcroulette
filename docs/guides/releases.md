@@ -24,4 +24,3 @@ If release history was changed externally, reconcile local and remote state befo
 
 A release needs passing checks for the intended source revision, a successful API/frontend deployment and a production smoke check. Fresh installation, container build, database checks and real-device validation have distinct scopes; record which actually ran. Keep generated logs and browser evidence in `artifacts/`, with English report text.
 
-The 0.3.10 tag was reported pushed during the 2026-10-22 session. Successful deployment was not independently confirmed in that session. The [release notes](../releases/0.3.10.md) describe its contents, not its current deployment status. Check CI and production for authoritative status.
