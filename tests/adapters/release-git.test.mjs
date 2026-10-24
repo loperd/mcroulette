@@ -4,7 +4,8 @@ import { execFileSync } from 'node:child_process';
 import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { commitSquashedRelease } from '../../scripts/release-git.mjs';
+import { assertReleaseState, commitSquashedRelease, releaseCommitMessage } from '../../scripts/release-git.mjs';
+import { runReleaseCommand } from '../../scripts/release-process.mjs';
 
 async function repository() {
   const cwd = await mkdtemp(join(tmpdir(), 'release-git-test-'));
@@ -17,13 +18,25 @@ async function repository() {
     await writeFile(join(cwd, `${name}.txt`), name); git('add', '.'); git('commit', '-m', name);
   }
   await rm(join(cwd, 'base.txt')); await writeFile(join(cwd, 'one.txt'), 'changed'); await writeFile(join(cwd, 'new.txt'), 'new');
+  git('add', '--all'); // The operator explicitly selects release changes before validation.
   return { cwd, run, git, base, previous: git('rev-parse', 'HEAD'), cleanup: () => rm(cwd, { recursive: true, force: true }) };
 }
 
-test('release combines local commits, edits, new files and deletions into one commit with a backup', async () => {
+test('production release runner sends the message to a real git commit through stdin', async () => {
   const r = await repository();
   try {
-    const commit = commitSquashedRelease({ ...r, base: '0.3.9', version: '0.3.10', message: 'release\n' });
+    const message = 'Release 0.4.0\n\nThe message reaches git unchanged.\n';
+    runReleaseCommand('git', ['commit', '--file', '-'], { cwd: r.cwd, input: message });
+    assert.equal(r.git('log', '-1', '--format=%B'), message.trim());
+    assert.equal(r.git('status', '--porcelain'), '');
+  } finally { await r.cleanup(); }
+});
+
+test('release combines reviewed local commits and staged changes into one commit with a backup', async () => {
+  const r = await repository();
+  try {
+    const expectedState = assertReleaseState(r);
+    const commit = commitSquashedRelease({ ...r, base: '0.3.9', version: '0.3.10', message: 'release\n', expectedState });
     assert.equal(r.git('rev-parse', `${commit}^`), r.base);
     assert.equal(r.git('rev-list', '--count', '0.3.9..HEAD'), '1');
     assert.equal(r.git('status', '--porcelain'), '');
@@ -33,6 +46,51 @@ test('release combines local commits, edits, new files and deletions into one co
     const backup = r.git('for-each-ref', '--format=%(objectname)', 'refs/heads/release-backup/');
     assert.equal(backup, r.previous);
   } finally { await r.cleanup(); }
+});
+
+for (const staged of [false, true]) {
+  test(`release rejects ${staged ? 'staged' : 'unstaged'} source changes after validation`, async () => {
+    const r = await repository();
+    try {
+      const expectedState = assertReleaseState(r);
+      await writeFile(join(r.cwd, 'one.txt'), 'changed after checks');
+      if (staged) r.git('add', 'one.txt');
+      const status = r.git('status', '--porcelain');
+      assert.throws(() => commitSquashedRelease({ ...r, base: '0.3.9', version: '0.4.0', message: 'release\n', expectedState }),
+        /fully staged|source changed/);
+      assert.equal(r.git('rev-parse', 'HEAD'), r.previous);
+      assert.equal(r.git('status', '--porcelain'), status);
+      assert.equal(r.git('for-each-ref', '--format=%(refname)', 'refs/heads/release-backup/'), '');
+    } finally { await r.cleanup(); }
+  });
+}
+
+test('release rejects unrelated untracked files without staging them', async () => {
+  const r = await repository();
+  try {
+    await writeFile(join(r.cwd, 'unrelated.txt'), 'ongoing work');
+    const status = r.git('status', '--porcelain');
+    assert.throws(() => commitSquashedRelease({ ...r, base: '0.3.9', version: '0.4.0', message: 'release\n' }), /untracked/);
+    assert.equal(r.git('status', '--porcelain'), status);
+    assert.equal(r.git('rev-parse', 'HEAD'), r.previous);
+    assert.ok(!r.git('diff', '--cached', '--name-only').includes('unrelated.txt'));
+  } finally { await r.cleanup(); }
+});
+
+test('release rejects HEAD changes after validation', async () => {
+  const r = await repository();
+  try {
+    const expected = assertReleaseState(r);
+    r.git('commit', '-m', 'concurrent change');
+    assert.throws(() => assertReleaseState({ ...r, expected }), /source changed/);
+  } finally { await r.cleanup(); }
+});
+
+test('release commit describes the requested version using its release notes', () => {
+  assert.equal(releaseCommitMessage({ version: '0.4.0', notes: '# 0.4.0\n\nRelease preparation.\n' }),
+    'Release 0.4.0\n\nRelease preparation.\n');
+  assert.throws(() => releaseCommitMessage({ version: '0.4.0', notes: '# 0.3.11\n\nOld release.\n' }), /heading differs/);
+  assert.throws(() => releaseCommitMessage({ version: '0.4.0', notes: '# 0.4.0\n' }), /must describe/);
 });
 
 test('release refuses to squash commits already published after the previous tag', async () => {

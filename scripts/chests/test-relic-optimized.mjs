@@ -3,7 +3,7 @@
  * This is decoder/loader/animation validation, not a WebGL appearance claim.
  */
 import assert from 'node:assert/strict';
-import { readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { Worker as NodeWorker } from 'node:worker_threads';
 import { createHash } from 'node:crypto';
 import { AnimationMixer, Box3, LoopOnce, Mesh, MeshStandardMaterial, SRGBColorSpace, NoColorSpace } from 'three';
@@ -73,5 +73,7 @@ try {
     } finally { assets.dispose(); }
   }
 } finally { globalThis.fetch = realFetch; }
-await writeFile(new URL(process.argv.includes('--production') ? '../../artifacts/relic-integration/loader-validation.json' : '../../artifacts/relic-v4/optimization/loader-validation.json', import.meta.url), JSON.stringify(reports, null, 2));
+const reportUrl = new URL(process.argv.includes('--production') ? '../../artifacts/relic-integration/loader-validation.json' : '../../artifacts/relic-v4/optimization/loader-validation.json', import.meta.url);
+await mkdir(new URL('.', reportUrl), { recursive: true });
+await writeFile(reportUrl, JSON.stringify(reports, null, 2));
 console.log(JSON.stringify(reports, null, 2));
