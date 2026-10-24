@@ -60,6 +60,7 @@ jobs:
       - uses: azure/setup-helm@v4
         with: { version: v3.18.3 }
       - run: helm lint deploy/helm/voxel-vault -f deploy/helm/voxel-vault/values.prod.yaml
+      - run: python3 -m unittest discover -s tests/deployment -p test_migration_job.py
 
   api:
     needs: test

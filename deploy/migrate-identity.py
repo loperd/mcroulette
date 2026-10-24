@@ -55,7 +55,8 @@ def main():
         return {'name': name, 'image': args.image, 'command': [command],
                 'env': [{'name': variable, 'valueFrom': {'secretKeyRef': {
                     'name': SECRET, 'key': migration_key(variable)}}}],
-                'securityContext': {'runAsNonRoot': True, 'allowPrivilegeEscalation': False,
+                'securityContext': {'runAsNonRoot': True, 'runAsUser': 65532, 'runAsGroup': 65532,
+                                    'allowPrivilegeEscalation': False,
                                     'readOnlyRootFilesystem': True, 'capabilities': {'drop': ['ALL']}}}
     job = {'apiVersion': 'batch/v1', 'kind': 'Job',
            'metadata': {'name': name, 'namespace': args.namespace},
